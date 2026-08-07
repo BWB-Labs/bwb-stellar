@@ -15,7 +15,7 @@ NETWORK="mainnet"
 : "${TOKEN_NAME:?TOKEN_NAME must be set}"
 : "${TOKEN_SYMBOL:?TOKEN_SYMBOL must be set}"
 : "${METADATA_JSON:?METADATA_JSON (XDR or JSON blob) must be set}"
-: "${BRLA_CONTRACT:?BRLA_CONTRACT (Transfero BRLA asset address) must be set}"
+: "${PAYOUT_ASSET_CONTRACT:?PAYOUT_ASSET_CONTRACT (payout asset contract address — USDC on Stellar) must be set}"
 
 echo "=============================================="
 echo "  BWB MAINNET DEPLOYMENT"
@@ -75,7 +75,7 @@ DIST_ADDRESS=$(soroban contract deploy \
   --admin "$ADMIN_G" \
   --token_contract "$RE_TOKEN_ADDRESS" \
   --kyc_contract "$KYC_ADDRESS" \
-  --brla_contract "$BRLA_CONTRACT")
+  --payout_asset "$PAYOUT_ASSET_CONTRACT")
 echo "distribution: $DIST_ADDRESS"
 
 # Save addresses

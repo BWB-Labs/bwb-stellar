@@ -1,148 +1,95 @@
-# BWB Real Estate on Stellar
+# BWB on Stellar
 
-> **Tokenização imobiliária regulada no Brasil, liquidada na rede Stellar.**
+> Soroban contracts and TypeScript SDK for BWB Digital Assets' Stellar integration.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Regulation](https://img.shields.io/badge/CVM%20Resolution%2088-Authorized-orange)](https://bwbi.com.br)
-[![Tests](https://img.shields.io/badge/Tests-38%20passing-brightgreen)](contracts/)
 
 ---
 
-## O que é
+## What's in this repo
 
-BWB Digital Assets é uma plataforma de investimento autorizada pela CVM (Resolução 88) que tokeniza imóveis brasileiros. Investidores aportam via PIX e recebem tokens que representam participação em ofertas imobiliárias reguladas — com rendimentos distribuídos diretamente em carteira.
-
-Este repositório contém os contratos Soroban e o SDK TypeScript da integração com a rede Stellar.
-
-### Histórico de ofertas
-
-| Oferta | Captação | TIR alvo | Status |
-|---|---|---|---|
-| ARTP-HS | R$2,5M | 26,8% a.a. | Encerrada |
-| HAUS-06 | R$1,18M | 20,5% a.a. | Encerrada |
-| ARTP-DT | R$1,5M | 20,0% a.a. | Encerrada |
-
-- **R$4M+** captados em 2025
-- **Zero inadimplências**, zero reestruturações
-- **7+ parceiros institucionais** (incorporadoras e originadores)
-- **CVM Resolução 88** — equivalente à regulação de valores mobiliários tokenizados
-
----
-
-## Por que Stellar
-
-A plataforma BWB opera hoje na rede Base (EVM). Dois problemas concretos motivaram a migração para Stellar:
-
-**Custo de distribuição de rendimentos.** Distribuir rendimentos trimestrais para 100+ investidores na EVM custa entre $50–200 em taxas de rede por lote. No Soroban, a mesma operação custa menos de $0,10. Isso viabiliza distribuições frequentes sem corroer o rendimento dos investidores.
-
-**Liquidação em BRL.** Na rede Stellar, o BRZ — stablecoin da Transfero lastreado 1:1 em reais — existe nativamente. A integração com a API BaaSic da Transfero permite que um pagamento via PIX chegue como BRZ em carteira Stellar sem bridges ou custódia intermediária.
-
----
-
-## Como funciona
-
-```
-Investidor (Brasil)
-  │
-  ├── 1. KYC aprovado na plataforma BWB
-  ├── 2. Endereço Stellar adicionado ao contrato kyc-whitelist
-  ├── 3. Pagamento via PIX → Transfero BaaSic API
-  │         BRL → BRZ (Stellar, lastreado 1:1 em reais)
-  ├── 4. Confirmação do pagamento → mint de tokens
-  │         real-estate-token::mint(endereço, quantidade)
-  └── 5. Tokens aparecem na carteira Stellar do investidor
-
-Distribuição de rendimentos (trimestral)
-  │
-  └── distribution::distribute(contrato_token, valor_brz)
-        proporcional ao saldo de cada holder → BRZ direto em carteira
-```
-
----
-
-## Contratos Soroban
-
-Três contratos implementam a lógica on-chain. Todos em Rust, licença Apache 2.0.
-
-| Contrato | Função | Testes |
-|---|---|---|
-| `kyc-whitelist` | Registro de investidores aprovados — CVM 88 | 16 ✅ |
-| `real-estate-token` | Token da oferta — SEP-0041 completo com KYC gate | 22 ✅ |
-| `distribution` | Distribuição proporcional de BRZ aos holders | T2 |
-
-Veja [docs/02-contracts.md](docs/02-contracts.md) para a especificação completa de cada contrato.
-
----
-
-## Integrações
-
-| Componente | Papel na plataforma |
+| Component | Status |
 |---|---|
-| [Privy](https://www.privy.io/) | Auth e gerenciamento de keypairs Ed25519 — já em produção na BWB, estendido para Stellar |
-| [Stellar Wallets Kit](https://stellarwalletskit.dev/) | Adapter Freighter/Albedo para o portal do investidor |
-| [Abroad](https://www.abroad.finance/) | Rampa BRL ↔ stablecoin complementar para investidores brasileiros |
-| Transfero BaaSic | PIX → BRZ — liquidação nativa em Stellar |
+| `contracts/kyc-whitelist` | Implemented — on-chain investor eligibility registry (16 unit tests) |
+| `contracts/real-estate-token` | Implemented — SEP-0041 offering token with eligibility gate and `max_supply` cap (31 unit tests) |
+| `contracts/distribution` | Scaffold — Tranche 3 deliverable; entrypoint intentionally panics until implemented (3 unit tests) |
+| `sdk/` | TypeScript SDK — `client.ts` (RPC/Horizon clients) functional; contract bindings are stubs for later tranches |
+| `scripts/` | Testnet and mainnet deploy scripts (atomic deploy + initialize) |
 
----
+Nothing is deployed to testnet or mainnet yet.
 
-## Estrutura do repositório
+## How it fits BWB's platform
+
+BWB Digital Assets is a regulated real-estate investment platform in Brazil (CVM Resolution 88, operating since 2023) that connects real-estate issuers, qualified investors, and distribution partners. This project makes Stellar the platform's primary network rail.
+
+BWB's backend (Convex) acts as the orchestration and control plane: it gates compliance, prepares **unsigned XDR transaction envelopes**, indexes network state, and reconciles provider and ledger events. Stellar and Soroban form the execution layer. Investors sign their own transactions with **Privy embedded non-custodial wallets** — BWB never holds user keys or funds.
+
+The integration has four Stellar surfaces:
+
+1. **Privy embedded wallets** — non-custodial ed25519 accounts with sponsored base reserves (CAP-33), sponsored USDC trustlines, and fee-bump transaction envelopes.
+2. **Soroban regulated offering contracts** (this repo) — debt and equity positions with eligibility and allocation enforcement, pause / cooling-off / cancellation / refund controls, and auditable events. No PII on-chain.
+3. **DeFindex vaults** — segregated yield strategies on Soroban.
+4. **Circle CCTP** — native-USDC transport between Base and Stellar; production activation is gated on official CCTP availability on Stellar Mainnet.
+
+BRL entry and exit is handled by Avenia (BRL ↔ USDC conversion, settling on Base) — connective tissue that never touches Stellar. Distribution attribution and commissioning are off-chain BWB ledgers fed by Stellar transactions and Soroban contract events.
+
+## Contracts
+
+| Contract | Purpose | Status | Unit tests |
+|---|---|---|---|
+| `kyc-whitelist` | Investor eligibility registry with admin/operator roles and two-step admin transfer | Implemented | 16 |
+| `real-estate-token` | SEP-0041 offering token; every transfer checks eligibility via `kyc-whitelist`; mint capped by `max_supply` | Implemented | 31 |
+| `distribution` | Pro-rata payout of the offering's payout asset (USDC) to token holders | Scaffold (Tranche 3) | 3 |
+
+See [docs/02-contracts.md](docs/02-contracts.md) for full specifications.
+
+## Repository layout
 
 ```
 bwb-stellar/
 ├── contracts/
-│   ├── kyc-whitelist/       # Registro KYC on-chain — CVM 88
-│   ├── real-estate-token/   # Token da oferta — SEP-0041
-│   └── distribution/        # Distribuição de rendimentos em BRZ
-├── sdk/                     # TypeScript — cliente dos contratos
-├── scripts/                 # Deploy testnet + mainnet
-├── docs/                    # Documentação técnica
-└── audit/                   # Relatórios de auditoria
+│   ├── kyc-whitelist/       # On-chain eligibility registry (CVM Res. 88 gate)
+│   ├── real-estate-token/   # SEP-0041 offering token
+│   └── distribution/        # Payout scaffold (Tranche 3)
+├── sdk/                     # TypeScript SDK (@bwb/stellar-sdk)
+├── scripts/                 # Testnet + mainnet deploy scripts
+├── docs/                    # Technical documentation
+└── audit/                   # Audit reports (planned; see audit/)
 ```
 
----
-
-## Documentação
-
-| Documento | Conteúdo |
-|---|---|
-| [docs/01-protocol-overview.md](docs/01-protocol-overview.md) | Visão geral do protocolo — fluxo de investimento, conformidade CVM 88 |
-| [docs/02-contracts.md](docs/02-contracts.md) | Especificação dos contratos — funções, storage, invariants |
-| [docs/03-integration-architecture.md](docs/03-integration-architecture.md) | Arquitetura de integração — Transfero, Privy, Soroban |
-| [docs/scf-deliverables.md](docs/scf-deliverables.md) | Roadmap e entregas por tranche |
-
----
-
-## Código aberto
-
-Todos os contratos Soroban em `contracts/` são licenciados **Apache 2.0** e permanecerão abertos. O código da aplicação BWB (frontend React, backend Convex, contratos EVM) é proprietário e não faz parte deste repositório.
-
----
-
-## Setup para desenvolvedores
+## Build & test
 
 ```bash
-git clone https://github.com/bwbadmin/bwb-stellar.git
+git clone https://github.com/techlibs/bwb-stellar.git
 cd bwb-stellar
 
-# Rodar testes dos contratos
-cd contracts/kyc-whitelist && cargo test
-cd contracts/real-estate-token && cargo test
+# Contract tests
+cargo test -p kyc-whitelist
+cargo test -p real-estate-token
+cargo test -p distribution
 
-# SDK TypeScript
+# SDK (client.ts functional; contract bindings are stubs)
 cd sdk && npm install && npm test
 ```
 
----
+## Documentation
 
-## Licença
+| Document | Contents |
+|---|---|
+| [docs/01-protocol-overview.md](docs/01-protocol-overview.md) | Protocol overview — control plane vs execution layer, compliance model, roles |
+| [docs/02-contracts.md](docs/02-contracts.md) | Contract specifications — functions, storage, events, invariants |
+| [docs/03-integration-architecture.md](docs/03-integration-architecture.md) | Integration architecture — wallets, fiat rail, CCTP, DeFindex, SDK |
 
-Apache 2.0 — veja [LICENSE](LICENSE)
+## Future work
 
----
+Planned for later tranches: `distribution` contract implementation (Tranche 3) and full SDK contract bindings.
 
-## Contato
+## License
+
+Everything in this repository — contracts, SDK, scripts, docs — is licensed [Apache 2.0](LICENSE) and will remain open. The BWB product application (frontend, Convex backend, EVM contracts) is proprietary and lives in a private repository.
+
+## Contact
 
 - **Website:** [bwbi.com.br](https://bwbi.com.br)
-- **Plataforma:** [app.bwbi.com.br](https://app.bwbi.com.br)
+- **Platform:** [app.bwbi.com.br](https://app.bwbi.com.br)
 - **Email:** contato@bwbi.com.br
-- **Localização:** Jaraguá do Sul, SC, Brasil

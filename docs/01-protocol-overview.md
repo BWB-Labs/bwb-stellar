@@ -1,122 +1,133 @@
-# Visão geral do protocolo
+# Protocol Overview
 
-## O que a BWB faz
+## What BWB does
 
-BWB Digital Assets é uma plataforma regulada pela CVM que transforma participações em projetos imobiliários em tokens digitais. Um investidor acessa o portal, faz o cadastro e verificação de identidade, e pode investir em uma oferta em andamento diretamente via PIX. No final do período, recebe rendimentos — agora distribuídos diretamente na sua carteira digital.
+BWB Digital Assets is a regulated real-estate investment platform in Brazil, operating since 2023 under **CVM Resolution 88** — the Brazilian securities rule that governs crowdfunded and tokenized offerings. BWB structures real-estate debt and equity offerings, onboards and classifies investors, and administers the full lifecycle of each offering from subscription through maturity.
 
-Todas as ofertas são estruturadas sob a **Resolução 88 da CVM**, a norma brasileira que regula valores mobiliários tokenizados. Isso define o que pode e o que não pode acontecer com cada token: quem pode comprar, como as transferências funcionam e quais informações precisam estar registradas on-chain.
-
----
-
-## Por que Stellar agora
-
-A plataforma BWB opera desde 2024 na rede Base (EVM). O modelo funcionou para as primeiras ofertas — R$4M+ captados, três projetos encerrados sem inadimplência. Mas dois problemas estruturais ficaram evidentes conforme o número de investidores cresceu:
-
-**Custo de distribuição.** Para distribuir rendimentos a 100+ investidores na rede EVM, cada lote de transações custa entre $50 e $200 em taxas. No Soroban (a plataforma de contratos inteligentes da Stellar), a mesma operação custa menos de $0,10. A diferença deixa de ser marginal quando a operação é trimestral e o ticket médio do investidor é de R$10–50K.
-
-**Liquidação em real.** Não existe uma stablecoin de real com boa liquidez e infraestrutura de entrada/saída via PIX nas redes EVM. Na Stellar, o **BRZ** — emitido pela Transfero e lastreado 1:1 em reais brasileiros — existe nativamente. A Transfero disponibiliza uma API (BaaSic) que converte pagamentos PIX em BRZ na Stellar com latência de minutos, sem custódia intermediária adicional.
-
-A migração para Stellar não é uma troca de blockchain por razões filosóficas: é resolver um problema real de custo operacional e liquidação em moeda local.
+This repository is the Stellar side of that platform: the Soroban contracts, the TypeScript SDK, and the deployment scripts that make Stellar BWB's primary network rail.
 
 ---
 
-## Conformidade CVM 88
+## Why Stellar
 
-A Resolução CVM 88 estabelece que ofertas de valores mobiliários tokenizados precisam:
+Stellar is the **execution layer** for BWB's regulated offerings: issuance, transfers, and distributions all settle on Stellar, and the compliance rules that constrain them are enforced by Soroban contracts rather than by application code alone.
 
-1. **KYC do investidor** — identidade verificada antes de qualquer aporte
-2. **Categorização** — investidor Varejo, Qualificado ou Profissional define os limites de exposição
-3. **Transferibilidade controlada** — tokens só podem ser transferidos entre endereços aprovados
-4. **Registro da oferta** — código de autorização CVM, endereço do imóvel e parâmetros financeiros acessíveis publicamente
-
-O contrato `kyc-whitelist` implementa os itens 1–3 diretamente no Soroban: cada endereço só aparece no registro se tiver passado pelo processo de verificação. O contrato `real-estate-token` bloqueia automaticamente qualquer tentativa de transferência para endereços fora do registro, e armazena o código de autorização CVM na configuração da oferta de forma imutável.
+Three properties drive that choice. Settlement finality is fast and cheap enough that a quarterly distribution to a few hundred holders is an ordinary operation rather than a budget line. USDC is a first-class Stellar asset, which gives every offering a single settlement unit that investors can hold directly. And Soroban lets the eligibility and supply constraints that CVM 88 imposes live on-chain, where they are auditable by anyone rather than asserted by BWB.
 
 ---
 
-## Fluxo de investimento
+## Control plane and execution layer
 
-### Subscrição (entrada)
+BWB runs a Convex backend that acts as the **control plane**. It never becomes a custodian and never becomes a second source of truth about balances. Its job is:
 
-```
-Investidor                  BWB Backend              Stellar
-    │                           │                       │
-    ├─ KYC no portal ──────────►│                       │
-    │                           ├─ add(address, cat) ──►│ kyc-whitelist
-    │                           │                       │
-    ├─ PIX (R$10.000) ─────────►│                       │
-    │                           ├─ BaaSic API ──────────►│ BRZ recebido
-    │                           ├─ mint(addr, 10.000) ──►│ real-estate-token
-    │                           │                       │
-    └──────────────────── Tokens na carteira ◄──────────┘
-```
+- **Compliance gating** — deciding whether a given investor, at a given moment, may subscribe to or transfer a given position, based on KYC state, category, and offering rules.
+- **Transaction preparation** — building **unsigned XDR transaction envelopes** for the investor to sign. The control plane composes the operations; it does not hold the key that authorizes them.
+- **Indexing** — reading Stellar ledger state and Soroban contract events into queryable form so the product surface can show positions, history, and offering status.
+- **Reconciliation** — matching provider events (payment, conversion, settlement) against ledger events, and surfacing breaks rather than silently papering over them.
 
-1. Investidor completa o KYC no portal (dados, documentos, biometria)
-2. Backend BWB (Convex) adiciona o endereço Stellar do investidor no `kyc-whitelist` com sua categoria
-3. Investidor efetua PIX com o valor do aporte
-4. Transfero BaaSic converte BRL→BRZ na conta operacional BWB
-5. Backend confirma o pagamento e chama `mint` no `real-estate-token`, emitindo tokens para o endereço do investidor
-6. Tokens aparecem na carteira Stellar do investidor
+Stellar and Soroban are the **execution layer**. State that matters — who holds what, what the offering allows, whether transfers are permitted right now — lives on the ledger and in contract storage.
 
-### Distribuição de rendimentos
-
-```
-Admin BWB
-    │
-    ├─ Calcula rendimento proporcional (NAV × holders)
-    ├─ Transfere BRZ para contrato distribution
-    └─ distribution::distribute(token_contract)
-           ├─ Lê todos os balances do real-estate-token
-           └─ Transfere BRZ proporcional a cada holder
-                    → BRZ direto na carteira de cada investidor
-```
-
-O cálculo de NAV (Valor Patrimonial Líquido) usa os dados da oferta armazenados no `real-estate-token` — TIR alvo, valor captado, prazo — para produzir um valor de referência por token a qualquer momento.
+The system is **non-custodial**. Investors sign with Privy embedded wallets holding ed25519 keys. BWB never holds user keys and never holds user funds. Where BWB must act in its own name — approving a KYC entry, minting into a subscribed position — it signs with its own operational keys, which authorize BWB's operations and nothing else.
 
 ---
 
-## Papéis no sistema
+## The four integration surfaces
 
-| Papel | Quem | O que pode fazer |
-|---|---|---|
-| **Admin** | Carteira fria BWB | Governança — propose/accept admin, pausar contratos |
-| **Operator** | Privy Server Wallet (hot) | Operações diárias — adicionar/remover KYC, mintagem |
-| **Investidor** | Endereço Stellar do cliente | Receber tokens, transferir entre carteiras KYC-aprovadas |
+### 1. Privy embedded non-custodial wallets
 
-A separação Admin/Operator é deliberada: o Operator pode executar operações sem precisar da chave Admin (que fica offline). A troca de Admin usa dois passos — `propose_admin` + `accept_admin` — para evitar bloqueio acidental do contrato.
+Each investor gets an embedded Stellar wallet whose ed25519 key is under the investor's control. Three Stellar mechanics make this usable for people who have never held a crypto asset:
 
-O Privy Server Wallet, que já gerencia as credenciais de acesso dos usuários no BWB atual, é estendido para gerar e custodiar o keypair Ed25519 do Operator na Stellar. Nenhuma chave privada Stellar existe no código ou em variáveis de ambiente desta base de código.
+- **CAP-33 sponsored base reserves** — BWB sponsors the account's base reserve, so an investor does not need to pre-fund an account with XLM before they can hold anything.
+- **Sponsored USDC trustlines** — the trustline reserve is sponsored the same way, so receiving USDC requires no prior balance.
+- **Fee-bump envelopes** — BWB wraps the investor's signed transaction in a fee-bump envelope and pays the network fee, so the investor never needs XLM to transact.
+
+The investor signs XDR prepared by the control plane. The signature is theirs; the fee and the reserves are BWB's.
+
+### 2. Soroban regulated offering contracts (this repository)
+
+The offering contracts hold the position record for **debt and equity offerings** and enforce the constraints that make the position a compliant instrument rather than a bearer token:
+
+- **Eligibility enforcement** — a transfer or issuance to an address that is not KYC-approved is rejected by the contract, not by the UI.
+- **Allocation enforcement** — total issued supply is capped at the amount authorized in the offering's immutable metadata.
+- **Lifecycle controls** — pause, cooling-off, cancellation, and refund. Of these, **pause is implemented today**; cooling-off, cancellation, and refund are named in the target architecture and not yet implemented. See [02-contracts.md](02-contracts.md) for exactly what exists in source.
+- **Auditable events** — every state change that matters emits a contract event, giving anyone a reconstructable history without trusting BWB's database.
+- **No investor PII on-chain** — the per-investor record is the wallet address, the investor category, the approval timestamp, and the approving key. Names, documents, and identity data stay off-chain. (Offering-level data such as the property address is public by design; it describes the asset, not a person.)
+
+### 3. DeFindex vaults
+
+Idle offering capital and yield strategies are held in **DeFindex vaults**, one segregated vault per strategy, so strategy exposure is explicit and separable rather than pooled into a single operational balance.
+
+### 4. Circle CCTP
+
+**CCTP** carries native USDC between Base and Stellar, so USDC that arrives on the Base side can move to Stellar as native USDC rather than as a wrapped representation. Production activation of this path is **gated on official CCTP availability on Stellar Mainnet**; until then it is designed for and not switched on.
 
 ---
 
-## Tecnologias
+## The fiat rail
 
-| Componente | Tecnologia | Por quê |
-|---|---|---|
-| Contratos | Rust/Soroban, SEP-0041 | Padrão de token nativo Stellar; garantia de interoperabilidade |
-| Backend | Convex (TypeScript) | Já em produção no BWB; funções serverless para orquestrar minting e KYC |
-| Auth + Wallets | Privy | Já em produção no BWB; gerencia keypairs Ed25519 para Operator |
-| Portal do investidor | Stellar Wallets Kit | Adapter Freighter/Albedo para self-custody opcional |
-| Stablecoin | BRZ (Transfero) | Lastreado 1:1 em BRL; API PIX nativa; liquidez no mercado brasileiro |
-| On/off-ramp | Abroad (Stellar) | Rampa BRL↔stablecoin complementar, nativa Stellar |
+Brazilian investors fund in BRL. **Avenia** handles BRL to USDC conversion and settlement, and it does so **on Base**. That rail never touches Stellar.
+
+The separation is deliberate and worth stating plainly: the fiat lane converts and settles on Base, the CCTP lane moves native USDC from Base to Stellar, and the Stellar lane does issuance, transfer, and distribution. The control plane reconciles Avenia's settlement events against ledger state, which is what ties a BRL payment to an on-chain position. No Soroban contract in this repository has any knowledge of the Base-side intermediate stablecoin or of the fiat provider.
 
 ---
 
-## Estado atual
+## The CVM 88 compliance model
 
-| Item | Status |
+CVM Resolution 88 constrains who may hold a tokenized security, how much may be issued, and what must be on the record. The contracts implement that as follows.
+
+**Investor eligibility categories.** Every approved investor carries one of three categories, matching the regulatory classification:
+
+| Category | Meaning under CVM 88 |
 |---|---|
-| Plataforma BWB (EVM) | Produção — [app.bwbi.com.br](https://app.bwbi.com.br) |
-| Contrato `kyc-whitelist` | Implementado, 16 testes passando |
-| Contrato `real-estate-token` | Implementado (SEP-0041 completo), 22 testes passando |
-| Contrato `distribution` | Spec definida, implementação T2 |
-| SDK TypeScript | Planejado T1 |
-| Deploy testnet | T1 |
-| Deploy mainnet | T3 |
+| `Retail` | Standard retail investor |
+| `Qualified` | Investor with R$1M or more in financial assets |
+| `Professional` | Institutional, or R$10M or more in financial assets |
+
+The category is stored on-chain with the approval; the evidence that justifies it stays off-chain in BWB's compliance records.
+
+**Transfer restriction via the KYC gate.** The offering token does not allow a transfer unless both the sender and the recipient are currently approved in the KYC contract. The check is a cross-contract call made inside the token contract, so it cannot be bypassed by calling the contract directly, by using a different client, or by routing around the product surface. Revocation takes effect immediately: an investor removed from the whitelist can no longer send or receive in the very next ledger.
+
+**Immutable offering metadata.** Each offering contract stores its own metadata at initialization and never mutates it: the offering identifier, the property address, the total raise, the target IRR, the maturity date, the **CVM authorization code**, and the **`max_supply` cap**. The cap is enforced on every issuance — the contract rejects any mint that would push total supply past the amount CVM authorized. The authorization code being on-chain and immutable means the regulatory basis for the offering is verifiable by anyone reading the ledger.
 
 ---
 
-## Código aberto
+## Roles
 
-Os contratos Soroban são licenciados Apache 2.0. Qualquer plataforma regulada que precise de um modelo de token imobiliário com KYC on-chain e conformidade com legislação local pode usar esta base.
+| Role | Key | Authority |
+|---|---|---|
+| **Admin** | BWB cold wallet | Governance: two-step admin handover, set or replace the operator, pause and unpause, point the token at a different KYC contract |
+| **Operator** | BWB operational hot key | Day-to-day operations: approve and revoke KYC entries, mint into subscribed positions |
+| **Investor** | Non-custodial embedded wallet | Hold, transfer to other approved investors, approve allowances, burn |
 
-A lógica de negócio BWB (frontend, backend Convex, contratos EVM proprietários) permanece fechada e não faz parte deste repositório.
+Admin and Operator are separated so that routine operations never require the cold key. Admin handover is two-step — the current admin proposes a successor, and the successor must accept — so a typo in an address cannot strand the contract with an unreachable admin.
+
+---
+
+## Distribution attribution
+
+Distribution attribution and commissioning are computed in **off-chain BWB ledgers fed by Stellar transactions and Soroban contract events** — the chain records the payment, and BWB's books attribute it.
+
+---
+
+## Current status
+
+Nothing in this repository is deployed to testnet or mainnet.
+
+| Component | Status |
+|---|---|
+| `kyc-whitelist` contract | Implemented; 16 tests in source |
+| `real-estate-token` contract | Implemented, SEP-0041 surface plus BWB extensions; 31 tests in source |
+| `distribution` contract | **Scaffold — Tranche 3 deliverable.** Initialization and getters exist; the distribution entrypoint intentionally panics. 3 tests in source |
+| TypeScript SDK (`@bwb/stellar-sdk`) | `client.ts` is functional (RPC and Horizon clients, account balance, transaction status). The contract modules are stubs that throw |
+| Testnet deployment | Not deployed |
+| Mainnet deployment | Not deployed |
+
+Test counts above are counts of test functions present in source, not a claim about a passing run. CI is currently red.
+
+---
+
+## Open source
+
+The Soroban contracts and the SDK in this repository are licensed **Apache 2.0**. Any regulated platform that needs an on-chain eligibility gate plus a supply-capped, metadata-bearing security token can build on this directly.
+
+BWB's product code — the investor-facing application and the Convex control plane — lives in a separate private repository and is not part of this one.

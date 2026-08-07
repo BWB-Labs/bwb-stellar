@@ -8,6 +8,7 @@ export interface OfferingMetadata {
   offeringId: string;
   propertyAddress: string;
   totalRaise: bigint;
+  maxSupply: bigint;
   targetIrrBps: number;
   maturityDate: number;
   cvmAuthorization: string;

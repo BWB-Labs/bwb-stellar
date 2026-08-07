@@ -5,6 +5,5 @@
 export * from './client';
 export * from './token';
 export * from './kyc';
-export * from './anchor';
 
 export const BWB_STELLAR_SDK_VERSION = '0.1.0';
