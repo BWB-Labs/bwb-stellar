@@ -29,7 +29,7 @@ The integration has four Stellar surfaces:
 1. **Privy embedded wallets** — non-custodial ed25519 accounts with sponsored base reserves (CAP-33), sponsored USDC trustlines, and fee-bump transaction envelopes.
 2. **Soroban regulated offering contracts** (this repo) — debt and equity positions with eligibility and allocation enforcement, pause / cooling-off / cancellation / refund controls, and auditable events. No PII on-chain.
 3. **DeFindex vaults** — segregated yield strategies on Soroban.
-4. **Circle CCTP** — native-USDC transport between Base and Stellar; production activation is gated on official CCTP availability on Stellar Mainnet.
+4. **Circle CCTP** — native-USDC transport between Base and Stellar. CCTP has been live on Stellar Mainnet since 19 May 2026, and BWB delivers the bidirectional Base–Stellar route to production in Tranche 3 using Circle's published contracts and the mandatory CctpForwarder flow for Stellar recipients.
 
 BRL entry and exit is handled by Avenia (BRL ↔ USDC conversion, settling on Base) — connective tissue that never touches Stellar. Distribution attribution and commissioning are off-chain BWB ledgers fed by Stellar transactions and Soroban contract events.
 
@@ -54,7 +54,7 @@ bwb-stellar/
 ├── sdk/                     # TypeScript SDK (@bwb/stellar-sdk)
 ├── scripts/                 # Testnet + mainnet deploy scripts
 ├── docs/                    # Technical documentation
-└── audit/                   # Audit reports (planned; see audit/)
+└── audit/                   # Placeholder for future SCF Audit Bank artifacts, if any; no grant-funded audit
 ```
 
 ## Build & test
