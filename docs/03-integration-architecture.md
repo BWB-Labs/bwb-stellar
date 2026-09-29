@@ -39,12 +39,12 @@ Three lanes, deliberately separated. Value crosses between them at exactly two p
             v                                                 |
   === LANE 2: CCTP =========================================== |
   |   Circle CCTP: native USDC, Base <-> Stellar             --+
-  |   *** GATED: production activation waits on official     |
-  |       CCTP availability on Stellar Mainnet ***           |
+  |   *** LIVE on Stellar Mainnet since 19 May 2026;         |
+  |       production route delivered in Tranche 3 ***        |
   ============================================================
 ```
 
-Read it as: money becomes USDC in lane 1 without Stellar ever being involved, crosses to Stellar as native USDC in lane 2 once that path is officially available, and everything that is a regulated position — issuance, transfer, distribution — happens in lane 3.
+Read it as: money becomes USDC in lane 1 without Stellar ever being involved, crosses to Stellar as native USDC in lane 2 through CCTP, and everything that is a regulated position — issuance, transfer, distribution — happens in lane 3.
 
 ---
 
@@ -102,7 +102,7 @@ Two consequences worth being explicit about. First, no Soroban contract in this 
 
 **Circle CCTP** moves **native USDC between Base and Stellar**. Native matters here: the USDC that lands on Stellar is the real thing, not a wrapped or bridged representation with its own issuer risk, so an offering settling in USDC on Stellar is settling in the same asset the investor funded.
 
-**Production activation is gated on official CCTP availability on Stellar Mainnet.** The architecture assumes this path; it is not switched on, and BWB will not route production value through it before it is officially available.
+**CCTP has been live on Stellar Mainnet since 19 May 2026.** BWB delivers the bidirectional Base–Stellar route in Tranche 3 using Circle's published contracts and the mandatory CctpForwarder flow for Stellar recipients. Pauses, retries, timeouts, and reconciliation handle temporary outages; they do not replace the route.
 
 ---
 

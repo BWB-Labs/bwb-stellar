@@ -59,7 +59,7 @@ Idle offering capital and yield strategies are held in **DeFindex vaults**, one 
 
 ### 4. Circle CCTP
 
-**CCTP** carries native USDC between Base and Stellar, so USDC that arrives on the Base side can move to Stellar as native USDC rather than as a wrapped representation. Production activation of this path is **gated on official CCTP availability on Stellar Mainnet**; until then it is designed for and not switched on.
+**CCTP** carries native USDC between Base and Stellar, so USDC that arrives on the Base side can move to Stellar as native USDC rather than as a wrapped representation. Circle CCTP has been live on Stellar Mainnet since 19 May 2026. BWB builds the bidirectional route on testnet in Tranche 2 and activates it on mainnet in Tranche 3, using Circle's published contracts and the mandatory CctpForwarder flow for Stellar recipients.
 
 ---
 
