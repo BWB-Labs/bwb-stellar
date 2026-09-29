@@ -10,7 +10,7 @@ scripts/pre-commit-guard.sh
 scripts/install-hooks.sh
 .github/workflows/ip-guard.yml
 
-# Rust/Cargo build artifacts (Cargo.lock is committed: reproducible WASM hashes)
+# Rust/Cargo build artifacts
 target/
 **/target/
 
