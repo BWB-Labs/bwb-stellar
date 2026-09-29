@@ -1,5 +1,4 @@
 # TypeScript SDK checks. Owned by the BWB team; moved here unchanged from the
-# previous ci.yml so that it only runs when sdk/ changes.
 name: sdk
 
 on:
