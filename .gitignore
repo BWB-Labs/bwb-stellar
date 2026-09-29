@@ -10,10 +10,9 @@ scripts/pre-commit-guard.sh
 scripts/install-hooks.sh
 .github/workflows/ip-guard.yml
 
-# Rust/Cargo build artifacts
+# Rust/Cargo build artifacts (Cargo.lock is committed: reproducible WASM hashes)
 target/
 **/target/
-Cargo.lock
 
 # Soroban test snapshots (generated)
 **/test_snapshots/

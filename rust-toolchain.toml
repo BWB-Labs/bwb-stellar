@@ -1,0 +1,6 @@
+# Pinned so that anyone rebuilding a tagged release reproduces the same WASM
+# hash as the one recorded in deployments/*.json.
+[toolchain]
+channel = "1.97.1"
+targets = ["wasm32v1-none"]
+components = ["rustfmt", "clippy", "rust-src"]

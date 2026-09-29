@@ -1,13 +1,26 @@
 [workspace]
-members = [
-    "contracts/real-estate-token",
-    "contracts/kyc-whitelist",
-    "contracts/distribution",
-]
 resolver = "2"
+members = [
+    "contracts/offer-token",
+    "contracts/offer-allowlist",
+    "contracts/offer-sale",
+]
 
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/BWB-Labs/bwb-stellar"
+publish = false
+
+# soroban-sdk 26.x is what OpenZeppelin Stellar 0.7.2 (the audited release)
+# builds against. The `experimental_spec_shaking_v2` feature matches OZ's own
+# workspace and is removed when moving to sdk 28, where it is always on.
 [workspace.dependencies]
-soroban-sdk = { version = "21.0.0", features = ["testutils"] }
+soroban-sdk = { version = "26.1.1", features = ["experimental_spec_shaking_v2"] }
+stellar-tokens = "=0.7.2"
+stellar-access = "=0.7.2"
+stellar-contract-utils = "=0.7.2"
+stellar-macros = "=0.7.2"
 
 [profile.release]
 opt-level = "z"
