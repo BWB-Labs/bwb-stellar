@@ -1,5 +1,9 @@
 name: contracts
 
+# Runs on every pull request (no path filter) so it can be a required check:
+# a path-filtered workflow that does not trigger never reports, and GitHub
+# blocks the merge on a check that is "expected" but absent. Pushes to main
+# stay filtered to what affects the build.
 on:
   push:
     branches: [main]
@@ -12,46 +16,46 @@ on:
       - "clippy.toml"
       - ".github/workflows/contracts.yml"
   pull_request:
-    paths:
-      - "contracts/**"
-      - "scripts/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - "clippy.toml"
-      - ".github/workflows/contracts.yml"
 
 env:
   CARGO_TERM_COLOR: always
 
+# Third-party actions are pinned to commit SHAs (tag in the comment): this job
+# produces the WASM hashes recorded as deliverable evidence.
 jobs:
   check:
     name: fmt, clippy, test, wasm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       # rustup reads rust-toolchain.toml and installs the pinned toolchain,
       # target and components.
       - name: Install pinned toolchain
         run: rustup show
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
 
       - name: Format
         run: cargo fmt --all -- --check
 
+      # --locked: fail if Cargo.lock does not match Cargo.toml, instead of
+      # silently re-resolving. The committed lock is what makes a tagged
+      # release rebuild to the same WASM hash.
       - name: Clippy
-        run: cargo clippy --all-targets --workspace -- -D warnings
+        run: cargo clippy --locked --all-targets --workspace -- -D warnings
 
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       # OpenZeppelin 0.7.2 enables soroban-sdk's spec-shaking feature, which
       # only builds through the Stellar CLI. Pin the CLI to the version used
       # for deploys so hashes match deployments/*.json.
       - name: Install Stellar CLI
-        uses: stellar/stellar-cli@v28.1.0
+        uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
 
       - name: Build WASM
         run: stellar contract build
+
+      - name: Lockfile unchanged by build
+        run: git diff --exit-code Cargo.lock
