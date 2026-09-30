@@ -13,7 +13,6 @@ scripts/install-hooks.sh
 # Rust/Cargo build artifacts
 target/
 **/target/
-Cargo.lock
 
 # Soroban test snapshots (generated)
 **/test_snapshots/

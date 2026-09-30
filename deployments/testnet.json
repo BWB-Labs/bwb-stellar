@@ -1,0 +1,26 @@
+{
+  "network": "testnet",
+  "passphrase": "Test SDF Network ; September 2015",
+  "contracts": {
+    "offer-token": {
+      "contract_id": "CCM2ATJ6KNKB6B3XMAVYWSPVOW7GKUCWRMDV5AEPD33XHZW5FVH7HWSO",
+      "wasm_hash": "b6fa3f7316c1d636f8bb5dce3796ae768b9671e70037e34b8d65a4b5558b4451",
+      "deploy_tx": "067c6f7a7b538f52e8264fcdcafd49b0e1824ccfdf99d967ff23f37cb3b79597",
+      "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+      "deployed_at": "2026-09-29T13:46:23Z",
+      "constructor_args": [
+        "--admin",
+        "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+      ],
+      "toolchain": {
+        "rustc": "1.97.1",
+        "soroban_sdk": "26.1.1",
+        "stellar_cli": "28.1.0"
+      },
+      "explorer": {
+        "contract": "https://stellar.expert/explorer/testnet/contract/CCM2ATJ6KNKB6B3XMAVYWSPVOW7GKUCWRMDV5AEPD33XHZW5FVH7HWSO",
+        "tx": "https://stellar.expert/explorer/testnet/tx/067c6f7a7b538f52e8264fcdcafd49b0e1824ccfdf99d967ff23f37cb3b79597"
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# TypeScript SDK checks. Owned by the BWB team; moved here unchanged from the
+name: sdk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk.yml"
+  pull_request:
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk.yml"
+
+jobs:
+  sdk:
+    name: SDK (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Install SDK deps
+        run: npm ci --prefix sdk
+
+      - name: Build SDK
+        run: npm run build --prefix sdk
+
+      - name: Test SDK
+        run: npm test --prefix sdk
