@@ -51,8 +51,12 @@ jobs:
       # OpenZeppelin 0.7.2 enables soroban-sdk's spec-shaking feature, which
       # only builds through the Stellar CLI. Pin the CLI to the version used
       # for deploys so hashes match deployments/*.json.
+      # The action reads the CLI version from its own ref, which is the SHA
+      # when pinned, so the version is passed explicitly.
       - name: Install Stellar CLI
         uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+        with:
+          version: 28.1.0
 
       - name: Build WASM
         run: stellar contract build
