@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "extraKnownMarketplaces": {
+    "stellar-dev": {
+      "source": { "source": "github", "repo": "stellar/stellar-dev-skill" }
+    },
+    "openzeppelin-skills": {
+      "source": { "source": "github", "repo": "OpenZeppelin/openzeppelin-skills" }
+    }
+  },
+  "enabledPlugins": {
+    "stellar-dev@stellar-dev": true,
+    "openzeppelin-skills@openzeppelin-skills": true,
+    "mattpocock-skills@claude-plugins-official": true
+  }
+}
