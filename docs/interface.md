@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 0.2 (draft) |
+| Version | 0.3 (draft) |
 | Status | Under review ([#23](https://github.com/BWB-Labs/bwb-stellar/issues/23)) |
 | Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1) |
 | Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
@@ -76,7 +76,7 @@ The Base backend's layer, part by part, and what each part becomes.
 
 | Part | Base today | Stellar | Verdict |
 |---|---|---|---|
-| Who signs, who submits | The investor's Privy wallet signs a UserOp hash and the platform relays it through Notus. A treasury's signers sign a Safe hash and the platform executes. | The investor or treasury signs a Soroban authorization. Who submits the transaction is a team choice ([4.1](#41-two-patterns)). | Changes |
+| Who signs, who submits | The investor's Privy wallet signs a UserOp hash and the platform relays it through Notus. A treasury's signers sign a Safe hash and the platform executes. | The investor or treasury signs a Soroban authorization, and BWB submits: pattern (B), recommended ([4.1](#41-two-patterns)). | Same shape |
 | Deploying an offering | One atomic batch of 10 calls through factories | One contract call per transaction, and no factories in Tranche 1, so it becomes a sequence of transactions with addresses computed in advance ([5.1](#51-deploying-an-offering)) | Changes |
 | Allowlist writes | `setAllocations` after KYC, `resetConsumed` monthly | Same calls. The cap is in USDC stroops, converted from BRL by the backend ([3](#3-premises)). | Same shape, new unit |
 | Investing | `approve` + `buyWithBrla` | One `buy`. The investor's authorization covers the USDC transfer inside it. | Simpler |
@@ -105,7 +105,7 @@ The interface holds under these. Changing one is a design change, not a defect.
 
 ### 4.1 Two patterns
 
-The contracts are identical under both. Each user-facing call authorizes its investor itself, and a multisig treasury authorizes exactly like a single-key wallet. **Which pattern to use is the team's decision.**
+The contracts are identical under both. Each user-facing call authorizes its investor itself, and a multisig treasury authorizes exactly like a single-key wallet. **Recommended: (B).** The table below gives the reasons.
 
 - **(A) The investor is the transaction source and BWB fee-bumps.** The investor signs the whole transaction. BWB wraps it in a fee-bump transaction that pays the fee.
 - **(B) BWB is the transaction source and the investor signs only an authorization entry.** BWB builds, simulates and submits the transaction. The investor signs a 32-byte hash of "this call, with these arguments".
@@ -124,7 +124,14 @@ The contracts are identical under both. Each user-facing call authorizes its inv
 
 Privy supports Stellar at its Tier 2: it signs a raw 32-byte hash with ed25519, server side and client side. Either pattern fits. It does not broadcast or sponsor on Stellar.
 
-Pattern (B) mirrors Base most closely. In Base, the investor signs a UserOp hash and the platform relays. Treasury officers sign offline and the platform executes.
+**Why (B).**
+
+- **It mirrors Base.** There, the investor signs a UserOp hash and the platform relays; treasury officers sign offline and the platform executes.
+- **The signature covers no fee or sequence number.** BWB can retry, re-simulate and adjust fees without asking the investor again.
+- **Treasury officers can sign the same hash independently** until it expires, with no stale signatures.
+- **It is cheaper**, with one transaction hash instead of two.
+
+Pattern (A) stays documented for the case where a wallet can only sign whole transactions.
 
 ### 4.2 The purchase authorization tree
 
@@ -403,7 +410,6 @@ Decided later. Each one changes this document through the changelog.
 
 | Point | Today | Decided in |
 |---|---|---|
-| Invocation pattern, (A) or (B) | Both described | The team |
 | Inventory at deployment, and who activates | Mint straight into the sale is the leading candidate | L2 / L4 |
 | Batch behaviour when one investor can't be served | Revert the whole call, as in Base; the alternative is skip and report | L4 |
 | Leftover tokens after success | Locked, as in Base | L4 |
@@ -418,6 +424,10 @@ Decided later. Each one changes this document through the changelog.
 - **Both networks run protocol 29.** Limits quoted here were read live on 2026-10-02 and can change by network vote. The current values are at [lab.stellar.org/network-limits](https://lab.stellar.org/network-limits).
 
 ## Changelog
+
+**0.3, in progress.**
+
+- Pattern (B) is recommended; pattern (A) stays documented.
 
 **0.2, 2026-10-02.** Changes after a review against Base's contracts:
 
