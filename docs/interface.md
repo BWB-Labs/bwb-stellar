@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 0.1 (draft) |
+| Version | 0.2 (draft) |
 | Status | Under review ([#23](https://github.com/BWB-Labs/bwb-stellar/issues/23)) |
 | Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1) |
 | Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
@@ -46,25 +46,27 @@ Vocabulary follows the glossary of BWB's Base application.
 
 | Role | Contract | Held by | Can |
 |---|---|---|---|
-| admin | `offer-token` | issuer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
-| `xfer_admin` | `offer-token` | issuer's treasury | move tokens between any two accounts, even while paused |
-| owner | `offer-sale` | issuer's treasury | finalize, mark failed, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
+| admin (stored address) | `offer-token` | issuer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
+| `xfer_admin` (stored address, fixed at construction) | `offer-token` | issuer's treasury | move tokens between any two accounts, even while paused |
+| owner (stored address) | `offer-sale` | issuer's treasury | finalize, mark failed, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
+| access-control admin | all three | platform multisig | grant and revoke the roles below |
 | `pauser` | `offer-token`, `offer-sale` | platform multisig | pause only, never unpause |
 | `upgrader` | all three | platform multisig | replace the contract's code |
-| admin | `offer-allowlist` | platform multisig | grant and revoke roles |
 | `controller` | `offer-allowlist` | platform hot key, and each offering's `offer-sale` | write allocations, consume and restore them, reset consumption, grant `controller` |
+
+The issuer's roles are stored addresses, not OpenZeppelin's access-control admin. OpenZeppelin always lets its top admin grant and revoke any role, so an issuer holding it could grant itself `upgrader` or remove the platform's `pauser`.
 
 Two choices here deliberately differ from what a reader might expect.
 
 - **Upgrades are held by the platform, not by the offering's admin.** In Base, an issuer's Safe owns its offering, but the code changes through the factory's beacon, which only the platform Safe controls. Soroban has no beacon: every contract replaces its own code. Keeping the split means a fix doesn't need a signing ceremony from every issuer.
 - **The platform can pause any offering, but only the issuer unpauses.** In Base, only the offering's owner pauses, so an emergency waits on the issuer's officers.
 
-`controller` is its own admin role, so a controller can grant it. That is parity with Base's `setControllerFromController` (audit NF-01, accepted), and offering deployment depends on it.
+`controller` is its own admin role, so a controller can grant and revoke it. That is parity with Base's `setControllerFromController` (audit NF-01, accepted), and offering deployment depends on it.
 
 **Recommended custody.** The decision is BWB's.
 
 - Platform multisig: 2 of 3, at the account's medium threshold. Soroban authorization checks the medium threshold.
-- Platform hot key: a single key, limited to `controller` and to submitting transactions. A leak lets an attacker change allocations, not move funds.
+- Platform hot key: a single key, limited to `controller` and to submitting transactions. A leak lets an attacker change allocations and revoke the sale contracts' `controller` role. That freezes purchases and refunds until the platform multisig grants it back. It can't move funds.
 - Treasuries: whatever threshold the organization configures.
 - Testnet (Tranche 1): single keys for every role.
 
@@ -95,7 +97,7 @@ The interface holds under these. Changing one is a design change, not a defect.
 - **No exchange rates on chain.** Investor limits are in BRL (CVM 88). The backend converts the BRL limit into stroops when it writes an allocation, and recalculates at the monthly reset. In Base this needed no conversion because 1 BRLA = R$1. That no longer holds, and neither does "one real per quota".
 - **Price.** The price per token in USDC stroops is fixed at deployment. A purchase must pay an exact multiple of it. The team and the issuer choose the price.
 - **Token.** 0 decimals: one token is one quota. It doesn't rebase, and there is no burn or snapshot.
-- **Fee on transfer.** The sale measures its USDC balance before and after each incoming transfer, as in Base. USDC charges no fee today.
+- **Fee on transfer.** The sale measures its USDC balance before and after each incoming transfer and credits what actually arrived, as in Base. What arrived must be an exact multiple of the price. USDC charges no fee today.
 - **Batches.** At most 30 investors per release call, 20 per refund call, and 30 entries per allowlist batch. The limit is the 16 KB of events a transaction may carry, not storage writes ([6.4](#64-batch-sizes)).
 - **Cooling-off.** An investor may undo their reservation and get the payment back within the offering's window, counted from their last purchase, both while the offering is Active and after it succeeds, until their tokens are released. **Tokens are never released to an investor whose window is still open.** This differs from Base, where anyone could release early and end the right (audit SCAN-01, recommended fix). The audit response is treated as the written request for this change.
 
@@ -214,12 +216,15 @@ The issuer's treasury signs one of these, while the offering is Active:
   - An investor whose cooling-off window is still open fails the whole call. The backend leaves those investors out of the batch, since it knows each last purchase from the `purchased` events.
   - A failed token transfer also fails the whole call, as in Base.
 - **Payout.** The issuer's treasury signs one `withdraw_payment(payouts)` call with every recipient and amount: issuer, distributor, platform, tokenizer. In Base this was one Safe batch with one withdrawal per stakeholder; one call keeps it to one signing ceremony.
-- **Duty before withdrawing.** Withdrawing while cooling-off windows are still open is allowed, as in Base (audit NF-04, accepted). If an investor later withdraws their reservation, the refund fails for lack of funds. **The backend checks open windows before proposing a withdrawal.** This may move into the contract in L4.
+- **Only released money can be withdrawn.** `withdraw_payment` takes at most the payment of reservations already released, minus what was withdrawn before. Money an investor can still ask back never leaves the sale. The order is: release everyone past their window, then withdraw.
+  - This differs from Base, where the issuer could withdraw everything at once (audit NF-04, accepted).
+  - Base's backend got away with it by releasing every investor in the same batch as the withdrawal. That silently ended any cooling-off right still open.
 - **Leftover tokens** stay locked in the sale, as in Base. That covers tokens returned through cooling-off (audit SCAN-02) and tokens never sold, because withdrawing tokens requires Failed. This may change in L4.
 
 ### 5.6 After failure
 
 - **Refunds.** Anyone may call `refund(investors)`, in batches of at most 20. Each investor gets their payment back, the reservation ends, and the allowlist room is restored.
+  - **Known issue carried from Base:** restoring room fails when the monthly reset already set the investor's usage to 0. A refund after a reset therefore fails, together with its whole batch. The same happens to cooling-off. See [offer-allowlist](offer-allowlist.md#calls); it is decided in L3.
   - An investor with nothing reserved is skipped silently.
   - A failed USDC transfer fails the whole call, as in Base. A typical cause is an investor account that lost its USDC trustline or was deauthorized by the issuer. The backend leaves that investor out and retries the rest.
 - **Tokens back.** The issuer's treasury may withdraw the offering's tokens with `withdraw_tokens`.
@@ -230,7 +235,7 @@ The investor signs `cooling_off_refund(investor)` themselves, within the window,
 
 ### 5.8 Pause, admin transfer and upgrade
 
-- **Pause.** The issuer's treasury or the platform multisig pauses the token or the sale. Only the treasury unpauses.
+- **Pause.** The issuer's treasury or the platform multisig calls `pause(caller)` on the token or the sale. Only the treasury calls `unpause(caller)`. Each call emits `pause_changed` with the caller.
   - A paused token blocks `transfer` and `transfer_from`, so release is blocked too.
   - A paused sale blocks `buy`. Refunds and cooling-off stay available.
 - **Admin transfer.** The issuer's treasury (`xfer_admin`) moves tokens between any two accounts, even while paused, for court orders, lost keys or estates.
@@ -283,8 +288,8 @@ Each investor in a batch emits several events. These per-investor figures are es
 
 | Call | Events per investor | Per investor | Limit | Total at the limit |
 |---|---|---|---|---|
-| `release` | token `transfer` + `released` | about 340 B | 30 | about 10.2 KB |
-| `refund` | USDC `transfer` + `refunded` + allowlist `allocation_restored` | about 680 B | 20 | about 13.6 KB |
+| `release` | token `transfer` + `released` | about 370 B | 30 | about 11.1 KB |
+| `refund` | USDC `transfer` + `refunded` + allowlist `allocation_restored` | about 730 B | 20 | about 14.6 KB |
 | `set_allocations`, `reset_consumed` | one allowlist event | about 200 B | 30 | about 6 KB |
 
 Each investor keeps their own event because the backend's ledger records one movement per investor.
@@ -311,6 +316,9 @@ An error raised by a contract the call passes through comes back unchanged. A fa
 | 1000 | `EnforcedPause` | the contract is paused |
 | 1001 | `ExpectedPause` | unpausing a contract that isn't paused |
 | 2000 | `Unauthorized` | the caller lacks the role |
+| 2007 | `RoleNotHeld` | revoking a role the account doesn't hold |
+
+A missing or invalid signature is not a contract code. It fails as `Error(Auth, …)` before the contract decides anything.
 
 ### 7.2 Reading a failure
 
@@ -399,7 +407,7 @@ Decided later. Each one changes this document through the changelog.
 | Inventory at deployment, and who activates | Mint straight into the sale is the leading candidate | L2 / L4 |
 | Batch behaviour when one investor can't be served | Revert the whole call, as in Base; the alternative is skip and report | L4 |
 | Leftover tokens after success | Locked, as in Base | L4 |
-| Withdrawing payment with cooling-off windows open | Allowed; the backend checks first | L4 |
+| Restoring allowlist room after the monthly reset | Fails, as in Base. The likely fix is to restore at most what is consumed. | L3 |
 | What a paused sale blocks | `buy` only | L4 |
 | Definition of AUM | Inputs listed in [8.2](#82-what-moves-value) | The team |
 | Custody of each key | Recommendation in [1](#1-parties-roles-and-keys) | BWB |
@@ -411,6 +419,23 @@ Decided later. Each one changes this document through the changelog.
 
 ## Changelog
 
-| Version | Date | Change |
-|---|---|---|
-| 0.1 | 2026-10-02 | First draft |
+**0.2, 2026-10-02.** Changes after a review against Base's contracts:
+
+- **Roles and pause:**
+  - issuer roles are stored addresses, and the platform holds the access-control admin;
+  - `pause` and `unpause` take a caller and emit `pause_changed`;
+  - controllers can revoke as well as grant.
+- **Withdrawals:** only released money can be withdrawn (NF-04).
+- **Known issues:** restoring allowlist room after the monthly reset fails, as in Base; carried as a known issue.
+- **Token:** the initial holder is whitelisted automatically, and snapshot is removed.
+- **Sale:**
+  - fee-on-transfer credits what arrives;
+  - finalize checks that the sold tokens are still held;
+  - the supply is read from the token;
+  - `purchased` and `refunded` carry the offering's totals;
+  - a new `configured` event;
+  - more read functions.
+- **Allowlist:** `remaining` never goes negative, and a cap of 0 is valid.
+- **Events:** batch sizes re-estimated.
+
+**0.1, 2026-10-02.** First draft.
