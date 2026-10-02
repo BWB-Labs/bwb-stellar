@@ -77,7 +77,7 @@ The Base backend's layer, part by part, and what each part becomes.
 | Part | Base today | Stellar | Verdict |
 |---|---|---|---|
 | Who signs, who submits | The investor's Privy wallet signs a UserOp hash and the platform relays it through Notus. A treasury's signers sign a Safe hash and the platform executes. | The investor or treasury signs a Soroban authorization, and BWB submits: pattern (B), recommended ([4.1](#41-two-patterns)). | Same shape |
-| Deploying an offering | One atomic batch of 10 calls through factories | One contract call per transaction, and no factories in Tranche 1, so it becomes a sequence of transactions with addresses computed in advance ([5.1](#51-deploying-an-offering)) | Changes |
+| Deploying an offering | One atomic batch of 10 calls through factories, driven by the backend | T1: the repository's deploy script, and the backend only registers addresses. T2: one call to the L8 factory, driven by the backend ([5.1](#51-deploying-an-offering)). | Changes |
 | Allowlist writes | `setAllocations` after KYC, `resetConsumed` monthly | Same calls. The cap is in USDC stroops, converted from BRL by the backend ([3](#3-premises)). | Same shape, new unit |
 | Investing | `approve` + `buyWithBrla` | One `buy`. The investor's authorization covers the USDC transfer inside it. | Simpler |
 | Finalize | `finalizeSale` | `finalize` | Same |
@@ -167,9 +167,19 @@ Each step names its signer. The per-contract documents list each call's precondi
 
 ### 5.1 Deploying an offering
 
-Soroban runs one contract call per transaction, and Tranche 1 has no factories (L8), so deployment is a sequence of transactions. A contract's address is `sha256(networkID, deployer, salt)`. It does not depend on the code or the constructor arguments, so the backend computes every address before deploying anything. That also replaces Base's prediction from the factory nonce, which breaks when two deployments race.
+**Who deploys.**
 
-1. **Compute addresses.** The backend picks one salt for the token and one for the sale, and derives both addresses from the deployer (the platform hot key).
+- **In Tranche 1, offerings are deployed by the repository's deploy script, not by the backend.** The backend doesn't automate deployment in T1. It registers the addresses the script records in [`deployments/testnet.json`](../deployments/testnet.json).
+- **From Tranche 2, the factories (L8) deploy and wire an offering in one call.** The backend's automated deployment flow is built then, on top of the factory, and replaces the script.
+- This saves the team from building a multi-transaction flow that the factory would retire three months later.
+
+**Why it isn't one transaction in T1.** Soroban runs one contract call per transaction. Batching, as Base does through the Kernel smart account, needs a contract to do it, and that contract is the L8 factory. Without it, the script runs a sequence of transactions.
+
+**Addresses.** A contract's address is `sha256(networkID, deployer, salt)`. It doesn't depend on the code or the constructor arguments, so every address is computed before anything is deployed. That replaces Base's prediction from the factory nonce, which breaks when two deployments race.
+
+The script's sequence:
+
+1. **Compute addresses.** One salt for the token and one for the sale. Both addresses are derived from the deployer, the platform hot key.
 2. **Deploy `offer-token`.** Signed by the platform hot key. The constructor sets:
    - `admin` and `xfer_admin`: the issuer's treasury;
    - `pauser` and `upgrader`: the platform multisig;
@@ -189,9 +199,9 @@ Ownership is final from the constructors, so there is no transfer of ownership a
 - no key ever holds the offering's tokens;
 - deployment adds no signature for the issuer.
 
-In Base the issuer signs nothing on chain at deployment; the platform wallet does every step. The leading candidate is for the token's constructor to mint the whole supply straight to the sale's precomputed address. Who triggers activation follows from that choice.
+In Base the issuer signs nothing on chain at deployment; the platform wallet does every step. The leading candidate is for the token's constructor to mint the whole supply straight to the sale's precomputed address. Who triggers activation follows from that choice. The same requirements apply to the L8 factory.
 
-**Retrying a step.** Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded, the tokens wait at the sale's address until step 3 is retried with the same salt.
+**Retrying a step.** The script is re-runnable. Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded, the tokens wait at the sale's address until step 3 is retried with the same salt.
 
 ### 5.2 Allowlist
 
@@ -428,6 +438,7 @@ Decided later. Each one changes this document through the changelog.
 **0.3, in progress.**
 
 - Pattern (B) is recommended; pattern (A) stays documented.
+- In Tranche 1, offerings are deployed by the repository's script and the backend only registers addresses. From Tranche 2 the backend deploys through the L8 factory.
 
 **0.2, 2026-10-02.** Changes after a review against Base's contracts:
 
