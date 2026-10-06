@@ -421,6 +421,7 @@ Decided later. Each one changes this document through the changelog.
 | Point | Today | Decided in |
 |---|---|---|
 | Inventory at deployment, and who activates | Mint straight into the sale is the leading candidate | L2 / L4 |
+| Batch sizes (30 release, 20 refund) | Estimates with margin. L4 measures real event sizes and raises the limits as far as they fit, for example by trimming per-investor events. The backend needs a job that releases investors in rolling batches as their windows close. | L4, and the team for the job |
 | Batch behaviour when one investor can't be served | Revert the whole call, as in Base; the alternative is skip and report | L4 |
 | Leftover tokens after success | Locked, as in Base | L4 |
 | Restoring allowlist room after the monthly reset | Fails, as in Base. The likely fix is to restore at most what is consumed. | L3 |
@@ -438,6 +439,7 @@ Decided later. Each one changes this document through the changelog.
 **0.3, in progress.**
 
 - Pattern (B) is recommended; pattern (A) stays documented.
+- Batch sizes are marked for review in L4, with the backend's rolling-release job as team work.
 - In Tranche 1, offerings are deployed by the repository's script and the backend only registers addresses. From Tranche 2 the backend deploys through the L8 factory.
 
 **0.2, 2026-10-02.** Changes after a review against Base's contracts:
