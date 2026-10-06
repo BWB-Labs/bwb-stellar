@@ -1,20 +1,23 @@
 # offer-sale
 
-Escrow and lifecycle of one offering, one instance per offering. It is a port of Base's `OfferTokenSale`.
-- Investors reserve tokens by paying USDC.
-- The issuer finalizes the offering, or it fails.
-- Then tokens are released, or payments are refunded.
-- Investors may withdraw during their cooling-off window.
+- **What it does.** Runs the escrow and lifecycle of one offering. Investors reserve tokens by paying USDC. The issuer finalizes the offering, or it fails. Then tokens are released, or payments are refunded. Investors may withdraw during their cooling-off window.
+- **Who uses it.** Investors call `buy` and `cooling_off_refund`. The issuer's treasury (the owner) closes the offering and withdraws. Anyone, in practice the backend, runs `release` and `refund` in batches. The platform multisig can pause and holds upgrades.
+- **Scope.** One instance per offering. A port of Base's `OfferTokenSale`.
 
-**Draft (interface v0.2).** The contract lands in L4, which updates this document. The cross-cutting rules are in [interface.md](interface.md).
+**Draft (interface v0.4).** The contract lands in L4, which updates this document. The cross-cutting rules are in [interface.md](interface.md).
 
 ## States
 
-```
-Preparing ──activate──▶ Active ──finalize──▶ Successful
-                          │
-                          ├──mark_failed──▶ Failed
-                          └──cancel───────▶ Failed
+```mermaid
+stateDiagram-v2
+  [*] --> Preparing
+  Preparing --> Active: activate
+  Active --> Successful: finalize
+  Active --> Failed: mark_failed
+  Active --> Failed: cancel
+  note right of Active : buy, cooling_off_refund
+  note right of Successful : release, withdraw_payment, cooling_off_refund
+  note right of Failed : refund, withdraw_tokens
 ```
 
 Every transition emits `state_changed`. No state goes back.
@@ -89,6 +92,7 @@ The hard cap is checked against `raised`. Success means `sold_tokens × 100 ≥ 
 | `upgrade(new_wasm_hash, operator)` | `operator`, holding `upgrader` | any | Replaces the code. |
 
 Read functions:
+
 - `state`;
 - `config`: owner, token, payment asset, allowlist, price, supply, hard cap, cooling-off, minimum;
 - `totals`;
@@ -98,9 +102,10 @@ Read functions:
 - `preview_tokens(amount)`, which fails on an amount that isn't an exact multiple;
 - `paused`, `has_role`, `schema_version`.
 
-**Withdrawals.** The issuer can only withdraw money from released reservations: money that no investor can ask back anymore. Release is open to anyone, so the path is: release everyone past their window, then withdraw. This replaces Base's NF-04, where the issuer could withdraw everything at once. Base's backend got away with it by releasing everyone in the same batch, which silently ended open cooling-off rights.
+**Withdrawals.** The issuer can only withdraw money from released reservations: money that no investor can ask back anymore. Release is open to anyone, so the path is: release everyone past their window, then withdraw. This replaces Base's behaviour (NF-04), where the issuer could withdraw everything at once. Base's backend got away with it by releasing everyone in the same batch, which silently ended open cooling-off rights.
 
 **Differences from Base:**
+
 - **Release waits for the cooling-off window** (audit SCAN-01, recommended fix).
 - **Withdrawals are limited to released money** (audit NF-04).
 - **`withdraw_payment` takes every payout at once.** It replaces several `withdrawBrla` calls batched in one Safe transaction.
@@ -134,6 +139,7 @@ Points still open for L4 are listed in [interface 11](interface.md#11-open-point
 The totals in `purchased` and `refunded` let the backend recover the offering's state from any later event, even after missing some. The RPC keeps events for only about 7 days.
 
 Also emitted:
+
 - From OpenZeppelin: `paused`, `unpaused`, and the role events.
 - From the token: a `transfer` for every release.
 - From the USDC contract: a `transfer` for every purchase, refund and payout.
@@ -166,7 +172,8 @@ Also emitted:
 | 6219 | `NotController` | `activate` before the sale is a controller on the allowlist |
 
 Codes from the contracts it calls, which surface unchanged:
-- **allowlist:** 6100 `InvestorNotEnabled` and 6101 `AllocationExceeded` during `buy`, and 6103 `RestoreExceedsConsumed` during refunds (see the [known issue](offer-allowlist.md#calls));
+
+- **allowlist:** 6100 `InvestorNotEnabled` and 6101 `AllocationExceeded` during `buy`, and 6103 `RestoreExceedsConsumed` during refunds (see the [known issue](offer-allowlist.md#known-issue-refunds-after-the-monthly-reset));
 - **token:** 6000 and 100;
 - **USDC:** a balance or trustline error during a payment, refund or payout;
 - **OpenZeppelin:** 1000 `EnforcedPause` and 2000 `Unauthorized`.

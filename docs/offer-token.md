@@ -1,8 +1,10 @@
 # offer-token
 
-The investor's position in one offering, one instance per offering. It is a port of Base's `OfferERC20`: a SEP-41 token with 0 decimals, a transfer whitelist, pause, admin transfer and offering metadata. It is built on OpenZeppelin's fungible `Base`.
+- **What it does.** Holds the investor's position in one offering. One token is one quota (0 decimals). There is one instance per offering.
+- **Who uses it.** The offering's sale holds the supply and releases tokens to investors. Investors hold them and may send them only to whitelisted accounts. The issuer's treasury manages the whitelist, the offering URI, pause and admin transfers. The platform multisig can pause and holds upgrades.
+- **Where it comes from.** A port of Base's `OfferERC20`: a SEP-41 token with 0 decimals, a transfer whitelist, pause, admin transfer and offering metadata. It is built on OpenZeppelin's fungible `Base`.
 
-**Draft (interface v0.2).** The contract lands in L2, which updates this document. The cross-cutting rules are in [interface.md](interface.md).
+**Draft (interface v0.4).** The contract lands in L2, which updates this document. The cross-cutting rules are in [interface.md](interface.md).
 
 ## Roles
 
@@ -33,7 +35,7 @@ The issuer's `admin` is deliberately **not** the OpenZeppelin access-control adm
 
 | Call | Authorized by | Effect |
 |---|---|---|
-| `transfer(from, to, amount)` | `from` | Moves tokens if `from` **or** `to` is whitelisted. For a muxed `to`, the underlying address is checked. Blocked while paused. |
+| `transfer(from, to, amount)` | `from` | Moves tokens if `from` **or** `to` is whitelisted. For a muxed `to` (an address carrying a sub-account ID), the underlying address is checked. Blocked while paused. |
 | `transfer_from(spender, from, to, amount)` | `spender` | Same rule, within the allowance. Blocked while paused. |
 | `approve(owner, spender, amount, live_until_ledger)` | `owner` | Sets an allowance (SEP-41). |
 | `admin_transfer(from, to, amount)` | `xfer_admin` | Moves tokens between any two accounts, **ignoring both pause and the whitelist**, as in Base. |
@@ -48,13 +50,15 @@ The issuer's `admin` is deliberately **not** the OpenZeppelin access-control adm
 `renounce_admin` is blocked: the platform's roles must never be left without an admin.
 
 Read functions:
+
 - SEP-41: `balance`, `allowance`, `decimals` (always 0), `name`, `symbol`, `total_supply`;
 - whitelist and metadata: `is_transfer_whitelisted(account)`, `offer_uri`;
 - state and roles: `paused`, `admin`, `xfer_admin`, `has_role(account, role)`, `schema_version`.
 
-Investors are never whitelisted. An investor can only send tokens to a whitelisted account, never to another investor. This is the same restriction as Base.
+Investors are never whitelisted. An investor can only send tokens to a whitelisted account, never to another investor. Base has the same restriction.
 
 **Removed from Base:**
+
 - `snapshot`, `balanceOfAt`, `totalSupplyAt`. The Base app never calls them.
 - `version()`, replaced by `schema_version`.
 - `renounceOwnership`.
@@ -66,11 +70,12 @@ There is no burn.
 ## Events
 
 Inherited from OpenZeppelin:
+
 - `transfer`, `mint` (once, at construction), `approve`;
 - `paused` and `unpaused`, with empty data;
 - `role_granted`, `role_revoked`, `admin_transfer_initiated`, `admin_transfer_completed`.
 
-Their shapes are in [interface 6.2](interface.md#62-events-the-contracts-inherit).
+Their shapes are in [interface R4](interface.md#r4-inherited-event-shapes).
 
 Specific to this contract:
 
@@ -91,6 +96,7 @@ Specific to this contract:
 | 6002 | `RenounceBlocked` | `renounce_admin` |
 
 OpenZeppelin codes that can surface:
+
 - 100 `InsufficientBalance`
 - 101 `InsufficientAllowance`
 - 103 `LessThanZero`
