@@ -478,7 +478,7 @@ Decided later. Each one changes this document through the changelog.
 
 ## Changelog
 
-**0.3, in progress.**
+**0.3, 2026-10-06.** Changes from a walkthrough of every item with Leo:
 
 - Pattern (B) is recommended; pattern (A) stays documented.
 - Lazy reset per investor added as an L3 candidate for the monthly reset and the restore issue.
