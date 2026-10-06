@@ -63,6 +63,48 @@ Two choices here deliberately differ from what a reader might expect.
 
 `controller` is its own admin role, so a controller can grant and revoke it. That is parity with Base's `setControllerFromController` (audit NF-01, accepted), and offering deployment depends on it.
 
+**Base and Stellar side by side.** The split of power is the same; Safe becomes a native multisig account, and the upgrade path changes because Soroban has no beacon.
+
+```mermaid
+flowchart LR
+  subgraph Base
+    direction TB
+    PS[Platform Safe]
+    PW[Platform server wallet]
+    OS[Organization's Safe]
+    BAL[Allowlist]
+    BF[Factories + beacon]
+    BT[Offering token]
+    BS[Offering sale]
+    PS -->|owns| BAL
+    PS -->|owns, upgrades every offering via beacon| BF
+    PW -->|controller| BAL
+    PW -->|controller, deploys| BF
+    BF -->|creates| BT
+    BF -->|creates| BS
+    OS -->|owns, transfer admin| BT
+    OS -->|owns| BS
+    BS -->|controller| BAL
+  end
+  subgraph Stellar
+    direction TB
+    PM[Platform multisig<br/>native account]
+    HK[Platform hot key]
+    IT[Issuer's treasury<br/>native multisig]
+    SAL[offer-allowlist]
+    ST[offer-token]
+    SS[offer-sale]
+    PM -->|admin, upgrader| SAL
+    PM -->|role admin, pauser, upgrader| ST
+    PM -->|role admin, pauser, upgrader| SS
+    HK -->|controller, submits txs| SAL
+    HK -.->|deploys: script in T1, L8 factory in T2| SS
+    IT -->|admin, xfer_admin| ST
+    IT -->|owner| SS
+    SS -->|controller| SAL
+  end
+```
+
 **Recommended custody.** The decision is BWB's.
 
 - Platform multisig: 2 of 3, at the account's medium threshold. Soroban authorization checks the medium threshold.
