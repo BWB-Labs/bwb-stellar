@@ -48,7 +48,9 @@ OpenZeppelin differs from Base in two small ways:
 - So a refund requested after a reset fails, both on cooling-off and on refunds after failure. One such investor fails a whole refund batch.
 - If the investor bought again after the reset, the refund either fails or takes last month's amount off this month's usage.
 - In Base it is a real but unreachable bug: the app never calls refunds. It was introduced when refunds started restoring allocations, after the reset existed, and is in no audit, test or document.
-- The port keeps parity for now. The likely fix is to restore at most `consumed` and report the amount actually restored. It is an [open point](interface.md#11-open-points), decided in L3.
+- The port keeps parity for now. It is an [open point](interface.md#11-open-points), decided in L3. Two candidates:
+  - restore at most `consumed`, and report the amount actually restored;
+  - a **lazy reset**: each allocation stores the period of its usage, a purchase in a new period starts from zero, and a refund gives room back only within the same period. This also removes the monthly `reset_consumed` run. An admin reset for a single investor stays.
 
 Read functions (Base has `remainingAllocation`, `canPurchase` and `controllers`, and the app calls them):
 

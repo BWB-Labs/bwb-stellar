@@ -466,7 +466,7 @@ Decided later. Each one changes this document through the changelog.
 | Batch sizes (30 release, 20 refund) | Estimates with margin. L4 measures real event sizes and raises the limits as far as they fit, for example by trimming per-investor events. The backend needs a job that releases investors in rolling batches as their windows close. | L4, and the team for the job |
 | Batch behaviour when one investor can't be served | Revert the whole call, as in Base; the alternative is skip and report | L4 |
 | Leftover tokens after success | Locked, as in Base | L4 |
-| Restoring allowlist room after the monthly reset | Fails, as in Base. The likely fix is to restore at most what is consumed. | L3 |
+| Restoring allowlist room after the monthly reset | Fails, as in Base. Candidate fixes: restore at most what is consumed; or a **lazy reset**, where each allocation stores the period its usage belongs to and a purchase in a new period starts from zero. The lazy reset needs no monthly reset run and lets a refund give room back only within the same period. Open question for the team: calendar month or fixed 30-day period? | L3 |
 | What a paused sale blocks | `buy` only | L4 |
 | Definition of AUM | Inputs listed in [8.2](#82-what-moves-value) | The team |
 | Custody of each key | Recommendation in [1](#1-parties-roles-and-keys) | BWB |
@@ -481,6 +481,7 @@ Decided later. Each one changes this document through the changelog.
 **0.3, in progress.**
 
 - Pattern (B) is recommended; pattern (A) stays documented.
+- Lazy reset per investor added as an L3 candidate for the monthly reset and the restore issue.
 - Batch sizes are marked for review in L4, with the backend's rolling-release job as team work.
 - In Tranche 1, offerings are deployed by the repository's script and the backend only registers addresses. From Tranche 2 the backend deploys through the L8 factory.
 
