@@ -43,8 +43,8 @@ Offering `t1-demo`, from [`deployments/testnet.json`](deployments/testnet.json):
 
 | Contract | Contract ID | WASM hash |
 |---|---|---|
-| `offer-token` | [`CBBL3HRROXERHGQQ4RZSGFIMNRTOFFQDGWF22TY367BTRZ3CZ2I4YJRR`](https://stellar.expert/explorer/testnet/contract/CBBL3HRROXERHGQQ4RZSGFIMNRTOFFQDGWF22TY367BTRZ3CZ2I4YJRR) | `51213c0809a402370e5ecab1985ff822dac87967693d2262263aab3f1cc26799` |
-| `offer-sale` | `CANGY3XNOK6NP37VI4STPVJHTUART7A4R3JA4ZAEY4BZMTBE3F5HRFMK` (precomputed; deployed in L4) | |
+| `offer-token` | [`CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557`](https://stellar.expert/explorer/testnet/contract/CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557) | `19a7544def82d9b8b9ff93fdc64b5487486e922cff5af9a834503142db6fe824` |
+| `offer-sale` | `CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO` (precomputed; deployed in L4) | |
 
 The token's whole supply is minted to the sale contract's precomputed address.
 

@@ -33,12 +33,10 @@ CTOR_ARGS=("$@")
 NETWORK="${NETWORK:-testnet}"
 case "$NETWORK" in
   testnet)
-    SOURCE="${SOURCE:-bwb-testnet-deployer}"
     EXPLORER="https://stellar.expert/explorer/testnet"
     HORIZON="https://horizon-testnet.stellar.org"
     ;;
   mainnet|public)
-    : "${SOURCE:?SOURCE must be set explicitly for $NETWORK (no default identity outside testnet)}"
     EXPLORER="https://stellar.expert/explorer/public"
     HORIZON="https://horizon.stellar.org"
     ;;
@@ -48,6 +46,7 @@ esac
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/offering.sh
 source "$ROOT/scripts/lib/offering.sh"
+resolve_source "$NETWORK"
 
 OFFERING="${OFFERING:-}"
 ROLE=""
@@ -56,7 +55,7 @@ SALT_ARGS=()
 ALIAS="$CRATE"
 if ROLE="$(crate_role "$CRATE")"; then
   : "${OFFERING:?OFFERING is required for $CRATE: one instance per offering}"
-  SALT="$(offering_salt "$NETWORK" "$OFFERING" "$ROLE")"
+  SALT="$(offering_salt "$OFFERING" "$ROLE")"
   SALT_ARGS=(--salt "$SALT")
   ALIAS="$CRATE-$OFFERING"
 elif [[ -n "$OFFERING" ]]; then
@@ -84,15 +83,30 @@ cd "$ROOT"
 
 if [[ -n "$SALT" ]]; then
   SIBLING_ROLE="$([[ "$ROLE" == token ]] && echo sale || echo token)"
-  SIBLING_SALT="$(offering_salt "$NETWORK" "$OFFERING" "$SIBLING_ROLE")"
+  SIBLING_SALT="$(offering_salt "$OFFERING" "$SIBLING_ROLE")"
   EXPECTED_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SALT" | tail -n1)"
   SIBLING_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SIBLING_SALT" | tail -n1)"
   echo ">> offering $OFFERING: $ROLE at $EXPECTED_ID, $SIBLING_ROLE at $SIBLING_ID"
   # Re-runnable: a step that already succeeded is not repeated, since
-  # deploying to a taken address fails.
+  # deploying to a taken address fails. A contract that exists but is not in
+  # the manifest (the previous run died after deploying) is an error, not a
+  # success: its deploy transaction has to be recorded by hand.
   if stellar contract info interface --network "$NETWORK" --contract-id "$EXPECTED_ID" >/dev/null 2>&1; then
-    echo "$CRATE for offering $OFFERING is already deployed at $EXPECTED_ID; nothing to do"
-    exit 0
+    RECORDED="$(python3 - "$MANIFEST" "$OFFERING" "$ROLE" "$EXPECTED_ID" <<'PY'
+import json, os, sys
+path, offering, role, cid = sys.argv[1:]
+m = json.load(open(path)) if os.path.exists(path) else {}
+e = m.get("offerings", {}).get(offering, {}).get(role, {})
+print("yes" if e.get("status") == "deployed" and e.get("contract_id") == cid else "no")
+PY
+)"
+    if [[ "$RECORDED" == yes ]]; then
+      echo "$CRATE for offering $OFFERING is already deployed at $EXPECTED_ID and recorded; nothing to do"
+      exit 0
+    fi
+    echo "$CRATE for offering $OFFERING exists at $EXPECTED_ID but is not recorded in $MANIFEST;" \
+      "find its deploy transaction and record it by hand" >&2
+    exit 1
   fi
 fi
 

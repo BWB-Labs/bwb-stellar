@@ -88,7 +88,7 @@ impl OfferToken {
         .publish(e);
 
         Base::mint(e, &initial_holder, supply);
-        storage::extend_balances(e, &initial_holder, &initial_holder);
+        storage::extend_balance(e, &initial_holder);
 
         whitelist_if_new(e, &initial_holder);
         for account in whitelist.iter() {
@@ -99,14 +99,14 @@ impl OfferToken {
     /// Adds `account` to the whitelist or removes it. Emits every time, as
     /// Base does, even when nothing changes.
     pub fn set_transfer_whitelist(e: &Env, account: Address, allowed: bool, caller: Address) {
-        storage::require_power(e, &caller, &storage::admin(e), OfferTokenError::NotAdmin);
+        storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_whitelisted(e, &account, allowed);
         storage::extend_instance(e);
         WhitelistUpdated { account, allowed }.publish(e);
     }
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
-        storage::require_power(e, &caller, &storage::admin(e), OfferTokenError::NotAdmin);
+        storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_offer_uri(e, &uri);
         storage::extend_instance(e);
         OfferUriUpdated { uri }.publish(e);
@@ -118,14 +118,15 @@ impl OfferToken {
         storage::require_power(
             e,
             &caller,
-            &storage::xfer_admin(e),
+            &[storage::xfer_admin(e)],
             OfferTokenError::NotXferAdmin,
         );
         if from == to || amount <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidAdminTransfer);
         }
         Base::update(e, Some(&from), Some(&to), amount);
-        storage::extend_balances(e, &from, &to);
+        storage::extend_balance(e, &from);
+        storage::extend_balance(e, &to);
         storage::extend_instance(e);
         emit_transfer(e, &from, &to, None, amount);
         AdminTransfer { from, to, amount }.publish(e);
@@ -211,10 +212,8 @@ impl Pausable for OfferToken {
 
     /// `admin` or `pauser` may pause.
     fn pause(e: &Env, caller: Address) {
-        caller.require_auth();
-        if caller != storage::admin(e) && caller != storage::pauser(e) {
-            panic_with_error!(e, OfferTokenError::NotPauser);
-        }
+        let holders = [storage::admin(e), storage::pauser(e)];
+        storage::require_power(e, &caller, &holders, OfferTokenError::NotPauser);
         pausable::pause(e);
         storage::extend_instance(e);
         PauseChanged {
@@ -226,7 +225,7 @@ impl Pausable for OfferToken {
 
     /// Only `admin` unpauses.
     fn unpause(e: &Env, caller: Address) {
-        storage::require_power(e, &caller, &storage::admin(e), OfferTokenError::NotAdmin);
+        storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         pausable::unpause(e);
         storage::extend_instance(e);
         PauseChanged {
@@ -245,7 +244,7 @@ impl Upgradeable for OfferToken {
         storage::require_power(
             e,
             &operator,
-            &storage::upgrader(e),
+            &[storage::upgrader(e)],
             OfferTokenError::NotUpgrader,
         );
         storage::extend_instance(e);

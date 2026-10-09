@@ -5,13 +5,13 @@
     "t1-demo": {
       "token": {
         "status": "deployed",
-        "salt": "d8b766672745f63d000e6deb56a77715457da253b5c2c21507905ed74b37c07f",
+        "salt": "9e56d7e30ba7073c9c688b0771242c6089508944a1f38a259d024379f659756f",
         "crate": "offer-token",
-        "contract_id": "CBBL3HRROXERHGQQ4RZSGFIMNRTOFFQDGWF22TY367BTRZ3CZ2I4YJRR",
-        "wasm_hash": "51213c0809a402370e5ecab1985ff822dac87967693d2262263aab3f1cc26799",
-        "deploy_tx": "5f1834091bc4dcc7263deccac2ca4e4cc18eebeedffe75c19fc4ade532fc7e5d",
+        "contract_id": "CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
+        "wasm_hash": "19a7544def82d9b8b9ff93fdc64b5487486e922cff5af9a834503142db6fe824",
+        "deploy_tx": "5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-        "deployed_at": "2026-10-09T17:42:08Z",
+        "deployed_at": "2026-10-09T17:49:29Z",
         "constructor_args": [
           "--admin",
           "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
@@ -28,7 +28,7 @@
           "--supply",
           "1000",
           "--initial_holder",
-          "CANGY3XNOK6NP37VI4STPVJHTUART7A4R3JA4ZAEY4BZMTBE3F5HRFMK",
+          "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
           "--whitelist",
           "[]",
           "--offer_uri",
@@ -40,14 +40,14 @@
           "stellar_cli": "28.1.0"
         },
         "explorer": {
-          "contract": "https://stellar.expert/explorer/testnet/contract/CBBL3HRROXERHGQQ4RZSGFIMNRTOFFQDGWF22TY367BTRZ3CZ2I4YJRR",
-          "tx": "https://stellar.expert/explorer/testnet/tx/5f1834091bc4dcc7263deccac2ca4e4cc18eebeedffe75c19fc4ade532fc7e5d"
+          "contract": "https://stellar.expert/explorer/testnet/contract/CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
+          "tx": "https://stellar.expert/explorer/testnet/tx/5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d"
         }
       },
       "sale": {
         "status": "precomputed",
-        "salt": "f0b69629b37b9e185f8c43835716d1d8dbfb227440ac459145abd0ee4df9e510",
-        "contract_id": "CANGY3XNOK6NP37VI4STPVJHTUART7A4R3JA4ZAEY4BZMTBE3F5HRFMK",
+        "salt": "c8f4e98da060ae0e3b909dea2f69148aa2d2789dd52895a0376b6fd6fa69d8e5",
+        "contract_id": "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
       }
     }

@@ -17,8 +17,10 @@ command -v stellar >/dev/null || {
   exit 1
 }
 
+# Copied to a fixed folder so the test finds it wherever cargo builds
+# (CARGO_TARGET_DIR included).
 echo ">> building the upgrade fixture"
-stellar contract build --package offer-token-v2-fixture >/dev/null
+stellar contract build --package offer-token-v2-fixture --out-dir target/fixtures >/dev/null
 
 echo ">> cargo test"
 cargo test --workspace "$@"

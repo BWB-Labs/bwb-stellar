@@ -20,9 +20,7 @@ mod with_fixture {
     use crate::OfferTokenError;
 
     mod v2 {
-        soroban_sdk::contractimport!(
-            file = "../../target/wasm32v1-none/release/offer_token_v2_fixture.wasm"
-        );
+        soroban_sdk::contractimport!(file = "../../target/fixtures/offer_token_v2_fixture.wasm");
     }
 
     #[test]

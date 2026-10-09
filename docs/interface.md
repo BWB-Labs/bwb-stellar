@@ -318,7 +318,7 @@ Each step names its signer. The per-contract documents list each call's precondi
 
 The script's sequence. L2 delivered steps 1 and 2; L4 adds the rest.
 
-1. **Compute addresses.** One salt for the token and one for the sale contract, each `sha256("bwb:<network>:<offering-id>:<role>")` with role `token` or `sale`, so the offering identifier alone reproduces them. Both addresses derive from the deployer key. `scripts/offering-addresses.sh <offering-id>` prints them. On testnet in T1 the deployer key is the platform hot key; this is testnet-only, not a rule for mainnet.
+1. **Compute addresses.** One salt for the token and one for the sale contract, each `sha256("bwb:<offering-id>:<role>")` with role `token` or `sale`, so the offering identifier alone reproduces them. The network is not in the salt: the address already includes the network ID, and the CLI's name for a network is local configuration that differs between operators. Both addresses derive from the deployer key. `scripts/offering-addresses.sh <offering-id>` prints them. On testnet in T1 the deployer key is the platform hot key; this is testnet-only, not a rule for mainnet.
 2. **Deploy `offer-token`.** Signed by the deployer key. The constructor sets:
    - `admin` and `xfer_admin`: the tokenizer's treasury;
    - `pauser` and `upgrader`: the platform multisig;

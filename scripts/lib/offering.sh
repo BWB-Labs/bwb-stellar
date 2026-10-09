@@ -5,14 +5,27 @@
 # the offering identifier, so a retry or a second operator recomputes the
 # same addresses:
 #
-#   salt = sha256("bwb:<network>:<offering-id>:<role>"), role = token | sale
+#   salt = sha256("bwb:<offering-id>:<role>"), role = token | sale
 #
-# The L8 factory is expected to use the same rule.
+# The network is deliberately not in the salt: the contract address already
+# includes the network ID, and the CLI's name for a network is local config
+# (mainnet, public, or any alias), which would give one offering different
+# addresses depending on who runs the script. The L8 factory is expected to
+# use the same rule.
 
-# offering_salt <network> <offering-id> <role> -> 64 hex chars
+# offering_salt <offering-id> <role> -> 64 hex chars
 offering_salt() {
   python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
-    "bwb:$1:$2:$3"
+    "bwb:$1:$2"
+}
+
+# resolve_source <network>: sets SOURCE, defaulting to the testnet deployer
+# on testnet only.
+resolve_source() {
+  case "$1" in
+    testnet) SOURCE="${SOURCE:-bwb-testnet-deployer}" ;;
+    *) : "${SOURCE:?SOURCE must be set explicitly for $1 (no default identity outside testnet)}" ;;
+  esac
 }
 
 # crate_role <crate> -> token | sale; fails for crates that are not per-offering

@@ -14,16 +14,13 @@ set -euo pipefail
 
 OFFERING="${1:?usage: scripts/offering-addresses.sh <offering-id>}"
 NETWORK="${NETWORK:-testnet}"
-case "$NETWORK" in
-  testnet) SOURCE="${SOURCE:-bwb-testnet-deployer}" ;;
-  *) : "${SOURCE:?SOURCE must be set explicitly for $NETWORK (no default identity outside testnet)}" ;;
-esac
 
 # shellcheck source=lib/offering.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/offering.sh"
+resolve_source "$NETWORK"
 
-TOKEN_SALT="$(offering_salt "$NETWORK" "$OFFERING" token)"
-SALE_SALT="$(offering_salt "$NETWORK" "$OFFERING" sale)"
+TOKEN_SALT="$(offering_salt "$OFFERING" token)"
+SALE_SALT="$(offering_salt "$OFFERING" sale)"
 TOKEN_ID="$(offering_address "$NETWORK" "$SOURCE" "$TOKEN_SALT")"
 SALE_ID="$(offering_address "$NETWORK" "$SOURCE" "$SALE_SALT")"
 DEPLOYER="$(stellar keys address "$SOURCE")"

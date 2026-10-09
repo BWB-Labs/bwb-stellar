@@ -41,17 +41,10 @@ fn extend_existing<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env, key:
     e.storage().persistent().extend_ttl(key, threshold, to);
 }
 
-fn extend_persistent<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env, key: &K) {
-    if e.storage().persistent().has(key) {
-        extend_existing(e, key);
-    }
-}
-
-/// Extends the balances a transfer touched. OpenZeppelin keeps its own
-/// 30-day rule for balances it alone touches.
-pub fn extend_balances(e: &Env, a: &Address, b: &Address) {
-    extend_persistent(e, &FungibleStorageKey::Balance(a.clone()));
-    extend_persistent(e, &FungibleStorageKey::Balance(b.clone()));
+/// Extends a balance a transfer or mint just wrote, so it exists.
+/// OpenZeppelin keeps its own 30-day rule for balances it alone touches.
+pub fn extend_balance(e: &Env, account: &Address) {
+    extend_existing(e, &FungibleStorageKey::Balance(account.clone()));
 }
 
 pub fn set_powers(
@@ -89,12 +82,12 @@ pub fn upgrader(e: &Env) -> Address {
     get(e, &DataKey::Upgrader)
 }
 
-/// Requires `caller`'s signature and that it is the stored holder of a
-/// power. The signature comes first, so a wrong account learns the code only
-/// after signing.
-pub fn require_power(e: &Env, caller: &Address, holder: &Address, err: OfferTokenError) {
+/// Requires `caller`'s signature and that it is one of the stored holders
+/// of a power. The signature comes first, so a wrong account learns the code
+/// only after signing.
+pub fn require_power(e: &Env, caller: &Address, holders: &[Address], err: OfferTokenError) {
     caller.require_auth();
-    if caller != holder {
+    if !holders.contains(caller) {
         panic_with_error!(e, err);
     }
 }

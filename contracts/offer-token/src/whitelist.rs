@@ -22,12 +22,14 @@ impl ContractOverrides for Whitelisted {
         let to_account = to.address();
         require_either(e, from, &to_account);
         Base::transfer(e, from, to, amount);
-        storage::extend_balances(e, from, &to_account);
+        storage::extend_balance(e, from);
+        storage::extend_balance(e, &to_account);
     }
 
     fn transfer_from(e: &Env, spender: &Address, from: &Address, to: &Address, amount: i128) {
         require_either(e, from, to);
         Base::transfer_from(e, spender, from, to, amount);
-        storage::extend_balances(e, from, to);
+        storage::extend_balance(e, from);
+        storage::extend_balance(e, to);
     }
 }
