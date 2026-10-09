@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 0.5 (draft) |
+| Version | 0.6 (draft) |
 | Status | Under review ([#23](https://github.com/BWB-Labs/bwb-stellar/issues/23)) |
 | Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1) |
 | Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
@@ -139,14 +139,16 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 | admin (stored address) | `offer-token` | tokenizer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
 | `xfer_admin` (stored address, fixed at construction) | `offer-token` | tokenizer's treasury | move tokens between any two accounts, even while paused |
 | owner (stored address) | `offer-sale` | tokenizer's treasury | finalize, mark failed, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
-| access-control admin | all three | platform multisig | grant and revoke the roles below |
-| `pauser` | `offer-token`, `offer-sale` | platform multisig | pause only, never unpause. **Recommended (ADR 0003), pending the team** |
-| `upgrader` | all three | platform multisig | replace the contract's code |
+| access-control admin | `offer-allowlist`, `offer-sale` | platform multisig | grant and revoke the roles below |
+| `pauser` | `offer-token` (stored address), `offer-sale` | platform multisig | pause only, never unpause. **Recommended (ADR 0003), pending the team** |
+| `upgrader` | `offer-token` (stored address), `offer-allowlist`, `offer-sale` | platform multisig | replace the contract's code |
 | `controller` | `offer-allowlist` | platform hot key, and each offering's `offer-sale` | write allocations, consume and restore them, reset consumption, grant and revoke `controller` |
 
 The stored addresses (`admin`, `xfer_admin`, owner) have no setter: they are fixed at construction, as Base's `transferAdmin` is. Rotating the treasury's officers keeps the same account address, so no setter is needed.
 
-**Why the tokenizer's roles are stored addresses.** OpenZeppelin always lets its top access-control admin grant and revoke any role. A tokenizer holding it could grant itself `upgrader` or remove the platform's `pauser`. So the tokenizer holds plain stored addresses, and the platform holds OpenZeppelin's access-control admin.
+**Why the tokenizer's roles are stored addresses.** OpenZeppelin always lets its top access-control admin grant and revoke any role. A tokenizer holding it could grant itself `upgrader` or remove the platform's `pauser`. So the tokenizer holds plain stored addresses.
+
+**`offer-token` has no access-control admin at all** (ADR 0005). Its four powers, `admin`, `xfer_admin`, `pauser` and `upgrader`, are all stored addresses fixed at construction. The platform holding OpenZeppelin's root would let it revoke or reassign the tokenizer's whitelist and forced-transfer powers, which Base never allowed. The contract doesn't know which party is which: the deploy passes the accounts. Changing a holder takes an upgrade. The allowlist and the sale contract settle their own model in L3 and L4.
 
 Two choices here deliberately differ from what a reader might expect:
 
@@ -187,7 +189,7 @@ flowchart LR
     ST[offer-token]
     SS[offer-sale]
     PM -->|admin, upgrader| SAL
-    PM -->|role admin, pauser, upgrader| ST
+    PM -->|pauser, upgrader| ST
     PM -->|role admin, pauser, upgrader| SS
     HK -->|controller, submits txs| SAL
     HK -.->|deploys in T1 via the script| ST
@@ -314,14 +316,15 @@ Each step names its signer. The per-contract documents list each call's precondi
 
 **Addresses are known in advance.** A contract's address is `sha256(XDR(HashIdPreimage::ContractId { networkID, CONTRACT_ID_PREIMAGE_FROM_ADDRESS { address: deployer, salt } }))`. It doesn't depend on the code or the constructor arguments, so every address is computed before anything is deployed (`stellar contract id wasm --salt … --source …`, or the SDK's `deployer().with_address(..).deployed_address()`). This replaces Base's prediction from the factory nonce, which breaks when two deployments race.
 
-The script's sequence (the script in the repository today deploys the placeholder token without a salt; L2 adds the salts and this sequence):
+The script's sequence. L2 delivered steps 1 and 2; L4 adds the rest.
 
-1. **Compute addresses.** One salt for the token and one for the sale contract. Both addresses derive from the deployer key. On testnet in T1 the deployer key is the platform hot key; this is testnet-only, not a rule for mainnet.
+1. **Compute addresses.** One salt for the token and one for the sale contract, each `sha256("bwb:<offering-id>:<role>")` with role `token` or `sale`, so the offering identifier alone reproduces them. The network is not in the salt: the address already includes the network ID, and the CLI's name for a network is local configuration that differs between operators. Both addresses derive from the deployer key. `scripts/offering-addresses.sh <offering-id>` prints them. On testnet in T1 the deployer key is the platform hot key; this is testnet-only, not a rule for mainnet.
 2. **Deploy `offer-token`.** Signed by the deployer key. The constructor sets:
    - `admin` and `xfer_admin`: the tokenizer's treasury;
    - `pauser` and `upgrader`: the platform multisig;
    - name, symbol, supply and offering URI;
-   - the initial transfer whitelist, which includes the precomputed sale address.
+   - the initial holder: the precomputed sale address, which receives the whole supply and is whitelisted automatically;
+   - further accounts to whitelist, if any.
 3. **Deploy `offer-sale`.** Signed by the deployer key. The constructor sets:
    - owner: the tokenizer's treasury;
    - `pauser` and `upgrader`: the platform multisig;
@@ -332,14 +335,14 @@ The script's sequence (the script in the repository today deploys the placeholde
 
 Ownership is final from the constructors, so nothing transfers ownership afterwards.
 
-**Requirements on inventory** (open, decided in L2/L4). Both are new relative to Base:
+**Requirements on inventory** (decided in L2, ADR 0006). Both are new relative to Base:
 
 - no key ever holds the offering's tokens;
 - deployment adds no signature for the tokenizer.
 
-In Base the platform server wallet receives the whole supply at mint, seeds the sale and stays whitelisted on every token forever; and the tokenizer's officers approve the deployment in-app (a Safe hash at threshold, 2-hour window) before the platform wallet runs the batch. Stellar drops both. The T1 script has no officer approval step; whether T2 keeps an in-app approval before the factory call is decided with L8. The leading candidate is for the token's constructor to mint the whole supply straight to the sale's precomputed address. Who triggers activation follows from that choice. The same requirements apply to the L8 factory.
+In Base the platform server wallet receives the whole supply at mint, seeds the sale and stays whitelisted on every token forever; and the tokenizer's officers approve the deployment in-app (a Safe hash at threshold, 2-hour window) before the platform wallet runs the batch. Stellar drops both. The T1 script has no officer approval step; whether T2 keeps an in-app approval before the factory call is decided with L8. The token's constructor mints the whole supply straight to the sale's precomputed address. Until the sale is deployed there, the tokens are inert: only the same deployer with the same salt can ever place code at that address, and `xfer_admin` can move them if it never is. Who triggers activation is decided in L4. The same requirements apply to the L8 factory, which computes the address inside its single call.
 
-**Retrying a step.** The script is re-runnable. Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded and the token mints to the sale's address (the leading candidate), the tokens wait at that address until step 3 is retried with the same salt.
+**Retrying a step.** The script is re-runnable. Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded, the tokens wait at the sale's address until step 3 is retried with the same salt. The script skips a step whose contract already exists and refuses to record a deployment whose address differs from the precomputed one.
 
 ### 5.2 Allowlist
 
@@ -411,7 +414,7 @@ The investor signs `cooling_off_refund(investor)` themselves, within the window,
 
 ### 6.2 Events the contracts inherit
 
-The token emits OpenZeppelin 0.7.2's standard events (`transfer`, `mint`, `approve`, `paused` / `unpaused`, `role_granted` / `role_revoked` / `role_admin_changed`), and so does any contract wherever it uses the library. Every payment, refund and payout also produces a `transfer` event from the USDC contract.
+The token emits OpenZeppelin 0.7.2's standard events (`transfer`, `mint`, `approve`, `paused` / `unpaused`), and so does any contract wherever it uses the library. The role events (`role_granted` / `role_revoked` / `role_admin_changed`) come only from contracts that use OpenZeppelin's access control, which the token doesn't. Every payment, refund and payout also produces a `transfer` event from the USDC contract.
 
 The two `transfer` formats differ. **A consumer of payment events handles transfers with 3 topics (OpenZeppelin) and with 4 (USDC), and data as a bare amount or as a map.** A USDC transfer to a muxed address carries `{amount, to_muxed_id}`, and a transfer to or from the USDC issuer is emitted as `burn` / `mint` instead. The exact shapes are in [R4](#r4-inherited-event-shapes).
 
@@ -509,7 +512,7 @@ On Stellar, every piece of contract data has a lifetime, its *TTL* (time to live
 | Reservation per investor | persistent, one entry per investor | `offer-sale` |
 | Balance per holder | persistent (OpenZeppelin) | `offer-token` |
 | Transfer whitelist, one entry per account | persistent | `offer-token` |
-| Roles | persistent (OpenZeppelin) | all |
+| Roles | persistent (OpenZeppelin) | `offer-allowlist`, `offer-sale` |
 | State, configuration, totals, admin, pause flag | instance | all |
 | Authorization nonces, OpenZeppelin allowances and pending admin transfers | temporary | host, `offer-token`, all |
 
@@ -604,7 +607,7 @@ This format is for native accounts only. If a treasury is an OpenZeppelin smart 
 
 ### R4. Inherited event shapes
 
-From OpenZeppelin 0.7.2, on `offer-token` and wherever the library is used:
+From OpenZeppelin 0.7.2, wherever the library is used. `offer-token` emits the first five; the role events come only from contracts with OpenZeppelin access control:
 
 | Event | Topics | Data |
 |---|---|---|
@@ -673,8 +676,10 @@ OpenZeppelin codes the backend will meet:
 | 103 | `LessThanZero` | negative amount |
 | 1000 | `EnforcedPause` | the contract is paused |
 | 1001 | `ExpectedPause` | unpausing a contract that isn't paused |
-| 2000 | `Unauthorized` | the caller lacks the role |
-| 2007 | `RoleNotHeld` | revoking a role the account doesn't hold |
+| 2000 | `Unauthorized` | the caller lacks the role (contracts with OpenZeppelin access control) |
+| 2007 | `RoleNotHeld` | revoking a role the account doesn't hold (same) |
+
+`offer-token` never returns 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 ([offer-token.md](offer-token.md#errors)).
 
 USDC (Stellar Asset Contract) codes the backend will meet. They come back unchanged as `Error(Contract, #n)` and don't collide with the blocks above:
 
@@ -726,6 +731,14 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **Offerings and the allowlist:** [`deployments/testnet.json`](../deployments/testnet.json). These IDs change with every testnet redeploy.
 
 ## Changelog
+
+**0.6, 2026-10-09.** `offer-token` delivered (L2). Its document now describes the deployed contract. Changes here:
+
+- **No access control on the token** (ADR 0005): `admin`, `xfer_admin`, `pauser` and `upgrader` are all stored addresses fixed at construction. The role calls and events, codes 2000 and 2007, and 6002 `RenounceBlocked` no longer apply to the token. The allowlist and the sale contract are unchanged here.
+- **Every privileged token call takes its caller** as the last argument (`set_transfer_whitelist`, `set_offer_uri`, `admin_transfer`, as `pause`, `unpause` and `upgrade` already did), so a signed but wrong caller fails with the power's own code instead of only an authorization error.
+- **Inventory decided** (ADR 0006): the supply mints to the sale contract's precomputed address. Salts are derived from the offering identifier; the script, its re-run rule and the manifest layout are in [5.1](#51-deploying-an-offering).
+- **Token additions:** an `initialized` event at construction; codes 6002–6007 (`BurnDisabled`, one per power, `InvalidSupply`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
+- **Expiry:** the token tops its instance and the entries a call touches up to the network maximum (about 180 days) once they fall a month below it, instead of OpenZeppelin's 30 days. Balances only OpenZeppelin touches keep its rule.
 
 **0.5, 2026-10-06.** Changes from three reviews (against the team decisions, against Base's code, against Soroban):
 

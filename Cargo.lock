@@ -1179,6 +1179,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "offer-token-v2-fixture"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-contract-utils",
+ "stellar-tokens",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

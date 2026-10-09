@@ -1,0 +1,17 @@
+[package]
+name = "offer-token-v2-fixture"
+version = "0.0.0"
+description = "Test-only second version of offer-token, used to prove storage survives an upgrade. Never deployed."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+stellar-tokens = { workspace = true }
+stellar-contract-utils = { workspace = true }

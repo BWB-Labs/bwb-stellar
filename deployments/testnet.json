@@ -1,25 +1,54 @@
 {
   "network": "testnet",
   "passphrase": "Test SDF Network ; September 2015",
-  "contracts": {
-    "offer-token": {
-      "contract_id": "CCM2ATJ6KNKB6B3XMAVYWSPVOW7GKUCWRMDV5AEPD33XHZW5FVH7HWSO",
-      "wasm_hash": "b6fa3f7316c1d636f8bb5dce3796ae768b9671e70037e34b8d65a4b5558b4451",
-      "deploy_tx": "067c6f7a7b538f52e8264fcdcafd49b0e1824ccfdf99d967ff23f37cb3b79597",
-      "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-      "deployed_at": "2026-09-29T13:46:23Z",
-      "constructor_args": [
-        "--admin",
-        "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
-      ],
-      "toolchain": {
-        "rustc": "1.97.1",
-        "soroban_sdk": "26.1.1",
-        "stellar_cli": "28.1.0"
+  "offerings": {
+    "t1-demo": {
+      "token": {
+        "status": "deployed",
+        "salt": "9e56d7e30ba7073c9c688b0771242c6089508944a1f38a259d024379f659756f",
+        "crate": "offer-token",
+        "contract_id": "CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
+        "wasm_hash": "19a7544def82d9b8b9ff93fdc64b5487486e922cff5af9a834503142db6fe824",
+        "deploy_tx": "5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-10-09T17:49:29Z",
+        "constructor_args": [
+          "--admin",
+          "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
+          "--xfer_admin",
+          "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
+          "--pauser",
+          "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
+          "--upgrader",
+          "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
+          "--name",
+          "BWB T1 Demo",
+          "--symbol",
+          "BWBT1",
+          "--supply",
+          "1000",
+          "--initial_holder",
+          "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
+          "--whitelist",
+          "[]",
+          "--offer_uri",
+          "ipfs://bwb-t1-demo"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
+          "tx": "https://stellar.expert/explorer/testnet/tx/5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d"
+        }
       },
-      "explorer": {
-        "contract": "https://stellar.expert/explorer/testnet/contract/CCM2ATJ6KNKB6B3XMAVYWSPVOW7GKUCWRMDV5AEPD33XHZW5FVH7HWSO",
-        "tx": "https://stellar.expert/explorer/testnet/tx/067c6f7a7b538f52e8264fcdcafd49b0e1824ccfdf99d967ff23f37cb3b79597"
+      "sale": {
+        "status": "precomputed",
+        "salt": "c8f4e98da060ae0e3b909dea2f69148aa2d2789dd52895a0376b6fd6fa69d8e5",
+        "contract_id": "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
       }
     }
   }
