@@ -31,7 +31,7 @@ In BWB's production application on Base, the only tokenizer is BWB's own organiz
 | `name`, `symbol` | The offering's token metadata |
 | `supply` | Total tokens, minted once. Must be positive. No later minting. |
 | `initial_holder` | Receives the whole supply and is **whitelisted automatically**. It is the offering's sale contract, at its address precomputed from the deployer and a salt (ADR 0006, [interface 5.1](interface.md#51-deploying-an-offering)). |
-| `whitelist` | Further accounts to whitelist, at most 40 (a transaction may write 50 entries). Duplicates, and the initial holder, are ignored. More go through `set_transfer_whitelist`. |
+| `whitelist` | Further accounts to whitelist, at most 40 entries as given, duplicates included (a transaction may write 50 entries). Duplicates, and the initial holder, are ignored once inside. More go through `set_transfer_whitelist`. |
 | `offer_uri` | URI of the offering's documents, at most 256 bytes: it lives in instance storage, which every call reads. |
 
 The constructor emits `initialized`, then OpenZeppelin's `mint`, then one `whitelist_updated` per account it whitelists.

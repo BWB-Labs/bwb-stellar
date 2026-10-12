@@ -116,19 +116,6 @@ PY
       exit 1 ;;
   esac
 
-  # The token mints its whole supply to --initial_holder, which must be the
-  # sale contract's precomputed address and nothing else.
-  if [[ "$ROLE" == token ]]; then
-    HOLDER=""
-    for ((i = 0; i < ${#CTOR_ARGS[@]}; i++)); do
-      [[ "${CTOR_ARGS[$i]}" == --initial_holder ]] && HOLDER="${CTOR_ARGS[$((i + 1))]:-}"
-    done
-    if [[ "$HOLDER" != "$SIBLING_ID" ]]; then
-      echo "--initial_holder must be the sale contract's precomputed address $SIBLING_ID (got '${HOLDER:-none}')" >&2
-      exit 1
-    fi
-  fi
-
   # Re-runnable: a step that already succeeded is not repeated, since
   # deploying to a taken address fails. A contract that exists but is not in
   # the manifest (the previous run died after deploying) is an error, not a
@@ -143,6 +130,19 @@ PY
     exit 1
   elif [[ $? -eq 2 ]]; then
     exit 1
+  fi
+
+  # The token mints its whole supply to --initial_holder, which must be the
+  # sale contract's precomputed address and nothing else.
+  if [[ "$ROLE" == token ]]; then
+    HOLDER=""
+    for ((i = 0; i < ${#CTOR_ARGS[@]}; i++)); do
+      [[ "${CTOR_ARGS[$i]}" == --initial_holder ]] && HOLDER="${CTOR_ARGS[$((i + 1))]:-}"
+    done
+    if [[ "$HOLDER" != "$SIBLING_ID" ]]; then
+      echo "--initial_holder must be the sale contract's precomputed address $SIBLING_ID (got '${HOLDER:-none}')" >&2
+      exit 1
+    fi
   fi
 fi
 
