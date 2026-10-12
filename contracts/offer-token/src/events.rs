@@ -6,7 +6,6 @@ use soroban_sdk::{contractevent, Address, BytesN, String};
 
 /// The token's whole configuration, once, at construction.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Initialized {
     pub admin: Address,
     pub xfer_admin: Address,
@@ -19,7 +18,6 @@ pub struct Initialized {
 
 /// An account joined or left the transfer whitelist.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WhitelistUpdated {
     #[topic]
     pub account: Address,
@@ -28,14 +26,12 @@ pub struct WhitelistUpdated {
 
 /// The offering URI was replaced.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OfferUriUpdated {
     pub uri: String,
 }
 
 /// Transfers were paused or resumed, and by whom.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PauseChanged {
     #[topic]
     pub caller: Address,
@@ -44,7 +40,6 @@ pub struct PauseChanged {
 
 /// `xfer_admin` moved tokens. A standard `transfer` is emitted too.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdminTransfer {
     #[topic]
     pub from: Address,
@@ -55,7 +50,6 @@ pub struct AdminTransfer {
 
 /// Emitted by the old code just before it is replaced.
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Upgraded {
     pub new_wasm_hash: BytesN<32>,
     pub from_schema_version: u32,
