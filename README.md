@@ -31,7 +31,7 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 | `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much; one global instance | 1 |
 | `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, finalize, cancel, cooling-off, refund, release | 1 |
 
-`offer-token-v2-fixture` (`contracts/offer-token/fixtures/v2`) is a test-only second version of the token, used by
+`offer-token-upgrade-fixture` (`contracts/offer-token/upgrade-fixture`) is a test-only second version of the token, used by
 its upgrade test. It is never deployed.
 
 Distributors and factories follow in Tranche 2. Each contract has a document in

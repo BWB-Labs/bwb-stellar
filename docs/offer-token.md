@@ -142,7 +142,7 @@ Every state-changing call tops the instance, and every whitelist entry and balan
 | `pause` | Paused blocks `transfer` and `transfer_from`, not `approve`, forced transfer or admin calls; pause twice, unpause a live token |
 | `idempotency` | Repeated whitelist changes and URI updates converge |
 | `failure` | The burn stubs, allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001, 6007 and 6008, transfers for 6000) |
-| `upgrade` | Swap to `offer-token-v2-fixture`, a test-only second binary, and read every value back; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader can't swap |
+| `upgrade` | Swap to `offer-token-upgrade-fixture`, a test-only second binary, and read every value back; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader can't swap |
 | `events` | Each call's exact events |
 | `ttl` | The expiry policy on the instance, balances (transfer, transfer_from, forced transfer) and whitelist entries |
 | `transfers` | The whitelist rule (muxed recipients included), whitelist and URI management, forced transfer, fixed supply |

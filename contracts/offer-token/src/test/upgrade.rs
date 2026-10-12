@@ -7,7 +7,7 @@
 fn upgrade_fixture_is_built() {
     panic!(
         "the upgrade fixture is not built: run scripts/test.sh, which builds \
-         offer-token-v2-fixture with the Stellar CLI and then runs cargo test"
+         offer-token-upgrade-fixture with the Stellar CLI and then runs cargo test"
     );
 }
 
@@ -20,7 +20,9 @@ mod with_fixture {
     use crate::OfferTokenError;
 
     mod v2 {
-        soroban_sdk::contractimport!(file = "../../target/fixtures/offer_token_v2_fixture.wasm");
+        soroban_sdk::contractimport!(
+            file = "../../target/fixtures/offer_token_upgrade_fixture.wasm"
+        );
     }
 
     #[test]

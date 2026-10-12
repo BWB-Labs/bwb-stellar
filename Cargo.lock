@@ -1178,7 +1178,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "offer-token-v2-fixture"
+name = "offer-token-upgrade-fixture"
 version = "0.0.0"
 dependencies = [
  "soroban-sdk",

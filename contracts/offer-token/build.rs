@@ -9,7 +9,7 @@ use std::path::Path;
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(fixture_missing)");
     let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let wasm = Path::new(&manifest).join("../../target/fixtures/offer_token_v2_fixture.wasm");
+    let wasm = Path::new(&manifest).join("../../target/fixtures/offer_token_upgrade_fixture.wasm");
     println!("cargo::rerun-if-changed={}", wasm.display());
     if !wasm.exists() {
         println!("cargo::rustc-cfg=fixture_missing");
