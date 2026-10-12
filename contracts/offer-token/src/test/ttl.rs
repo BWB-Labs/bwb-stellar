@@ -1,6 +1,7 @@
 //! A quiet contract must not archive between touches: every call tops the
 //! instance and the entries it touches up to the network maximum once they
 //! fall a month below it.
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{
     testutils::{
         storage::{Instance as _, Persistent as _},
@@ -23,6 +24,14 @@ fn balance_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
         e.storage()
             .persistent()
             .get_ttl(&FungibleStorageKey::Balance(who.clone()))
+    })
+}
+
+fn whitelist_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
+    e.as_contract(id, || {
+        e.storage()
+            .persistent()
+            .get_ttl(&crate::storage::DataKey::Whitelisted(who.clone()))
     })
 }
 
@@ -67,6 +76,34 @@ fn transfers_extend_both_balances_to_the_maximum() {
     s.client.transfer(&s.alice, &s.listed, &1);
     assert_eq!(balance_ttl(&s.e, &s.id, &s.alice), max_ttl(&s.e, &s.id));
     assert_eq!(balance_ttl(&s.e, &s.id, &s.listed), max_ttl(&s.e, &s.id));
+}
+
+#[test]
+fn transfer_from_extends_both_balances_to_the_maximum() {
+    let s = setup();
+    let spender = Address::generate(&s.e);
+    s.client.approve(&s.alice, &spender, &5, &(60 * DAY));
+    advance(&s.e, 40);
+    s.client.transfer_from(&spender, &s.alice, &s.listed, &1);
+    assert_eq!(balance_ttl(&s.e, &s.id, &s.alice), max_ttl(&s.e, &s.id));
+    assert_eq!(balance_ttl(&s.e, &s.id, &s.listed), max_ttl(&s.e, &s.id));
+}
+
+#[test]
+fn a_transfer_extends_the_whitelist_entry_it_checked() {
+    let s = setup();
+    advance(&s.e, 40);
+    assert!(whitelist_ttl(&s.e, &s.id, &s.listed) < max_ttl(&s.e, &s.id));
+    s.client.transfer(&s.alice, &s.listed, &1);
+    assert_eq!(whitelist_ttl(&s.e, &s.id, &s.listed), max_ttl(&s.e, &s.id));
+}
+
+#[test]
+fn whitelisting_writes_the_entry_with_the_maximum_ttl() {
+    let s = setup();
+    advance(&s.e, 40);
+    s.client.set_transfer_whitelist(&s.alice, &true, &s.admin);
+    assert_eq!(whitelist_ttl(&s.e, &s.id, &s.alice), max_ttl(&s.e, &s.id));
 }
 
 #[test]

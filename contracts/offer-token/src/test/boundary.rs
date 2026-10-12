@@ -2,7 +2,7 @@
 use soroban_sdk::{testutils::Address as _, vec, Address, Env};
 
 use super::{code, ctor_args, err, parties, setup};
-use crate::{OfferToken, OfferTokenClient, OfferTokenError};
+use crate::{OfferToken, OfferTokenClient, OfferTokenError, MAX_INITIAL_WHITELIST, MAX_URI_LEN};
 
 const INSUFFICIENT_BALANCE: u32 = 100;
 
@@ -20,6 +20,41 @@ fn negative_supply_is_rejected_at_construction() {
     let e = Env::default();
     let p = parties(&e);
     e.register(OfferToken, ctor_args(&e, &p, -1, vec![&e]));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6008)")]
+fn constructor_rejects_a_whitelist_over_the_cap() {
+    let e = Env::default();
+    let p = parties(&e);
+    let mut list = soroban_sdk::Vec::new(&e);
+    for _ in 0..=MAX_INITIAL_WHITELIST {
+        list.push_back(Address::generate(&e));
+    }
+    e.register(OfferToken, ctor_args(&e, &p, 10, list));
+}
+
+#[test]
+fn constructor_accepts_a_whitelist_at_the_cap() {
+    let e = Env::default();
+    let p = parties(&e);
+    let mut list = soroban_sdk::Vec::new(&e);
+    for _ in 0..MAX_INITIAL_WHITELIST {
+        list.push_back(Address::generate(&e));
+    }
+    let last = list.last().unwrap();
+    let id = e.register(OfferToken, ctor_args(&e, &p, 10, list));
+    assert!(OfferTokenClient::new(&e, &id).is_transfer_whitelisted(&last));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6009)")]
+fn constructor_rejects_a_uri_over_the_cap() {
+    let e = Env::default();
+    let p = parties(&e);
+    let mut args = ctor_args(&e, &p, 10, vec![&e]);
+    args.9 = soroban_sdk::String::from_str(&e, &"u".repeat(MAX_URI_LEN as usize + 1));
+    e.register(OfferToken, args);
 }
 
 #[test]

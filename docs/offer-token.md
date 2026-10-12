@@ -4,7 +4,7 @@
 - **Who uses it.** The offering's sale contract receives the whole supply at construction and releases tokens to investors. Investors hold them and may send them only to whitelisted accounts. The tokenizer's treasury manages the whitelist and the offering URI, pauses and unpauses, and moves tokens by force when it must. The platform multisig replaces the code and can pause (recommended, pending the team).
 - **Where it comes from.** A port of Base's `OfferERC20`: a SEP-41 token with 0 decimals, a transfer whitelist, pause, forced transfer and offering metadata. It is built on OpenZeppelin Stellar 0.7.2's fungible `Base`.
 
-**Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo`. The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-2`. The cross-cutting rules are in [interface.md](interface.md).
 
 ## Powers
 
@@ -19,6 +19,8 @@ Four powers, each a stored address set at construction, **with no setter**. Ther
 
 The contract doesn't know which party is which: the deploy passes the accounts, and the mainnet holders come from the key ceremony (L11). Rotating a treasury's signers keeps its address, so no setter is needed. Replacing an address takes an upgrade.
 
+**`upgrader` is the trust root.** No power can be granted by a call, but a code swap can do anything: mint, move, unpause, rewrite the other three addresses. Whoever holds `upgrader` holds the offering. It must be the strongest key the platform has, and the key ceremony should treat it that way (a timelock or a two-step upgrade is a candidate for a later version).
+
 In BWB's production application on Base, the only tokenizer is BWB's own organization, BWB Tokenizadora, so `admin` and `xfer_admin` are BWB powers held through that organization's treasury, as they are on Base today.
 
 ## Constructor
@@ -29,8 +31,8 @@ In BWB's production application on Base, the only tokenizer is BWB's own organiz
 | `name`, `symbol` | The offering's token metadata |
 | `supply` | Total tokens, minted once. Must be positive. No later minting. |
 | `initial_holder` | Receives the whole supply and is **whitelisted automatically**. It is the offering's sale contract, at its address precomputed from the deployer and a salt (ADR 0006, [interface 5.1](interface.md#51-deploying-an-offering)). |
-| `whitelist` | Further accounts to whitelist. Duplicates, and the initial holder, are ignored. |
-| `offer_uri` | URI of the offering's documents |
+| `whitelist` | Further accounts to whitelist, at most 40 (a transaction may write 50 entries). Duplicates, and the initial holder, are ignored. More go through `set_transfer_whitelist`. |
+| `offer_uri` | URI of the offering's documents, at most 256 bytes: it lives in instance storage, which every call reads. |
 
 The constructor emits `initialized`, then OpenZeppelin's `mint`, then one `whitelist_updated` per account it whitelists.
 
@@ -46,7 +48,7 @@ Every privileged call takes the signing account as its last argument (`caller` o
 | `burn(from, amount)`, `burn_from(spender, from, amount)` | anyone | Always fail with `BurnDisabled`. They exist so standard SEP-41 clients get a contract error instead of a missing function. |
 | `admin_transfer(from, to, amount, caller)` | `caller` = `xfer_admin` | Moves tokens between any two accounts, **ignoring pause and the whitelist**, as Base's `adminTransfer` (audit SCAN-04): court orders, lost keys, estates, manual returns. Rejects `from == to` and amounts that aren't positive. It can move the sale contract's balance too, including sold-but-unreleased tokens, which then breaks `release` ([interface 5.5](interface.md#55-after-success)). |
 | `set_transfer_whitelist(account, allowed, caller)` | `caller` = `admin` | Adds or removes an account. Emits every time, even when nothing changes, as Base does. |
-| `set_offer_uri(uri, caller)` | `caller` = `admin` | Replaces the offering URI. |
+| `set_offer_uri(uri, caller)` | `caller` = `admin` | Replaces the offering URI (at most 256 bytes). |
 | `pause(caller)` | `caller` = `admin` or `pauser` | Pauses `transfer` and `transfer_from`. |
 | `unpause(caller)` | `caller` = `admin` | Resumes them. |
 | `upgrade(new_wasm_hash, operator)` | `operator` = `upgrader` | Replaces the code once the call succeeds. Storage is kept and the constructor doesn't run again. There is no `migrate` in this version. |
@@ -54,7 +56,7 @@ Every privileged call takes the signing account as its last argument (`caller` o
 Read functions:
 
 - SEP-41: `balance`, `allowance`, `decimals` (always 0), `name`, `symbol`, `total_supply`;
-- whitelist and metadata: `is_transfer_whitelisted(account)`, `offer_uri`;
+- whitelist and metadata: `is_transfer_whitelisted(account)` (when submitted rather than simulated, it also extends the entry's lifetime), `offer_uri`;
 - state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `schema_version` (1).
 
 The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
@@ -82,7 +84,7 @@ Inherited from OpenZeppelin:
 - `transfer`, `mint` (once, at construction), `approve`;
 - `paused` and `unpaused`, with empty data.
 
-Their shapes are in [interface R4](interface.md#r4-inherited-event-shapes).
+Their shapes are in [interface R4](interface.md#r4-inherited-event-shapes). Note for indexers: OpenZeppelin's `mint` and `approve` carry their data as a map (`{amount}`, `{amount, live_until_ledger}`), not as the bare `i128` the Stellar Asset Contract uses. SEP-41 allows both; a consumer that only knows the asset contract's shape misreads the one `mint` that creates the supply.
 
 Specific to this contract:
 
@@ -107,12 +109,15 @@ Specific to this contract:
 | 6005 | `NotPauser` | The caller signed but is neither `pauser` nor `admin` |
 | 6006 | `NotUpgrader` | The operator signed but isn't `upgrader` |
 | 6007 | `InvalidSupply` | The constructor's supply is zero or negative |
+| 6008 | `WhitelistTooLong` | The constructor's whitelist has more than 40 accounts |
+| 6009 | `UriTooLong` | The offering URI is longer than 256 bytes |
 
 OpenZeppelin codes that can surface:
 
 - 100 `InsufficientBalance`
 - 101 `InsufficientAllowance`
 - 103 `LessThanZero`
+- 104 `MathOverflow` (not reachable with one mint, listed for completeness)
 - 1000 `EnforcedPause`
 - 1001 `ExpectedPause`
 
@@ -136,8 +141,8 @@ Every state-changing call tops the instance, and every whitelist entry and balan
 | `boundary` | Supply 0, −1 and 1; whole balance and one more; forced-transfer edge amounts; duplicate whitelist inputs |
 | `pause` | Paused blocks `transfer` and `transfer_from`, not `approve`, forced transfer or admin calls; pause twice, unpause a live token |
 | `idempotency` | Repeated whitelist changes and URI updates converge |
-| `failure` | Every documented code through the client, including both burn stubs |
-| `upgrade` | Swap to `offer-token-v2-fixture`, a test-only second binary, and read every value back; a non-upgrader can't swap |
+| `failure` | The burn stubs, allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001, 6007 and 6008, transfers for 6000) |
+| `upgrade` | Swap to `offer-token-v2-fixture`, a test-only second binary, and read every value back; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader can't swap |
 | `events` | Each call's exact events |
-| `ttl` | The expiry policy |
+| `ttl` | The expiry policy on the instance, balances (transfer, transfer_from, forced transfer) and whitelist entries |
 | `transfers` | The whitelist rule (muxed recipients included), whitelist and URI management, forced transfer, fixed supply |

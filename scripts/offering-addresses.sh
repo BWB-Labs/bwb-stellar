@@ -17,6 +17,7 @@ NETWORK="${NETWORK:-testnet}"
 
 # shellcheck source=lib/offering.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/offering.sh"
+require_offering_id "$OFFERING"
 resolve_source "$NETWORK"
 
 TOKEN_SALT="$(offering_salt "$OFFERING" token)"

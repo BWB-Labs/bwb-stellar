@@ -12,8 +12,9 @@
 //! unpauses; `xfer_admin` moves tokens between any two accounts, ignoring
 //! pause and the whitelist; `pauser` pauses but never unpauses; `upgrader`
 //! replaces the code. There is no access-control root, so no holder can grant
-//! itself another's power. Which account holds each is decided per
-//! deployment.
+//! itself another's power by a call. `upgrader` is still the trust root: a
+//! code swap can do anything, so it must be the strongest key. Which account
+//! holds each is decided per deployment.
 //!
 //! There is no burn and no later mint: `burn` and `burn_from` exist for the
 //! SEP-41 shape and always fail.
@@ -21,7 +22,7 @@
 
 mod errors;
 pub mod events;
-mod storage;
+pub(crate) mod storage;
 mod whitelist;
 
 use soroban_sdk::{
@@ -45,6 +46,17 @@ contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 
 /// Version of the storage layout this code writes and reads.
 const SCHEMA_VERSION: u32 = 1;
+
+/// Accounts the constructor will whitelist. Each is a persistent write and
+/// an event, and a transaction may write at most 50 entries and touch 100
+/// (the host's own limits; the live network's are looser but voted on).
+/// At 40 the constructor stays under both with margin. The rest go through
+/// `set_transfer_whitelist`.
+pub const MAX_INITIAL_WHITELIST: u32 = 40;
+
+/// The offering URI lives in instance storage, which every call reads, so
+/// it is kept short.
+pub const MAX_URI_LEN: u32 = 256;
 
 #[contract]
 pub struct OfferToken;
@@ -70,8 +82,11 @@ impl OfferToken {
         if supply <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }
+        if whitelist.len() > MAX_INITIAL_WHITELIST {
+            panic_with_error!(e, OfferTokenError::WhitelistTooLong);
+        }
         storage::set_powers(e, &admin, &xfer_admin, &pauser, &upgrader);
-        storage::set_offer_uri(e, &offer_uri);
+        set_uri_checked(e, &offer_uri);
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         Base::set_metadata(e, 0, name, symbol);
         storage::extend_instance(e);
@@ -107,7 +122,7 @@ impl OfferToken {
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
-        storage::set_offer_uri(e, &uri);
+        set_uri_checked(e, &uri);
         storage::extend_instance(e);
         OfferUriUpdated { uri }.publish(e);
     }
@@ -169,6 +184,13 @@ impl OfferToken {
     pub fn schema_version(e: &Env) -> u32 {
         upgradeable::get_schema_version(e)
     }
+}
+
+fn set_uri_checked(e: &Env, uri: &String) {
+    if uri.len() > MAX_URI_LEN {
+        panic_with_error!(e, OfferTokenError::UriTooLong);
+    }
+    storage::set_offer_uri(e, uri);
 }
 
 fn whitelist_if_new(e: &Env, account: &Address) {

@@ -1,7 +1,7 @@
 use soroban_sdk::contracterror;
 
 /// Contract errors of `offer-token`, in BWB's 6000–6099 range. OpenZeppelin's
-/// own codes (100–103 token, 1000–1001 pause) can surface too; the token
+/// own codes (100–104 token, 1000–1001 pause) can surface too; the token
 /// document lists both.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -23,4 +23,9 @@ pub enum OfferTokenError {
     NotUpgrader = 6006,
     /// The constructor received a supply that is zero or negative.
     InvalidSupply = 6007,
+    /// The constructor's whitelist has more than `MAX_INITIAL_WHITELIST`
+    /// accounts; add the rest with `set_transfer_whitelist`.
+    WhitelistTooLong = 6008,
+    /// The offering URI is longer than `MAX_URI_LEN` bytes.
+    UriTooLong = 6009,
 }

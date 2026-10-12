@@ -13,6 +13,16 @@
 # addresses depending on who runs the script. The L8 factory is expected to
 # use the same rule.
 
+# require_offering_id <offering-id>: lowercase letters, digits and dashes
+# only, so one offering can't get several addresses from spelling variants,
+# and so the CLI alias built from it is valid before any fee is paid.
+require_offering_id() {
+  [[ "$1" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+    echo "invalid offering id '$1': use lowercase letters, digits and dashes" >&2
+    exit 1
+  }
+}
+
 # offering_salt <offering-id> <role> -> 64 hex chars
 offering_salt() {
   python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
@@ -39,5 +49,21 @@ crate_role() {
 
 # offering_address <network> <source> <salt> -> C... address
 offering_address() {
-  stellar contract id wasm --network "$1" --source-account "$2" --salt "$3"
+  stellar contract id wasm --network "$1" --source-account "$2" --salt "$3" | tail -n1
+}
+
+# contract_exists <network> <contract-id> -> exit 0 if deployed, 1 if the
+# network says it is not, 2 on any other failure (RPC down, rate limit), so
+# a flaky network is never mistaken for "not deployed".
+contract_exists() {
+  local err
+  if err="$(stellar contract info interface --network "$1" --contract-id "$2" 2>&1 >/dev/null)"; then
+    return 0
+  elif grep -q "Contract not found" <<<"$err"; then
+    return 1
+  else
+    echo "could not check whether $2 exists on $1:" >&2
+    echo "$err" >&2
+    return 2
+  fi
 }

@@ -53,8 +53,12 @@ ROLE=""
 SALT=""
 SALT_ARGS=()
 ALIAS="$CRATE"
+case "$CRATE" in
+  *-fixture) echo "$CRATE is a test fixture and is never deployed" >&2; exit 1 ;;
+esac
 if ROLE="$(crate_role "$CRATE")"; then
   : "${OFFERING:?OFFERING is required for $CRATE: one instance per offering}"
+  require_offering_id "$OFFERING"
   SALT="$(offering_salt "$OFFERING" "$ROLE")"
   SALT_ARGS=(--salt "$SALT")
   ALIAS="$CRATE-$OFFERING"
@@ -84,28 +88,60 @@ cd "$ROOT"
 if [[ -n "$SALT" ]]; then
   SIBLING_ROLE="$([[ "$ROLE" == token ]] && echo sale || echo token)"
   SIBLING_SALT="$(offering_salt "$OFFERING" "$SIBLING_ROLE")"
-  EXPECTED_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SALT" | tail -n1)"
-  SIBLING_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SIBLING_SALT" | tail -n1)"
+  EXPECTED_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SALT")"
+  SIBLING_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SIBLING_SALT")"
   echo ">> offering $OFFERING: $ROLE at $EXPECTED_ID, $SIBLING_ROLE at $SIBLING_ID"
+
+  # The manifest is the memory of what this offering's addresses are. If it
+  # already names this role's address or the sibling's and we compute a
+  # different one (another deployer, or a changed salt rule), stop: deploying
+  # elsewhere would strand the supply minted to the recorded sale address.
+  MANIFEST_STATE="$(python3 - "$MANIFEST" "$OFFERING" "$ROLE" "$EXPECTED_ID" "$SIBLING_ROLE" "$SIBLING_ID" <<'PY'
+import json, os, sys
+path, offering, role, cid, sib_role, sib_id = sys.argv[1:]
+m = json.load(open(path)) if os.path.exists(path) else {}
+o = m.get("offerings", {}).get(offering, {})
+for r, expected in ((role, cid), (sib_role, sib_id)):
+    recorded = o.get(r, {}).get("contract_id")
+    if recorded and recorded != expected:
+        print(f"mismatch {r} recorded {recorded} computed {expected}"); sys.exit(0)
+e = o.get(role, {})
+print("recorded" if e.get("status") == "deployed" and e.get("contract_id") == cid else "absent")
+PY
+)"
+  case "$MANIFEST_STATE" in
+    mismatch*)
+      echo "$MANIFEST disagrees with the computed addresses for offering $OFFERING ($MANIFEST_STATE);" \
+        "use the deployer that created the offering, or fix the manifest" >&2
+      exit 1 ;;
+  esac
+
+  # The token mints its whole supply to --initial_holder, which must be the
+  # sale contract's precomputed address and nothing else.
+  if [[ "$ROLE" == token ]]; then
+    HOLDER=""
+    for ((i = 0; i < ${#CTOR_ARGS[@]}; i++)); do
+      [[ "${CTOR_ARGS[$i]}" == --initial_holder ]] && HOLDER="${CTOR_ARGS[$((i + 1))]:-}"
+    done
+    if [[ "$HOLDER" != "$SIBLING_ID" ]]; then
+      echo "--initial_holder must be the sale contract's precomputed address $SIBLING_ID (got '${HOLDER:-none}')" >&2
+      exit 1
+    fi
+  fi
+
   # Re-runnable: a step that already succeeded is not repeated, since
   # deploying to a taken address fails. A contract that exists but is not in
   # the manifest (the previous run died after deploying) is an error, not a
   # success: its deploy transaction has to be recorded by hand.
-  if stellar contract info interface --network "$NETWORK" --contract-id "$EXPECTED_ID" >/dev/null 2>&1; then
-    RECORDED="$(python3 - "$MANIFEST" "$OFFERING" "$ROLE" "$EXPECTED_ID" <<'PY'
-import json, os, sys
-path, offering, role, cid = sys.argv[1:]
-m = json.load(open(path)) if os.path.exists(path) else {}
-e = m.get("offerings", {}).get(offering, {}).get(role, {})
-print("yes" if e.get("status") == "deployed" and e.get("contract_id") == cid else "no")
-PY
-)"
-    if [[ "$RECORDED" == yes ]]; then
+  if contract_exists "$NETWORK" "$EXPECTED_ID"; then
+    if [[ "$MANIFEST_STATE" == recorded ]]; then
       echo "$CRATE for offering $OFFERING is already deployed at $EXPECTED_ID and recorded; nothing to do"
       exit 0
     fi
     echo "$CRATE for offering $OFFERING exists at $EXPECTED_ID but is not recorded in $MANIFEST;" \
       "find its deploy transaction and record it by hand" >&2
+    exit 1
+  elif [[ $? -eq 2 ]]; then
     exit 1
   fi
 fi

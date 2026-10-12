@@ -62,6 +62,29 @@ mod with_fixture {
     }
 
     #[test]
+    fn the_upgraded_code_can_still_upgrade() {
+        let s = setup();
+        let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
+        s.client.upgrade(&hash, &s.upgrader);
+        let v2 = v2::Client::new(&s.e, &s.id);
+        // Same binary again: proves the gate and the swap survive the swap.
+        assert_eq!(
+            err(v2.try_upgrade(&hash, &s.admin)),
+            OfferTokenError::NotUpgrader.into()
+        );
+        v2.upgrade(&hash, &s.upgrader);
+        assert_eq!(v2.v2_marker(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Storage, MissingValue)")]
+    fn upgrading_to_a_hash_that_was_never_uploaded_fails() {
+        let s = setup();
+        let unknown = soroban_sdk::BytesN::from_array(&s.e, &[7; 32]);
+        s.client.upgrade(&unknown, &s.upgrader);
+    }
+
+    #[test]
     fn a_non_upgrader_cannot_swap_the_code() {
         let s = setup();
         let hash = s.e.deployer().upload_contract_wasm(v2::WASM);

@@ -5,7 +5,10 @@
 //! test fails, which is the point.
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, MuxedAddress, String};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
+    MuxedAddress, String,
+};
 use stellar_contract_utils::{pausable, upgradeable};
 use stellar_tokens::fungible::{Base, FungibleToken};
 
@@ -21,6 +24,14 @@ pub enum DataKey {
     Whitelisted(Address),
 }
 
+/// Same code as v1's `NotUpgrader`.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum FixtureError {
+    NotUpgrader = 6006,
+}
+
 #[contract]
 pub struct OfferTokenV2Fixture;
 
@@ -32,6 +43,16 @@ fn get(e: &Env, key: &DataKey) -> Address {
 impl OfferTokenV2Fixture {
     pub fn v2_marker() -> u32 {
         2
+    }
+
+    /// The upgraded code must itself stay upgradeable, gated by the same
+    /// stored `upgrader`, or one bad release would freeze the contract.
+    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>, operator: Address) {
+        operator.require_auth();
+        if operator != get(e, &DataKey::Upgrader) {
+            panic_with_error!(e, FixtureError::NotUpgrader);
+        }
+        upgradeable::upgrade(e, &new_wasm_hash);
     }
 
     pub fn admin(e: &Env) -> Address {

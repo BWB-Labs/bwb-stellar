@@ -120,6 +120,17 @@ fn pause_and_unpause_record_the_caller() {
 }
 
 #[test]
+fn pause_by_admin_records_the_admin() {
+    let s = setup();
+    s.client.pause(&s.admin);
+    let ev = PauseChanged {
+        caller: s.admin.clone(),
+        paused: true,
+    };
+    assert_eq!(emitted(&s.e, &s.id)[1], ev.to_xdr(&s.e, &s.id));
+}
+
+#[test]
 fn forced_transfer_emits_a_standard_transfer_and_admin_transfer() {
     let s = setup();
     s.client.admin_transfer(&s.alice, &s.bob, &7, &s.xfer_admin);

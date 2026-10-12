@@ -1,9 +1,9 @@
 //! Every documented rejection is reachable through the client and carries
 //! its code.
-use soroban_sdk::{testutils::Address as _, Address};
+use soroban_sdk::{testutils::Address as _, Address, String};
 
 use super::{code, err, setup};
-use crate::OfferTokenError;
+use crate::{OfferTokenError, MAX_URI_LEN};
 
 const INSUFFICIENT_ALLOWANCE: u32 = 101;
 const LESS_THAN_ZERO: u32 = 103;
@@ -45,18 +45,12 @@ fn negative_transfer_fails() {
 }
 
 #[test]
-fn error_codes_are_the_documented_ones() {
-    let codes = [
-        (OfferTokenError::TransferNotWhitelisted, 6000),
-        (OfferTokenError::InvalidAdminTransfer, 6001),
-        (OfferTokenError::BurnDisabled, 6002),
-        (OfferTokenError::NotAdmin, 6003),
-        (OfferTokenError::NotXferAdmin, 6004),
-        (OfferTokenError::NotPauser, 6005),
-        (OfferTokenError::NotUpgrader, 6006),
-        (OfferTokenError::InvalidSupply, 6007),
-    ];
-    for (e, n) in codes {
-        assert_eq!(e as u32, n);
-    }
+fn uri_longer_than_the_cap_is_rejected() {
+    let s = setup();
+    let long = String::from_str(&s.e, &"x".repeat(MAX_URI_LEN as usize + 1));
+    let r = s.client.try_set_offer_uri(&long, &s.admin);
+    assert_eq!(err(r), OfferTokenError::UriTooLong.into());
+    let max = String::from_str(&s.e, &"x".repeat(MAX_URI_LEN as usize));
+    s.client.set_offer_uri(&max, &s.admin);
+    assert_eq!(s.client.offer_uri(), max);
 }

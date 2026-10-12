@@ -2,16 +2,16 @@
   "network": "testnet",
   "passphrase": "Test SDF Network ; September 2015",
   "offerings": {
-    "t1-demo": {
+    "t1-demo-2": {
       "token": {
         "status": "deployed",
-        "salt": "9e56d7e30ba7073c9c688b0771242c6089508944a1f38a259d024379f659756f",
+        "salt": "24fb2179c2e97add1ee297e9f37628f8a423fe240959c9e28a9750fbeb9a82b9",
         "crate": "offer-token",
-        "contract_id": "CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
-        "wasm_hash": "19a7544def82d9b8b9ff93fdc64b5487486e922cff5af9a834503142db6fe824",
-        "deploy_tx": "5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d",
+        "contract_id": "CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT",
+        "wasm_hash": "e6bcb8066d18f107fdaf5aec4011dbe20efe1c361283e0d533e72d0bb0e71a1e",
+        "deploy_tx": "b544ae11767a5a49e6aad5a7a68ac7a1f01eaa06d83d2fcd5a28eb9bbcfeaca5",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-        "deployed_at": "2026-10-09T17:49:29Z",
+        "deployed_at": "2026-10-12T16:53:57Z",
         "constructor_args": [
           "--admin",
           "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
@@ -28,7 +28,7 @@
           "--supply",
           "1000",
           "--initial_holder",
-          "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
+          "CA23WY2X3AYU5E22HG7AOFMEKRCOQUSMVNHFPQ275IHD2JBLFP2AWSAL",
           "--whitelist",
           "[]",
           "--offer_uri",
@@ -40,14 +40,14 @@
           "stellar_cli": "28.1.0"
         },
         "explorer": {
-          "contract": "https://stellar.expert/explorer/testnet/contract/CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557",
-          "tx": "https://stellar.expert/explorer/testnet/tx/5bbea1a42a8768cea4b8a2a28fd990189aa216a52cc41c6933348a2236b3c49d"
+          "contract": "https://stellar.expert/explorer/testnet/contract/CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT",
+          "tx": "https://stellar.expert/explorer/testnet/tx/b544ae11767a5a49e6aad5a7a68ac7a1f01eaa06d83d2fcd5a28eb9bbcfeaca5"
         }
       },
       "sale": {
         "status": "precomputed",
-        "salt": "c8f4e98da060ae0e3b909dea2f69148aa2d2789dd52895a0376b6fd6fa69d8e5",
-        "contract_id": "CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO",
+        "salt": "9e2dee9114903acc5272b4968d6ed537c8ae482917400e5068d154befc12225a",
+        "contract_id": "CA23WY2X3AYU5E22HG7AOFMEKRCOQUSMVNHFPQ275IHD2JBLFP2AWSAL",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
       }
     }

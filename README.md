@@ -39,12 +39,12 @@ Distributors and factories follow in Tranche 2. Each contract has a document in
 
 ### Testnet
 
-Offering `t1-demo`, from [`deployments/testnet.json`](deployments/testnet.json):
+Offering `t1-demo-2`, from [`deployments/testnet.json`](deployments/testnet.json):
 
 | Contract | Contract ID | WASM hash |
 |---|---|---|
-| `offer-token` | [`CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557`](https://stellar.expert/explorer/testnet/contract/CDHVNF74K2J3LK63BTPEDBMXSY3U2FY4ZYXZZMVNHKMRJPHH2Q6PE557) | `19a7544def82d9b8b9ff93fdc64b5487486e922cff5af9a834503142db6fe824` |
-| `offer-sale` | `CAMB22EZTVFQ5IDQNYKIYGONDNVA4XDWAECULSZZ2QDDPY6D5LTM54XO` (precomputed; deployed in L4) | |
+| `offer-token` | [`CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT`](https://stellar.expert/explorer/testnet/contract/CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT) | `e6bcb8066d18f107fdaf5aec4011dbe20efe1c361283e0d533e72d0bb0e71a1e` |
+| `offer-sale` | `CA23WY2X3AYU5E22HG7AOFMEKRCOQUSMVNHFPQ275IHD2JBLFP2AWSAL` (precomputed; deployed in L4) | |
 
 The token's whole supply is minted to the sale contract's precomputed address.
 

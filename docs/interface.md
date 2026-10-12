@@ -342,7 +342,7 @@ Ownership is final from the constructors, so nothing transfers ownership afterwa
 
 In Base the platform server wallet receives the whole supply at mint, seeds the sale and stays whitelisted on every token forever; and the tokenizer's officers approve the deployment in-app (a Safe hash at threshold, 2-hour window) before the platform wallet runs the batch. Stellar drops both. The T1 script has no officer approval step; whether T2 keeps an in-app approval before the factory call is decided with L8. The token's constructor mints the whole supply straight to the sale's precomputed address. Until the sale is deployed there, the tokens are inert: only the same deployer with the same salt can ever place code at that address, and `xfer_admin` can move them if it never is. Who triggers activation is decided in L4. The same requirements apply to the L8 factory, which computes the address inside its single call.
 
-**Retrying a step.** The script is re-runnable. Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded, the tokens wait at the sale's address until step 3 is retried with the same salt. The script skips a step whose contract already exists and refuses to record a deployment whose address differs from the precomputed one.
+**Retrying a step.** The script is re-runnable. Deploying to an address that is already taken fails, so a retried step first checks whether its contract exists. If step 3 fails after step 2 succeeded, the tokens wait at the sale's address until step 3 is retried with the same salt. The script validates the offering identifier, requires the token's `initial_holder` to be the sale's computed address, refuses to run when the manifest already records different addresses for the offering (another deployer), skips a step whose contract exists and is recorded, and stops with a message when a contract exists but was never recorded.
 
 ### 5.2 Allowlist
 
@@ -739,6 +739,7 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **Inventory decided** (ADR 0006): the supply mints to the sale contract's precomputed address. Salts are derived from the offering identifier; the script, its re-run rule and the manifest layout are in [5.1](#51-deploying-an-offering).
 - **Token additions:** an `initialized` event at construction; codes 6002–6007 (`BurnDisabled`, one per power, `InvalidSupply`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
 - **Expiry:** the token tops its instance and the entries a call touches up to the network maximum (about 180 days) once they fall a month below it, instead of OpenZeppelin's 30 days. Balances only OpenZeppelin touches keep its rule.
+- **Limits:** the constructor whitelist holds at most 40 accounts (6008) and the offering URI at most 256 bytes (6009). `upgrader` is documented as the trust root.
 
 **0.5, 2026-10-06.** Changes from three reviews (against the team decisions, against Base's code, against Soroban):
 
