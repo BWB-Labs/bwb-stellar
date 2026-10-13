@@ -61,6 +61,16 @@ pub fn extend_balance_ttl(e: &Env, account: &Address) {
     extend_persistent_ttl(e, &FungibleStorageKey::Balance(account.clone()));
 }
 
+/// Stores the four powers, once, at construction. There is no setter:
+/// changing a holder takes an upgrade.
+///
+/// - `admin`: manages the whitelist and the offering URI, pauses and
+///   unpauses. Routine operation.
+/// - `xfer_admin`: moves tokens between any two accounts, ignoring pause and
+///   the whitelist (court orders, lost keys, estates). The most dangerous
+///   power, kept apart from `admin` so it can sit behind a stricter quorum.
+/// - `pauser`: pauses, never unpauses.
+/// - `upgrader`: replaces the contract's code.
 pub fn set_powers(
     e: &Env,
     admin: &Address,
