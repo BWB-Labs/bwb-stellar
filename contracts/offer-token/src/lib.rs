@@ -109,8 +109,7 @@ impl OfferToken {
         }
     }
 
-    /// Adds `account` to the whitelist or removes it. Emits every time, as
-    /// Base does, even when nothing changes.
+    /// Adds `account` to the whitelist or removes it.
     ///
     /// The whitelist holds operational accounts (the sale contract,
     /// distributors), never investors: an ordinary transfer passes only if
