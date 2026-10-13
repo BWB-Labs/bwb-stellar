@@ -21,8 +21,8 @@
 #![no_std]
 
 mod errors;
-pub mod events;
-pub(crate) mod storage;
+mod events;
+mod storage;
 mod whitelist;
 
 use soroban_sdk::{
