@@ -7,6 +7,16 @@ use stellar_tokens::fungible::FungibleStorageKey;
 
 use crate::errors::OfferTokenError;
 
+/// The keys of the token's own storage entries: the four powers and the URI
+/// in instance storage, one persistent entry per whitelisted account.
+/// OpenZeppelin keeps balances, allowances, metadata, supply, pause and
+/// schema version under its own keys.
+///
+/// The usual Soroban pattern: a `#[contracttype]` enum makes each variant a
+/// storable key (`Admin` is stored as the symbol `Admin`, `Whitelisted(a)` as
+/// `[Whitelisted, a]`), and the compiler rejects keys that don't exist.
+/// Renaming a variant changes the stored key, so existing data would no
+/// longer be found after an upgrade; the upgrade fixture's copy must match.
 #[contracttype]
 pub enum DataKey {
     Admin,
