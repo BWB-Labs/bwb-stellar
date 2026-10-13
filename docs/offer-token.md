@@ -4,7 +4,7 @@
 - **Who uses it.** The offering's sale contract receives the whole supply at construction and releases tokens to investors. Investors hold them and may send them only to whitelisted accounts. The tokenizer's treasury manages the whitelist and the offering URI, pauses and unpauses, and moves tokens by force when it must. The platform multisig replaces the code and can pause (recommended, pending the team).
 - **Where it comes from.** A port of Base's `OfferERC20`: a SEP-41 token with 0 decimals, a transfer whitelist, pause, forced transfer and offering metadata. It is built on OpenZeppelin Stellar 0.7.2's fungible `Base`.
 
-**Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-2`. The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `l2-demo-3`. The cross-cutting rules are in [interface.md](interface.md).
 
 ## The whitelist
 

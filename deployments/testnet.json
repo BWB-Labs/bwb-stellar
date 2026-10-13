@@ -2,37 +2,27 @@
   "network": "testnet",
   "passphrase": "Test SDF Network ; September 2015",
   "offerings": {
-    "t1-demo-2": {
+    "l2-demo-3": {
       "token": {
         "status": "deployed",
-        "salt": "24fb2179c2e97add1ee297e9f37628f8a423fe240959c9e28a9750fbeb9a82b9",
+        "salt": "75faa3f5834618ebf8a18dee19a1c8e2d7059dd0a37f5fe65eddc0c397596e0b",
         "crate": "offer-token",
-        "contract_id": "CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT",
-        "wasm_hash": "e6bcb8066d18f107fdaf5aec4011dbe20efe1c361283e0d533e72d0bb0e71a1e",
-        "deploy_tx": "b544ae11767a5a49e6aad5a7a68ac7a1f01eaa06d83d2fcd5a28eb9bbcfeaca5",
+        "contract_id": "CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM",
+        "wasm_hash": "40bf9cc67d2cf9e0d2b3c238f8e5b0f3ed3dfb016998453d4ddfc0069037f385",
+        "deploy_tx": "4a9856e2587fe1cfade5a83f359a85260d70abbecb95507e5c8cae79c4888a6f",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-        "deployed_at": "2026-10-12T16:53:57Z",
+        "deployed_at": "2026-10-13T17:42:53Z",
         "constructor_args": [
-          "--admin",
-          "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
-          "--xfer_admin",
-          "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
-          "--pauser",
-          "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
-          "--upgrader",
-          "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
-          "--name",
-          "BWB T1 Demo",
-          "--symbol",
-          "BWBT1",
+          "--power_holders",
+          "{\"admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"xfer_admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--metadata",
+          "{\"name\":\"BWB L2 Demo\",\"symbol\":\"BWBL2\",\"offer_uri\":\"ipfs://bwb-l2-demo\"}",
           "--supply",
           "1000",
           "--initial_holder",
-          "CA23WY2X3AYU5E22HG7AOFMEKRCOQUSMVNHFPQ275IHD2JBLFP2AWSAL",
+          "CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT",
           "--whitelist",
-          "[]",
-          "--offer_uri",
-          "ipfs://bwb-t1-demo"
+          "[]"
         ],
         "toolchain": {
           "rustc": "1.97.1",
@@ -40,14 +30,14 @@
           "stellar_cli": "28.1.0"
         },
         "explorer": {
-          "contract": "https://stellar.expert/explorer/testnet/contract/CAWMEO3FXJPYHVHT35JGJW3WCZLK36SKFPKHH7BRNLPCWRFFO4TSENQT",
-          "tx": "https://stellar.expert/explorer/testnet/tx/b544ae11767a5a49e6aad5a7a68ac7a1f01eaa06d83d2fcd5a28eb9bbcfeaca5"
+          "contract": "https://stellar.expert/explorer/testnet/contract/CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM",
+          "tx": "https://stellar.expert/explorer/testnet/tx/4a9856e2587fe1cfade5a83f359a85260d70abbecb95507e5c8cae79c4888a6f"
         }
       },
       "sale": {
         "status": "precomputed",
-        "salt": "9e2dee9114903acc5272b4968d6ed537c8ae482917400e5068d154befc12225a",
-        "contract_id": "CA23WY2X3AYU5E22HG7AOFMEKRCOQUSMVNHFPQ275IHD2JBLFP2AWSAL",
+        "salt": "6b1ec037ec4729e8c32125944868da861b20d2371fa478a9c01ddd78727291e6",
+        "contract_id": "CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
       }
     }
