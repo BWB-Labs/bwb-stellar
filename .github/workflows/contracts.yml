@@ -39,15 +39,6 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
-      # --locked: fail if Cargo.lock does not match Cargo.toml, instead of
-      # silently re-resolving. The committed lock is what makes a tagged
-      # release rebuild to the same WASM hash.
-      - name: Clippy
-        run: cargo clippy --locked --all-targets --workspace -- -D warnings
-
-      - name: Test
-        run: cargo test --locked --workspace
-
       # OpenZeppelin 0.7.2 enables soroban-sdk's spec-shaking feature, which
       # only builds through the Stellar CLI. Pin the CLI to the version used
       # for deploys so hashes match deployments/*.json.
@@ -57,6 +48,18 @@ jobs:
         uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
         with:
           version: 28.1.0
+
+      # The same script developers run: it builds offer-token's upgrade
+      # fixture (a second WASM the upgrade test swaps to), then runs
+      # cargo test. --locked: fail if Cargo.lock does not match Cargo.toml,
+      # instead of silently re-resolving. The committed lock is what makes a
+      # tagged release rebuild to the same WASM hash.
+      - name: Test
+        run: scripts/test.sh --locked
+
+      # After the tests, so the fixture exists and the upgrade test is linted.
+      - name: Clippy
+        run: cargo clippy --locked --all-targets --workspace -- -D warnings
 
       - name: Build WASM
         run: stellar contract build
