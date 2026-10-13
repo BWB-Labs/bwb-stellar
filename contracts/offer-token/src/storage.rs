@@ -45,6 +45,11 @@ fn extend_persistent_ttl<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env
 
 /// Extends a balance a transfer or mint just wrote, so it exists.
 /// OpenZeppelin keeps its own 30-day rule for balances it alone touches.
+///
+/// A wrapper over `extend_persistent_ttl`, kept for the single
+/// responsibility principle: only this module knows where OpenZeppelin
+/// stores a balance (`FungibleStorageKey::Balance`), so callers ask to
+/// extend an account's balance without depending on that key.
 pub fn extend_balance_ttl(e: &Env, account: &Address) {
     extend_persistent_ttl(e, &FungibleStorageKey::Balance(account.clone()));
 }
