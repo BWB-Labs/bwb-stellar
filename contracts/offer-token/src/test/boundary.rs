@@ -28,7 +28,7 @@ fn constructor_rejects_a_uri_over_the_cap() {
     let e = Env::default();
     let p = parties(&e);
     let mut args = ctor_args(&e, &p, 10, vec![&e]);
-    args.9 = soroban_sdk::String::from_str(&e, &"u".repeat(MAX_URI_LEN as usize + 1));
+    args.6 = soroban_sdk::String::from_str(&e, &"u".repeat(MAX_URI_LEN as usize + 1));
     e.register(OfferToken, args);
 }
 

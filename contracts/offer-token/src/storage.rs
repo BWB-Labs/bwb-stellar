@@ -61,28 +61,33 @@ pub fn extend_balance_ttl(e: &Env, account: &Address) {
     extend_persistent_ttl(e, &FungibleStorageKey::Balance(account.clone()));
 }
 
-/// Stores the four powers, once, at construction. There is no setter:
-/// changing a holder takes an upgrade.
-///
-/// - `admin`: manages the whitelist and the offering URI, pauses and
-///   unpauses. Routine operation.
-/// - `xfer_admin`: moves tokens between any two accounts, ignoring pause and
-///   the whitelist (court orders, lost keys, estates). The most dangerous
-///   power, kept apart from `admin` so it can sit behind a stricter quorum.
-/// - `pauser`: pauses, never unpauses.
-/// - `upgrader`: replaces the contract's code.
-pub fn set_powers(
-    e: &Env,
-    admin: &Address,
-    xfer_admin: &Address,
-    pauser: &Address,
-    upgrader: &Address,
-) {
+/// Who holds each of the token's four powers. Passed to the constructor as
+/// one argument, so each holder is named at the call site and two of them
+/// can't be swapped by position. Fixed at construction: there is no setter,
+/// so changing a holder takes an upgrade.
+#[contracttype]
+pub struct PowerHolders {
+    /// Manages the whitelist and the offering URI, pauses and unpauses.
+    /// Routine operation.
+    pub admin: Address,
+    /// Moves tokens between any two accounts, ignoring pause and the
+    /// whitelist (court orders, lost keys, estates). The most dangerous
+    /// power, kept apart from `admin` so it can sit behind a stricter quorum.
+    pub xfer_admin: Address,
+    /// Pauses, never unpauses.
+    pub pauser: Address,
+    /// Replaces the contract's code.
+    pub upgrader: Address,
+}
+
+/// Stores the four powers, once, at construction. Each keeps its own key,
+/// so reading one power doesn't load the others.
+pub fn set_powers(e: &Env, holders: &PowerHolders) {
     let i = e.storage().instance();
-    i.set(&DataKey::Admin, admin);
-    i.set(&DataKey::XferAdmin, xfer_admin);
-    i.set(&DataKey::Pauser, pauser);
-    i.set(&DataKey::Upgrader, upgrader);
+    i.set(&DataKey::Admin, &holders.admin);
+    i.set(&DataKey::XferAdmin, &holders.xfer_admin);
+    i.set(&DataKey::Pauser, &holders.pauser);
+    i.set(&DataKey::Upgrader, &holders.upgrader);
 }
 
 // The four powers are set by the constructor and never removed, so these

@@ -74,7 +74,7 @@ hint saying so.
 stellar keys generate <identity> --network testnet --fund
 NETWORK=testnet scripts/offering-addresses.sh <offering-id>   # token and sale addresses
 NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-token -- \
-  --admin G... --xfer_admin G... --pauser G... --upgrader G... \
+  --power_holders '{"admin":"G...","xfer_admin":"G...","pauser":"G...","upgrader":"G..."}' \
   --name "..." --symbol ... --supply 1000 --initial_holder <sale address> \
   --whitelist '[]' --offer_uri ipfs://...
 ```

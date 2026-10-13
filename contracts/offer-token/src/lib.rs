@@ -40,6 +40,7 @@ pub use crate::errors::OfferTokenError;
 use crate::events::{
     AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, Upgraded, WhitelistUpdated,
 };
+pub use crate::storage::PowerHolders;
 use crate::whitelist::Whitelisted;
 
 // Contract metadata that goes on the compiled file.
@@ -62,10 +63,7 @@ impl OfferToken {
     #[allow(clippy::too_many_arguments)]
     pub fn __constructor(
         e: &Env,
-        admin: Address,
-        xfer_admin: Address,
-        pauser: Address,
-        upgrader: Address,
+        power_holders: PowerHolders,
         name: String,
         symbol: String,
         supply: i128,
@@ -76,12 +74,18 @@ impl OfferToken {
         if supply <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }
-        storage::set_powers(e, &admin, &xfer_admin, &pauser, &upgrader);
+        storage::set_powers(e, &power_holders);
         set_uri_checked(e, &offer_uri);
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         Base::set_metadata(e, 0, name, symbol);
         storage::extend_instance_ttl(e);
 
+        let PowerHolders {
+            admin,
+            xfer_admin,
+            pauser,
+            upgrader,
+        } = power_holders;
         Initialized {
             admin,
             xfer_admin,

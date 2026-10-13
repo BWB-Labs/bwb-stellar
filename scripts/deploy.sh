@@ -19,10 +19,10 @@
 #
 # Example, an offering's token minting to its sale's future address:
 #   SALE=$(scripts/offering-addresses.sh aurora-01 | jq -r .sale.contract_id)
-#   OFFERING=aurora-01 scripts/deploy.sh offer-token -- --admin G... \
+#   OFFERING=aurora-01 scripts/deploy.sh offer-token -- --power_holders '{"admin":"G...",...}' \
 #     --initial_holder "$SALE" ...
 #
-# Roles (admin, operator, ...) are constructor arguments, never the deployer.
+# Powers (admin, upgrader, ...) are constructor arguments, never the deployer.
 set -euo pipefail
 
 CRATE="${1:?usage: scripts/deploy.sh <crate> [-- <constructor args...>]}"

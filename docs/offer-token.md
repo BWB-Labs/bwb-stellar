@@ -55,7 +55,7 @@ In BWB's production application on Base, the only tokenizer is BWB's own organiz
 
 | Argument | Meaning |
 |---|---|
-| `admin`, `xfer_admin`, `pauser`, `upgrader` | The four powers above |
+| `power_holders` | The four powers above, as one `PowerHolders` struct with fields `admin`, `xfer_admin`, `pauser`, `upgrader`. Each holder is named, so two can't be swapped by position. |
 | `name`, `symbol` | The offering's token metadata |
 | `supply` | Total tokens, minted once. Must be positive. No later minting. |
 | `initial_holder` | Receives the whole supply and is **whitelisted automatically**. It is the offering's sale contract, at its address precomputed from the deployer and a salt (ADR 0006, [interface 5.1](interface.md#51-deploying-an-offering)). |
