@@ -31,11 +31,11 @@ const DAY_IN_LEDGERS: u32 = 17_280;
 /// it up. Rent is linear in ledgers, so topping up to the maximum costs the
 /// same in total as many short extensions; it just keeps a quiet offering
 /// from archiving between calls.
-const TOP_UP_MARGIN: u32 = 30 * DAY_IN_LEDGERS;
+const TTL_THRESHOLD_BELOW_MAX: u32 = 30 * DAY_IN_LEDGERS;
 
 fn ttl_policy(e: &Env) -> (u32, u32) {
     let max = e.storage().max_ttl();
-    (max.saturating_sub(TOP_UP_MARGIN), max)
+    (max.saturating_sub(TTL_THRESHOLD_BELOW_MAX), max)
 }
 
 pub fn extend_instance_ttl(e: &Env) {
