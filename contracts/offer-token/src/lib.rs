@@ -42,6 +42,7 @@ use crate::events::{
 };
 use crate::whitelist::Whitelisted;
 
+// Contract metadata that goes on the compiled file.
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 
 /// Version of the storage layout this code writes and reads.
