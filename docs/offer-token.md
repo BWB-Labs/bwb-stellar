@@ -59,7 +59,7 @@ In BWB's production application on Base, the only tokenizer is BWB's own organiz
 | `name`, `symbol` | The offering's token metadata |
 | `supply` | Total tokens, minted once. Must be positive. No later minting. |
 | `initial_holder` | Receives the whole supply and is **whitelisted automatically**. It is the offering's sale contract, at its address precomputed from the deployer and a salt (ADR 0006, [interface 5.1](interface.md#51-deploying-an-offering)). |
-| `whitelist` | Further accounts to whitelist, at most 40 entries as given, duplicates included (a transaction may write 50 entries). Duplicates, and the initial holder, are ignored once inside. More go through `set_transfer_whitelist`. |
+| `whitelist` | Further accounts to whitelist. Duplicates, and the initial holder, are ignored. More can be added later with `set_transfer_whitelist`. |
 | `offer_uri` | URI of the offering's documents, at most 256 bytes: it lives in instance storage, which every call reads. |
 
 The constructor emits `initialized`, then OpenZeppelin's `mint`, then one `whitelist_updated` per account it whitelists.
@@ -135,8 +135,7 @@ Specific to this contract:
 | 6005 | `NotPauser` | The caller signed but is neither `pauser` nor `admin` |
 | 6006 | `NotUpgrader` | The operator signed but isn't `upgrader` |
 | 6007 | `InvalidSupply` | The constructor's supply is zero or negative |
-| 6008 | `WhitelistTooLong` | The constructor's whitelist has more than 40 accounts |
-| 6009 | `UriTooLong` | The offering URI is longer than 256 bytes |
+| 6008 | `UriTooLong` | The offering URI is longer than 256 bytes |
 
 OpenZeppelin codes that can surface:
 
@@ -167,7 +166,7 @@ Every state-changing call tops the instance, and every whitelist entry and balan
 | `boundary` | Supply 0, −1 and 1; whole balance and one more; forced-transfer edge amounts; duplicate whitelist inputs |
 | `pause` | Paused blocks `transfer` and `transfer_from`, not `approve`, forced transfer or admin calls; pause twice, unpause a live token |
 | `idempotency` | Repeated whitelist changes and URI updates converge |
-| `failure` | The burn stubs, allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001, 6007 and 6008, transfers for 6000) |
+| `failure` | The burn stubs, allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001 and 6007, transfers for 6000) |
 | `upgrade` | Swap to `offer-token-upgrade-fixture`, a test-only second binary, and read every value back; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader can't swap |
 | `events` | Each call's exact events |
 | `ttl` | The expiry policy on the instance, balances (transfer, transfer_from, forced transfer) and whitelist entries |

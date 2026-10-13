@@ -23,9 +23,6 @@ pub enum OfferTokenError {
     NotUpgrader = 6006,
     /// The constructor received a supply that is zero or negative.
     InvalidSupply = 6007,
-    /// The constructor's whitelist has more than `MAX_INITIAL_WHITELIST`
-    /// accounts; add the rest with `set_transfer_whitelist`.
-    WhitelistTooLong = 6008,
     /// The offering URI is longer than `MAX_URI_LEN` bytes.
-    UriTooLong = 6009,
+    UriTooLong = 6008,
 }

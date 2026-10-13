@@ -737,9 +737,9 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **No access control on the token** (ADR 0005): `admin`, `xfer_admin`, `pauser` and `upgrader` are all stored addresses fixed at construction. The role calls and events, codes 2000 and 2007, and 6002 `RenounceBlocked` no longer apply to the token. The allowlist and the sale contract are unchanged here.
 - **Every privileged token call takes its caller** as the last argument (`set_transfer_whitelist`, `set_offer_uri`, `admin_transfer`, as `pause`, `unpause` and `upgrade` already did), so a signed but wrong caller fails with the power's own code instead of only an authorization error.
 - **Inventory decided** (ADR 0006): the supply mints to the sale contract's precomputed address. Salts are derived from the offering identifier; the script, its re-run rule and the manifest layout are in [5.1](#51-deploying-an-offering).
-- **Token additions:** an `initialized` event at construction; codes 6002–6009 (`BurnDisabled`, one per power, `InvalidSupply`, `WhitelistTooLong`, `UriTooLong`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
+- **Token additions:** an `initialized` event at construction; codes 6002–6008 (`BurnDisabled`, one per power, `InvalidSupply`, `UriTooLong`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
 - **Expiry:** the token tops its instance and the entries a call touches up to the network maximum (about 180 days) once they fall a month below it, instead of OpenZeppelin's 30 days. Balances only OpenZeppelin touches keep its rule.
-- **Limits:** the constructor whitelist holds at most 40 accounts (6008) and the offering URI at most 256 bytes (6009). `upgrader` is documented as the trust root.
+- **Limits:** the offering URI holds at most 256 bytes (6008). `upgrader` is documented as the trust root.
 
 **0.5, 2026-10-06.** Changes from three reviews (against the team decisions, against Base's code, against Soroban):
 

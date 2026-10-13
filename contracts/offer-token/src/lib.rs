@@ -48,13 +48,6 @@ contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 /// Version of the storage layout this code writes and reads.
 const SCHEMA_VERSION: u32 = 1;
 
-/// Accounts the constructor will whitelist. Each is a persistent write and
-/// an event, and a transaction may write at most 50 entries and touch 100
-/// (the host's own limits; the live network's are looser but voted on).
-/// At 40 the constructor stays under both with margin. The rest go through
-/// `set_transfer_whitelist`.
-pub const MAX_INITIAL_WHITELIST: u32 = 40;
-
 /// The offering URI lives in instance storage, which every call reads, so
 /// it is kept short.
 pub const MAX_URI_LEN: u32 = 256;
@@ -82,9 +75,6 @@ impl OfferToken {
     ) {
         if supply <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
-        }
-        if whitelist.len() > MAX_INITIAL_WHITELIST {
-            panic_with_error!(e, OfferTokenError::WhitelistTooLong);
         }
         storage::set_powers(e, &admin, &xfer_admin, &pauser, &upgrader);
         set_uri_checked(e, &offer_uri);
