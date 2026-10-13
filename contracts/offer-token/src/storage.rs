@@ -31,20 +31,22 @@ fn ttl_policy(e: &Env) -> (u32, u32) {
     (max.saturating_sub(TOP_UP_MARGIN), max)
 }
 
-pub fn extend_instance(e: &Env) {
+pub fn extend_instance_ttl(e: &Env) {
     let (threshold, to) = ttl_policy(e);
     e.storage().instance().extend_ttl(threshold, to);
 }
 
-fn extend_existing<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env, key: &K) {
+/// Extends one persistent entry under the policy above. The entry must
+/// exist: callers only pass keys they have just read or written.
+fn extend_persistent_ttl<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env, key: &K) {
     let (threshold, to) = ttl_policy(e);
     e.storage().persistent().extend_ttl(key, threshold, to);
 }
 
 /// Extends a balance a transfer or mint just wrote, so it exists.
 /// OpenZeppelin keeps its own 30-day rule for balances it alone touches.
-pub fn extend_balance(e: &Env, account: &Address) {
-    extend_existing(e, &FungibleStorageKey::Balance(account.clone()));
+pub fn extend_balance_ttl(e: &Env, account: &Address) {
+    extend_persistent_ttl(e, &FungibleStorageKey::Balance(account.clone()));
 }
 
 pub fn set_powers(
@@ -104,7 +106,7 @@ pub fn is_whitelisted(e: &Env, account: &Address) -> bool {
     let key = DataKey::Whitelisted(account.clone());
     let listed = e.storage().persistent().has(&key);
     if listed {
-        extend_existing(e, &key);
+        extend_persistent_ttl(e, &key);
     }
     listed
 }
@@ -113,7 +115,7 @@ pub fn set_whitelisted(e: &Env, account: &Address, allowed: bool) {
     let key = DataKey::Whitelisted(account.clone());
     if allowed {
         e.storage().persistent().set(&key, &true);
-        extend_existing(e, &key);
+        extend_persistent_ttl(e, &key);
     } else {
         e.storage().persistent().remove(&key);
     }

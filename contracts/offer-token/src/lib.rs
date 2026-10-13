@@ -89,7 +89,7 @@ impl OfferToken {
         set_uri_checked(e, &offer_uri);
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         Base::set_metadata(e, 0, name, symbol);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
 
         Initialized {
             admin,
@@ -103,7 +103,7 @@ impl OfferToken {
         .publish(e);
 
         Base::mint(e, &initial_holder, supply);
-        storage::extend_balance(e, &initial_holder);
+        storage::extend_balance_ttl(e, &initial_holder);
 
         whitelist_if_new(e, &initial_holder);
         for account in whitelist.iter() {
@@ -122,14 +122,14 @@ impl OfferToken {
     pub fn set_transfer_whitelist(e: &Env, account: Address, allowed: bool, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_whitelisted(e, &account, allowed);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
         WhitelistUpdated { account, allowed }.publish(e);
     }
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         set_uri_checked(e, &uri);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
         OfferUriUpdated { uri }.publish(e);
     }
 
@@ -146,9 +146,9 @@ impl OfferToken {
             panic_with_error!(e, OfferTokenError::InvalidAdminTransfer);
         }
         Base::update(e, Some(&from), Some(&to), amount);
-        storage::extend_balance(e, &from);
-        storage::extend_balance(e, &to);
-        storage::extend_instance(e);
+        storage::extend_balance_ttl(e, &from);
+        storage::extend_balance_ttl(e, &to);
+        storage::extend_instance_ttl(e);
         emit_transfer(e, &from, &to, None, amount);
         AdminTransfer { from, to, amount }.publish(e);
     }
@@ -220,18 +220,18 @@ impl FungibleToken for OfferToken {
     #[when_not_paused]
     fn transfer(e: &Env, from: Address, to: MuxedAddress, amount: i128) {
         Self::ContractType::transfer(e, &from, &to, amount);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
     }
 
     #[when_not_paused]
     fn transfer_from(e: &Env, spender: Address, from: Address, to: Address, amount: i128) {
         Self::ContractType::transfer_from(e, &spender, &from, &to, amount);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
     }
 
     fn approve(e: &Env, owner: Address, spender: Address, amount: i128, live_until_ledger: u32) {
         Self::ContractType::approve(e, &owner, &spender, amount, live_until_ledger);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
     }
 }
 
@@ -246,7 +246,7 @@ impl Pausable for OfferToken {
         let holders = [storage::admin(e), storage::pauser(e)];
         storage::require_power(e, &caller, &holders, OfferTokenError::NotPauser);
         pausable::pause(e);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
         PauseChanged {
             caller,
             paused: true,
@@ -258,7 +258,7 @@ impl Pausable for OfferToken {
     fn unpause(e: &Env, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         pausable::unpause(e);
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
         PauseChanged {
             caller,
             paused: false,
@@ -278,7 +278,7 @@ impl Upgradeable for OfferToken {
             &[storage::upgrader(e)],
             OfferTokenError::NotUpgrader,
         );
-        storage::extend_instance(e);
+        storage::extend_instance_ttl(e);
         Upgraded {
             new_wasm_hash: new_wasm_hash.clone(),
             from_schema_version: upgradeable::get_schema_version(e),
