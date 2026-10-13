@@ -14,7 +14,6 @@ use stellar_tokens::fungible::{Base, FungibleToken};
 
 /// Must match `offer-token`'s `DataKey` variant by variant.
 #[contracttype]
-#[derive(Clone)]
 pub enum DataKey {
     Admin,
     XferAdmin,

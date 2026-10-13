@@ -8,7 +8,6 @@ use stellar_tokens::fungible::FungibleStorageKey;
 use crate::errors::OfferTokenError;
 
 #[contracttype]
-#[derive(Clone)]
 pub enum DataKey {
     Admin,
     XferAdmin,
