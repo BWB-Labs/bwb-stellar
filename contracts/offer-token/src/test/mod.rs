@@ -16,7 +16,7 @@ mod upgrade;
 
 use soroban_sdk::{testutils::Address as _, vec, Address, Env, InvokeError, String, Vec};
 
-use crate::{OfferToken, OfferTokenClient, PowerHolders};
+use crate::{OfferToken, OfferTokenClient, OfferingMetadata, PowerHolders};
 
 pub const SUPPLY: i128 = 1_000;
 pub const URI: &str = "ipfs://offering-v1";
@@ -44,15 +44,7 @@ pub fn ctor_args(
     s: &Parties,
     supply: i128,
     whitelist: Vec<Address>,
-) -> (
-    PowerHolders,
-    String,
-    String,
-    i128,
-    Address,
-    Vec<Address>,
-    String,
-) {
+) -> (PowerHolders, OfferingMetadata, i128, Address, Vec<Address>) {
     (
         PowerHolders {
             admin: s.admin.clone(),
@@ -60,12 +52,14 @@ pub fn ctor_args(
             pauser: s.pauser.clone(),
             upgrader: s.upgrader.clone(),
         },
-        String::from_str(e, "Edificio Aurora"),
-        String::from_str(e, "AUR"),
+        OfferingMetadata {
+            name: String::from_str(e, "Edificio Aurora"),
+            symbol: String::from_str(e, "AUR"),
+            offer_uri: String::from_str(e, URI),
+        },
         supply,
         s.sale.clone(),
         whitelist,
-        String::from_str(e, URI),
     )
 }
 

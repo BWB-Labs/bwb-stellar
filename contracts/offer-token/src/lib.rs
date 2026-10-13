@@ -23,6 +23,7 @@
 mod errors;
 mod events;
 mod storage;
+mod types;
 mod whitelist;
 
 use soroban_sdk::{
@@ -40,7 +41,7 @@ pub use crate::errors::OfferTokenError;
 use crate::events::{
     AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, Upgraded, WhitelistUpdated,
 };
-pub use crate::storage::PowerHolders;
+pub use crate::types::{OfferingMetadata, PowerHolders};
 use crate::whitelist::Whitelisted;
 
 // Contract metadata that goes on the compiled file.
@@ -60,17 +61,19 @@ pub struct OfferToken;
 impl OfferToken {
     /// Sets the four powers, mints the whole supply to `initial_holder` and
     /// whitelists it together with `whitelist` (duplicates ignored).
-    #[allow(clippy::too_many_arguments)]
     pub fn __constructor(
         e: &Env,
         power_holders: PowerHolders,
-        name: String,
-        symbol: String,
+        metadata: OfferingMetadata,
         supply: i128,
         initial_holder: Address,
         whitelist: Vec<Address>,
-        offer_uri: String,
     ) {
+        let OfferingMetadata {
+            name,
+            symbol,
+            offer_uri,
+        } = metadata;
         if supply <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }

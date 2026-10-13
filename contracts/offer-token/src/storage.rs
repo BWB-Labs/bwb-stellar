@@ -6,6 +6,7 @@ use soroban_sdk::{contracttype, panic_with_error, Address, Env, String};
 use stellar_tokens::fungible::FungibleStorageKey;
 
 use crate::errors::OfferTokenError;
+use crate::types::PowerHolders;
 
 /// The keys of the token's own storage entries: the four powers and the URI
 /// in instance storage, one persistent entry per whitelisted account.
@@ -59,25 +60,6 @@ fn extend_persistent_ttl<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env
 /// extend an account's balance without depending on that key.
 pub fn extend_balance_ttl(e: &Env, account: &Address) {
     extend_persistent_ttl(e, &FungibleStorageKey::Balance(account.clone()));
-}
-
-/// Who holds each of the token's four powers. Passed to the constructor as
-/// one argument, so each holder is named at the call site and two of them
-/// can't be swapped by position. Fixed at construction: there is no setter,
-/// so changing a holder takes an upgrade.
-#[contracttype]
-pub struct PowerHolders {
-    /// Manages the whitelist and the offering URI, pauses and unpauses.
-    /// Routine operation.
-    pub admin: Address,
-    /// Moves tokens between any two accounts, ignoring pause and the
-    /// whitelist (court orders, lost keys, estates). The most dangerous
-    /// power, kept apart from `admin` so it can sit behind a stricter quorum.
-    pub xfer_admin: Address,
-    /// Pauses, never unpauses.
-    pub pauser: Address,
-    /// Replaces the contract's code.
-    pub upgrader: Address,
 }
 
 /// Stores the four powers, once, at construction. Each keeps its own key,

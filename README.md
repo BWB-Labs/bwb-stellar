@@ -75,8 +75,8 @@ stellar keys generate <identity> --network testnet --fund
 NETWORK=testnet scripts/offering-addresses.sh <offering-id>   # token and sale addresses
 NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-token -- \
   --power_holders '{"admin":"G...","xfer_admin":"G...","pauser":"G...","upgrader":"G..."}' \
-  --name "..." --symbol ... --supply 1000 --initial_holder <sale address> \
-  --whitelist '[]' --offer_uri ipfs://...
+  --metadata '{"name":"...","symbol":"...","offer_uri":"ipfs://..."}' \
+  --supply 1000 --initial_holder <sale address> --whitelist '[]'
 ```
 
 An offering's token and sale contract live at addresses derived from the
