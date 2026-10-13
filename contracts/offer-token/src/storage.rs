@@ -22,7 +22,11 @@ pub enum DataKey {
     Whitelisted(Address),
 }
 
+/// Ledgers in a day, at about 5 seconds per ledger (86,400 / 5). Storage
+/// lifetimes are counted in ledgers, so this converts days into that unit.
+/// Approximate: ledger close time varies slightly.
 const DAY_IN_LEDGERS: u32 = 17_280;
+
 /// How far below the network maximum an entry may fall before a call tops
 /// it up. Rent is linear in ledgers, so topping up to the maximum costs the
 /// same in total as many short extensions; it just keeps a quiet offering
