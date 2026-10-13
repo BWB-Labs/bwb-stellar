@@ -85,25 +85,23 @@ pub fn set_powers(
     i.set(&DataKey::Upgrader, upgrader);
 }
 
-fn get(e: &Env, key: &DataKey) -> Address {
-    // Set by the constructor and never removed.
-    e.storage().instance().get(key).unwrap()
-}
+// The four powers are set by the constructor and never removed, so these
+// reads cannot fail.
 
 pub fn admin(e: &Env) -> Address {
-    get(e, &DataKey::Admin)
+    e.storage().instance().get(&DataKey::Admin).unwrap()
 }
 
 pub fn xfer_admin(e: &Env) -> Address {
-    get(e, &DataKey::XferAdmin)
+    e.storage().instance().get(&DataKey::XferAdmin).unwrap()
 }
 
 pub fn pauser(e: &Env) -> Address {
-    get(e, &DataKey::Pauser)
+    e.storage().instance().get(&DataKey::Pauser).unwrap()
 }
 
 pub fn upgrader(e: &Env) -> Address {
-    get(e, &DataKey::Upgrader)
+    e.storage().instance().get(&DataKey::Upgrader).unwrap()
 }
 
 /// Requires `caller`'s signature and that it is one of the stored holders
