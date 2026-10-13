@@ -44,8 +44,8 @@ fn forced_transfer_ignores_pause() {
 fn admin_actions_still_work_while_paused() {
     let s = setup();
     s.client.pause(&s.admin);
-    s.client.set_transfer_whitelist(&s.alice, &true, &s.admin);
-    assert!(s.client.is_transfer_whitelisted(&s.alice));
+    s.client.set_operational_account(&s.alice, &true, &s.admin);
+    assert!(s.client.is_operational_account(&s.alice));
 }
 
 #[test]

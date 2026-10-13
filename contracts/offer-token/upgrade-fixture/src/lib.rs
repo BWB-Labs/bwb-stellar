@@ -21,7 +21,7 @@ pub enum DataKey {
     Pauser,
     Upgrader,
     OfferUri,
-    Whitelisted(Address),
+    OperationalAccount(Address),
 }
 
 /// Same code as v1's `NotUpgrader`.
@@ -75,8 +75,10 @@ impl OfferTokenV2Fixture {
         e.storage().instance().get(&DataKey::OfferUri).unwrap()
     }
 
-    pub fn is_transfer_whitelisted(e: &Env, account: Address) -> bool {
-        e.storage().persistent().has(&DataKey::Whitelisted(account))
+    pub fn is_operational_account(e: &Env, account: Address) -> bool {
+        e.storage()
+            .persistent()
+            .has(&DataKey::OperationalAccount(account))
     }
 
     pub fn paused(e: &Env) -> bool {

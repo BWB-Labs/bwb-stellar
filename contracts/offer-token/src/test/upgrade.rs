@@ -30,7 +30,7 @@ mod with_fixture {
         let s = setup();
         let uri = String::from_str(&s.e, "ipfs://before-upgrade");
         s.client.set_offer_uri(&uri, &s.admin);
-        s.client.set_transfer_whitelist(&s.alice, &true, &s.admin);
+        s.client.set_operational_account(&s.alice, &true, &s.admin);
         s.client.pause(&s.pauser);
 
         let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
@@ -52,9 +52,9 @@ mod with_fixture {
         assert_eq!(v2.decimals(), 0);
         assert_eq!(v2.name(), String::from_str(&s.e, "Edificio Aurora"));
         assert_eq!(v2.offer_uri(), uri);
-        assert!(v2.is_transfer_whitelisted(&s.alice));
-        assert!(v2.is_transfer_whitelisted(&s.listed));
-        assert!(!v2.is_transfer_whitelisted(&s.bob));
+        assert!(v2.is_operational_account(&s.alice));
+        assert!(v2.is_operational_account(&s.listed));
+        assert!(!v2.is_operational_account(&s.bob));
         assert_eq!(v2.admin(), s.admin);
         assert_eq!(v2.xfer_admin(), s.xfer_admin);
         assert_eq!(v2.pauser(), s.pauser);

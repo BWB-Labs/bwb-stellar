@@ -49,7 +49,7 @@ This document defines how the BWB backend works with the Soroban contracts that 
 
 **What a backend developer must know.**
 
-- **Who signs.** BWB builds, simulates and submits every transaction and pays its fee. The investor, or the officers of an organization's treasury, sign only an *authorization entry*: a 32-byte hash that approves one call with fixed arguments. This is pattern (B), the recommended one ([4.1](#41-two-patterns)). The tokenizer's treasury signs closing, payout, pause and unpause, whitelist and URI changes, admin transfers and token withdrawal. The platform hot key writes the allowlist. The platform multisig holds the roles and the upgrades, and can pause (recommended, pending the team) ([1](#1-parties-roles-and-keys)).
+- **Who signs.** BWB builds, simulates and submits every transaction and pays its fee. The investor, or the officers of an organization's treasury, sign only an *authorization entry*: a 32-byte hash that approves one call with fixed arguments. This is pattern (B), the recommended one ([4.1](#41-two-patterns)). The tokenizer's treasury signs closing, payout, pause and unpause, operational-account and URI changes, admin transfers and token withdrawal. The platform hot key writes the allowlist. The platform multisig holds the roles and the upgrades, and can pause (recommended, pending the team) ([1](#1-parties-roles-and-keys)).
 - **How deployment works.** In Tranche 1 (T1), the repository's deploy script deploys each offering, and the backend only registers the addresses it records. From Tranche 2 (T2), the backend deploys with one call to the L8 factory ([5.1](#51-deploying-an-offering)).
 - **How a purchase is confirmed.** A successful transaction means `buy` passed; the backend reads the amounts from its `purchased` event, which is also what the ledger and the indexer keep. A rejected purchase fails the transaction with an error code and emits nothing; the failed transaction and its code are the rejection evidence. RPC keeps transactions for only about 7 days, so the backend stores the `getTransaction` response at confirmation ([5.3](#53-investing), [7.3](#73-rejections-as-evidence)).
 - **What to read, and where.** Read current state by *simulating* the contracts' read functions: a dry run through RPC that changes nothing. Read history from events. RPC keeps events for only about 7 days, so the backend ingests them continuously from a stored cursor ([6.3](#63-ingestion)).
@@ -136,7 +136,7 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 
 | Role | Contract | Held by | Can |
 |---|---|---|---|
-| admin (stored address) | `offer-token` | tokenizer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
+| admin (stored address) | `offer-token` | tokenizer's treasury | manage the operational accounts and the offering URI, pause and unpause |
 | `xfer_admin` (stored address, fixed at construction) | `offer-token` | tokenizer's treasury | move tokens between any two accounts, even while paused |
 | owner (stored address) | `offer-sale` | tokenizer's treasury | finalize, mark failed, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
 | access-control admin | `offer-allowlist`, `offer-sale` | platform multisig | grant and revoke the roles below |
@@ -148,7 +148,7 @@ The stored addresses (`admin`, `xfer_admin`, owner) have no setter: they are fix
 
 **Why the tokenizer's roles are stored addresses.** OpenZeppelin always lets its top access-control admin grant and revoke any role. A tokenizer holding it could grant itself `upgrader` or remove the platform's `pauser`. So the tokenizer holds plain stored addresses.
 
-**`offer-token` has no access-control admin at all** (ADR 0005). Its four powers, `admin`, `xfer_admin`, `pauser` and `upgrader`, are all stored addresses fixed at construction. The platform holding OpenZeppelin's root would let it revoke or reassign the tokenizer's whitelist and forced-transfer powers, which Base never allowed. The contract doesn't know which party is which: the deploy passes the accounts. Changing a holder takes an upgrade. The allowlist and the sale contract settle their own model in L3 and L4.
+**`offer-token` has no access-control admin at all** (ADR 0005). Its four powers, `admin`, `xfer_admin`, `pauser` and `upgrader`, are all stored addresses fixed at construction. The platform holding OpenZeppelin's root would let it revoke or reassign the tokenizer's operational-account and forced-transfer powers, which Base never allowed. The contract doesn't know which party is which: the deploy passes the accounts. Changing a holder takes an upgrade. The allowlist and the sale contract settle their own model in L3 and L4.
 
 Two choices here deliberately differ from what a reader might expect:
 
@@ -323,8 +323,8 @@ The script's sequence. L2 delivered steps 1 and 2; L4 adds the rest.
    - `admin` and `xfer_admin`: the tokenizer's treasury;
    - `pauser` and `upgrader`: the platform multisig;
    - name, symbol, supply and offering URI;
-   - the initial holder: the precomputed sale address, which receives the whole supply and is whitelisted automatically;
-   - further accounts to whitelist, if any.
+   - the initial holder: the precomputed sale address, which receives the whole supply and is an operational account automatically;
+   - further operational accounts, if any.
 3. **Deploy `offer-sale`.** Signed by the deployer key. The constructor sets:
    - owner: the tokenizer's treasury;
    - `pauser` and `upgrader`: the platform multisig;
@@ -378,7 +378,7 @@ The tokenizer's treasury signs one of these while the offering is Active:
 - **Only released money can be withdrawn. Recommended (ADR 0004), pending the team.** `withdraw_payment` takes at most the payment of reservations already released, minus what was withdrawn before. Money an investor can still ask back never leaves the sale contract. The order is: release everyone past their window, then withdraw. The consequence for the team: the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase.
   - Base differs: there, the tokenizer could withdraw everything at once (audit NF-04, accepted). The audit response claims a backend check against open refund obligations; no such check exists in Base's code, which strengthens the case for the on-chain cap.
   - Base's backend got away with it by releasing every investor in the same batch as the withdrawal. That silently ended any cooling-off right still open.
-- **Leftover tokens.** No `offer-sale` call returns them after success: `withdraw_tokens` requires Failed, as in Base. That covers tokens returned through cooling-off (audit SCAN-02) and tokens never sold. They are not locked, though: the token's `admin_transfer` (Base's `adminTransfer`) lets `xfer_admin` move any balance, including the sale contract's, ignoring pause and the whitelist. The same power can pull sold-but-unreleased tokens out of a Successful offering, and `release` then fails; `finalize` checks the balance only once. So the backend must never admin-transfer more than `balance − (sold_tokens − released tokens)` out of a Successful offering's sale contract. Whether leftovers go back to the tokenizer, to the issuer, or cease to exist (there is no burn) is a product and legal question pending the team ([11](#11-open-points)); `admin_transfer` is a fact about the contracts, not the decided exit path.
+- **Leftover tokens.** No `offer-sale` call returns them after success: `withdraw_tokens` requires Failed, as in Base. That covers tokens returned through cooling-off (audit SCAN-02) and tokens never sold. They are not locked, though: the token's `admin_transfer` (Base's `adminTransfer`) lets `xfer_admin` move any balance, including the sale contract's, ignoring pause and the operational-account rule. The same power can pull sold-but-unreleased tokens out of a Successful offering, and `release` then fails; `finalize` checks the balance only once. So the backend must never admin-transfer more than `balance − (sold_tokens − released tokens)` out of a Successful offering's sale contract. Whether leftovers go back to the tokenizer, to the issuer, or cease to exist (there is no burn) is a product and legal question pending the team ([11](#11-open-points)); `admin_transfer` is a fact about the contracts, not the decided exit path.
 
 ### 5.6 After failure
 
@@ -496,7 +496,7 @@ The AUM query and its definition belong to the team, including questions such as
 | `refunded` | − payment from escrow, − tokens reserved |
 | `released` | Tokens move from reservation to the investor's balance. Escrow is unchanged. |
 | `payment_withdrawn` | − payment from escrow, to the recipient |
-| `transfer` (token), after release | Holdings change hands: whitelisted transfers, or admin transfers |
+| `transfer` (token), after release | Holdings change hands: transfers to or from operational accounts, or admin transfers |
 | `transfer` (token) out of the sale contract by `admin_transfer` | Tokens leave the sale contract without a sale event ([5.5](#55-after-success), leftover tokens) |
 | `tokens_withdrawn` | Tokens leave a failed offering, to the address the owner (the tokenizer's treasury) names |
 
@@ -511,7 +511,7 @@ On Stellar, every piece of contract data has a lifetime, its *TTL* (time to live
 | Allocation per investor | persistent, one entry per investor | `offer-allowlist` |
 | Reservation per investor | persistent, one entry per investor | `offer-sale` |
 | Balance per holder | persistent (OpenZeppelin) | `offer-token` |
-| Transfer whitelist, one entry per account | persistent | `offer-token` |
+| Operational accounts, one entry per account | persistent | `offer-token` |
 | Roles | persistent (OpenZeppelin) | `offer-allowlist`, `offer-sale` |
 | State, configuration, totals, admin, pause flag | instance | all |
 | Authorization nonces, OpenZeppelin allowances and pending admin transfers | temporary | host, `offer-token`, all |
@@ -735,11 +735,12 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 **0.6, 2026-10-09.** `offer-token` delivered (L2). Its document now describes the deployed contract. Changes here:
 
 - **No access control on the token** (ADR 0005): `admin`, `xfer_admin`, `pauser` and `upgrader` are all stored addresses fixed at construction. The role calls and events, codes 2000 and 2007, and 6002 `RenounceBlocked` no longer apply to the token. The allowlist and the sale contract are unchanged here.
-- **Every privileged token call takes its caller** as the last argument (`set_transfer_whitelist`, `set_offer_uri`, `admin_transfer`, as `pause`, `unpause` and `upgrade` already did), so a signed but wrong caller fails with the power's own code instead of only an authorization error.
+- **Every privileged token call takes its caller** as the last argument (`set_operational_account`, `set_offer_uri`, `admin_transfer`, as `pause`, `unpause` and `upgrade` already did), so a signed but wrong caller fails with the power's own code instead of only an authorization error.
 - **Inventory decided** (ADR 0006): the supply mints to the sale contract's precomputed address. Salts are derived from the offering identifier; the script, its re-run rule and the manifest layout are in [5.1](#51-deploying-an-offering).
-- **Token additions:** an `initialized` event at construction; codes 6002–6009 (`BurnDisabled`, one per power, `InvalidSupply`, `WhitelistTooLong`, `UriTooLong`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
+- **Token additions:** an `initialized` event at construction; codes 6002–6009 (`BurnDisabled`, one per power, `InvalidSupply`, `TooManyOperationalAccounts`, `UriTooLong`); `burn` and `burn_from` exist and always fail, so the token has the full SEP-41 interface; a zero or negative supply is rejected.
 - **Expiry:** the token tops its instance and the entries a call touches up to the network maximum (about 180 days) once they fall a month below it, instead of OpenZeppelin's 30 days. Balances only OpenZeppelin touches keep its rule.
-- **Limits:** the constructor whitelist holds at most 40 accounts (6008) and the offering URI at most 256 bytes (6009). `upgrader` is documented as the trust root.
+- **Limits:** the constructor's `operational_accounts` holds at most 40 accounts (6008) and the offering URI at most 256 bytes (6009). `upgrader` is documented as the trust root.
+- **Renamed (proposal, pending the team):** the token's transfer "whitelist" is now its *operational accounts*, so it is not confused with the investor allowlist. `set_transfer_whitelist` → `set_operational_account`, `is_transfer_whitelisted` → `is_operational_account`, event `whitelist_updated` → `operational_account_updated`, 6000 `TransferNotWhitelisted` → `NoOperationalParty`, 6008 `WhitelistTooLong` → `TooManyOperationalAccounts`, constructor argument `whitelist` → `operational_accounts`. Codes and behaviour are unchanged.
 
 **0.5, 2026-10-06.** Changes from three reviews (against the team decisions, against Base's code, against Soroban):
 

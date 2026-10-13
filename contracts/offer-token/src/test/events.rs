@@ -5,7 +5,9 @@ use soroban_sdk::{
 };
 
 use super::{ctor_args, parties, setup, SUPPLY, URI};
-use crate::events::{AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, WhitelistUpdated};
+use crate::events::{
+    AdminTransfer, Initialized, OfferUriUpdated, OperationalAccountUpdated, PauseChanged,
+};
 use crate::OfferToken;
 use soroban_sdk::Event as _;
 
@@ -34,7 +36,7 @@ fn syms(e: &Env, names: &[&str]) -> Vec<Symbol> {
 }
 
 #[test]
-fn construction_emits_initialized_mint_and_one_whitelist_update_per_account() {
+fn construction_emits_initialized_mint_and_one_operational_update_per_account() {
     let e = Env::default();
     let p = parties(&e);
     let listed = Address::generate(&e);
@@ -49,8 +51,8 @@ fn construction_emits_initialized_mint_and_one_whitelist_update_per_account() {
             &[
                 "initialized",
                 "mint",
-                "whitelist_updated",
-                "whitelist_updated"
+                "operational_account_updated",
+                "operational_account_updated"
             ]
         )
     );
@@ -64,11 +66,11 @@ fn construction_emits_initialized_mint_and_one_whitelist_update_per_account() {
         offer_uri: String::from_str(&e, URI),
     };
     assert_eq!(evs[0], init.to_xdr(&e, &id));
-    let sale = WhitelistUpdated {
+    let sale = OperationalAccountUpdated {
         account: p.sale.clone(),
         allowed: true,
     };
-    let other = WhitelistUpdated {
+    let other = OperationalAccountUpdated {
         account: listed,
         allowed: true,
     };
@@ -77,10 +79,10 @@ fn construction_emits_initialized_mint_and_one_whitelist_update_per_account() {
 }
 
 #[test]
-fn whitelist_change_emits_whitelist_updated_every_time() {
+fn operational_change_emits_operational_account_updated_every_time() {
     let s = setup();
-    s.client.set_transfer_whitelist(&s.alice, &false, &s.admin);
-    let ev = WhitelistUpdated {
+    s.client.set_operational_account(&s.alice, &false, &s.admin);
+    let ev = OperationalAccountUpdated {
         account: s.alice.clone(),
         allowed: false,
     };

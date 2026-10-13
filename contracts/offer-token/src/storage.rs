@@ -1,5 +1,5 @@
 //! The token's own storage: the four powers, the offering URI and the
-//! whitelist, plus the expiry policy and the caller checks built on them.
+//! operational accounts, plus the expiry policy and the caller checks built on them.
 //! Balances, allowances, metadata, supply, the pause flag and the schema
 //! version live in OpenZeppelin's storage.
 use soroban_sdk::{contracttype, panic_with_error, Address, Env, String};
@@ -15,8 +15,8 @@ pub enum DataKey {
     Pauser,
     Upgrader,
     OfferUri,
-    /// Present (and `true`) only for whitelisted accounts.
-    Whitelisted(Address),
+    /// Present (and `true`) only for operational accounts.
+    OperationalAccount(Address),
 }
 
 const DAY_IN_LEDGERS: u32 = 17_280;
@@ -100,8 +100,8 @@ pub fn set_offer_uri(e: &Env, uri: &String) {
     e.storage().instance().set(&DataKey::OfferUri, uri);
 }
 
-pub fn is_whitelisted(e: &Env, account: &Address) -> bool {
-    let key = DataKey::Whitelisted(account.clone());
+pub fn is_operational_account(e: &Env, account: &Address) -> bool {
+    let key = DataKey::OperationalAccount(account.clone());
     let listed = e.storage().persistent().has(&key);
     if listed {
         extend_existing(e, &key);
@@ -109,8 +109,8 @@ pub fn is_whitelisted(e: &Env, account: &Address) -> bool {
     listed
 }
 
-pub fn set_whitelisted(e: &Env, account: &Address, allowed: bool) {
-    let key = DataKey::Whitelisted(account.clone());
+pub fn set_operational_account(e: &Env, account: &Address, allowed: bool) {
+    let key = DataKey::OperationalAccount(account.clone());
     if allowed {
         e.storage().persistent().set(&key, &true);
         extend_existing(e, &key);

@@ -27,7 +27,7 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 
 | Crate | Base counterpart | Role | Tranche |
 |---|---|---|---|
-| `offer-token` | `OfferERC20` | Investor position in one offering; transfer whitelist, pause, admin transfer, metadata ([docs](docs/offer-token.md)) | 1 |
+| `offer-token` | `OfferERC20` | Investor position in one offering; transfers only to or from operational accounts, pause, admin transfer, metadata ([docs](docs/offer-token.md)) | 1 |
 | `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much; one global instance | 1 |
 | `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, finalize, cancel, cooling-off, refund, release | 1 |
 
@@ -76,7 +76,7 @@ NETWORK=testnet scripts/offering-addresses.sh <offering-id>   # token and sale a
 NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-token -- \
   --admin G... --xfer_admin G... --pauser G... --upgrader G... \
   --name "..." --symbol ... --supply 1000 --initial_holder <sale address> \
-  --whitelist '[]' --offer_uri ipfs://...
+  --operational_accounts '[]' --offer_uri ipfs://...
 ```
 
 An offering's token and sale contract live at addresses derived from the

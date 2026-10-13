@@ -27,11 +27,11 @@ fn balance_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
     })
 }
 
-fn whitelist_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
+fn operational_entry_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
     e.as_contract(id, || {
         e.storage()
             .persistent()
-            .get_ttl(&crate::storage::DataKey::Whitelisted(who.clone()))
+            .get_ttl(&crate::storage::DataKey::OperationalAccount(who.clone()))
     })
 }
 
@@ -90,20 +90,26 @@ fn transfer_from_extends_both_balances_to_the_maximum() {
 }
 
 #[test]
-fn a_transfer_extends_the_whitelist_entry_it_checked() {
+fn a_transfer_extends_the_operational_entry_it_checked() {
     let s = setup();
     advance(&s.e, 40);
-    assert!(whitelist_ttl(&s.e, &s.id, &s.listed) < max_ttl(&s.e, &s.id));
+    assert!(operational_entry_ttl(&s.e, &s.id, &s.listed) < max_ttl(&s.e, &s.id));
     s.client.transfer(&s.alice, &s.listed, &1);
-    assert_eq!(whitelist_ttl(&s.e, &s.id, &s.listed), max_ttl(&s.e, &s.id));
+    assert_eq!(
+        operational_entry_ttl(&s.e, &s.id, &s.listed),
+        max_ttl(&s.e, &s.id)
+    );
 }
 
 #[test]
-fn whitelisting_writes_the_entry_with_the_maximum_ttl() {
+fn adding_an_operational_account_writes_the_entry_with_the_maximum_ttl() {
     let s = setup();
     advance(&s.e, 40);
-    s.client.set_transfer_whitelist(&s.alice, &true, &s.admin);
-    assert_eq!(whitelist_ttl(&s.e, &s.id, &s.alice), max_ttl(&s.e, &s.id));
+    s.client.set_operational_account(&s.alice, &true, &s.admin);
+    assert_eq!(
+        operational_entry_ttl(&s.e, &s.id, &s.alice),
+        max_ttl(&s.e, &s.id)
+    );
 }
 
 #[test]

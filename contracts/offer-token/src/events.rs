@@ -16,9 +16,9 @@ pub struct Initialized {
     pub offer_uri: String,
 }
 
-/// An account joined or left the transfer whitelist.
+/// An account became or stopped being an operational account.
 #[contractevent]
-pub struct WhitelistUpdated {
+pub struct OperationalAccountUpdated {
     #[topic]
     pub account: Address,
     pub allowed: bool,

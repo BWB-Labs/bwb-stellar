@@ -1,26 +1,26 @@
 //! The transfer rule: an ordinary transfer passes only if the sender or the
-//! recipient is whitelisted. Base's `OfferERC20` has the same rule;
-//! OpenZeppelin's `AllowList` requires both sides, so the token supplies its
-//! own contract type in the same shape.
+//! recipient is an operational account (the sale contract, distributors;
+//! never an investor). Base's `OfferERC20` has the same rule, under the name
+//! `transferWhitelist`; OpenZeppelin's `AllowList` requires both sides, so the
+//! token supplies its own contract type in the same shape.
 //!
-//! Whitelisted accounts are operational (the sale contract, distributors),
-//! never investors, so investors can return quotas but not trade among
-//! themselves. Not to be confused with the investor allowlist.
+//! Investors are never operational accounts, so they can return quotas but
+//! not trade among themselves. Not to be confused with the investor allowlist.
 use soroban_sdk::{panic_with_error, Address, Env, MuxedAddress};
 use stellar_tokens::fungible::{Base, ContractOverrides};
 
 use crate::errors::OfferTokenError;
 use crate::storage;
 
-pub struct Whitelisted;
+pub struct OperationalRule;
 
 fn require_either(e: &Env, from: &Address, to: &Address) {
-    if !storage::is_whitelisted(e, from) && !storage::is_whitelisted(e, to) {
-        panic_with_error!(e, OfferTokenError::TransferNotWhitelisted);
+    if !storage::is_operational_account(e, from) && !storage::is_operational_account(e, to) {
+        panic_with_error!(e, OfferTokenError::NoOperationalParty);
     }
 }
 
-impl ContractOverrides for Whitelisted {
+impl ContractOverrides for OperationalRule {
     fn transfer(e: &Env, from: &Address, to: &MuxedAddress, amount: i128) {
         // A muxed recipient is checked on its underlying account.
         let to_account = to.address();

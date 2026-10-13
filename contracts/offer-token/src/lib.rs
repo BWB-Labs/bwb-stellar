@@ -3,14 +3,14 @@
 //!
 //! A SEP-41 token with 0 decimals whose whole supply is minted once, at
 //! construction, to the initial holder (the offering's sale contract). An
-//! ordinary transfer passes only if the sender or the recipient is
-//! whitelisted, so investors can only send quotas back to operational
-//! accounts.
+//! ordinary transfer passes only if the sender or the recipient is an
+//! operational account (the sale contract, distributors; never an investor),
+//! so investors can only send quotas back to operational accounts.
 //!
 //! Four powers, each a stored address fixed at construction with no setter
-//! (ADR 0005): `admin` manages the whitelist and the offering URI, pauses and
+//! (ADR 0005): `admin` manages the operational accounts and the offering URI, pauses and
 //! unpauses; `xfer_admin` moves tokens between any two accounts, ignoring
-//! pause and the whitelist; `pauser` pauses but never unpauses; `upgrader`
+//! pause and the operational-account rule; `pauser` pauses but never unpauses; `upgrader`
 //! replaces the code. There is no access-control root, so no holder can grant
 //! itself another's power by a call. `upgrader` is still the trust root: a
 //! code swap can do anything, so it must be the strongest key. Which account
@@ -22,8 +22,8 @@
 
 mod errors;
 pub mod events;
+mod operational;
 pub(crate) mod storage;
-mod whitelist;
 
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, Address, BytesN, Env, MuxedAddress,
@@ -38,21 +38,21 @@ use stellar_tokens::fungible::{emit_transfer, Base, ContractOverrides, FungibleT
 
 pub use crate::errors::OfferTokenError;
 use crate::events::{
-    AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, Upgraded, WhitelistUpdated,
+    AdminTransfer, Initialized, OfferUriUpdated, OperationalAccountUpdated, PauseChanged, Upgraded,
 };
-use crate::whitelist::Whitelisted;
+use crate::operational::OperationalRule;
 
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 
 /// Version of the storage layout this code writes and reads.
 const SCHEMA_VERSION: u32 = 1;
 
-/// Accounts the constructor will whitelist. Each is a persistent write and
+/// Operational accounts the constructor will add. Each is a persistent write and
 /// an event, and a transaction may write at most 50 entries and touch 100
 /// (the host's own limits; the live network's are looser but voted on).
 /// At 40 the constructor stays under both with margin. The rest go through
-/// `set_transfer_whitelist`.
-pub const MAX_INITIAL_WHITELIST: u32 = 40;
+/// `set_operational_account`.
+pub const MAX_INITIAL_OPERATIONAL_ACCOUNTS: u32 = 40;
 
 /// The offering URI lives in instance storage, which every call reads, so
 /// it is kept short.
@@ -64,7 +64,8 @@ pub struct OfferToken;
 #[contractimpl]
 impl OfferToken {
     /// Sets the four powers, mints the whole supply to `initial_holder` and
-    /// whitelists it together with `whitelist` (duplicates ignored).
+    /// makes it an operational account together with `operational_accounts`
+    /// (duplicates ignored).
     #[allow(clippy::too_many_arguments)]
     pub fn __constructor(
         e: &Env,
@@ -76,14 +77,14 @@ impl OfferToken {
         symbol: String,
         supply: i128,
         initial_holder: Address,
-        whitelist: Vec<Address>,
+        operational_accounts: Vec<Address>,
         offer_uri: String,
     ) {
         if supply <= 0 {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }
-        if whitelist.len() > MAX_INITIAL_WHITELIST {
-            panic_with_error!(e, OfferTokenError::WhitelistTooLong);
+        if operational_accounts.len() > MAX_INITIAL_OPERATIONAL_ACCOUNTS {
+            panic_with_error!(e, OfferTokenError::TooManyOperationalAccounts);
         }
         storage::set_powers(e, &admin, &xfer_admin, &pauser, &upgrader);
         set_uri_checked(e, &offer_uri);
@@ -105,25 +106,25 @@ impl OfferToken {
         Base::mint(e, &initial_holder, supply);
         storage::extend_balance(e, &initial_holder);
 
-        whitelist_if_new(e, &initial_holder);
-        for account in whitelist.iter() {
-            whitelist_if_new(e, &account);
+        add_operational_if_new(e, &initial_holder);
+        for account in operational_accounts.iter() {
+            add_operational_if_new(e, &account);
         }
     }
 
-    /// Adds `account` to the whitelist or removes it. Emits every time, as
+    /// Makes `account` an operational account or removes it. Emits every time, as
     /// Base does, even when nothing changes.
     ///
-    /// The whitelist holds operational accounts (the sale contract,
-    /// distributors), never investors: an ordinary transfer passes only if
-    /// the sender or the recipient is on it, so investors can return quotas
-    /// to the platform but not trade among themselves. It is not the
-    /// investor allowlist, which decides who may invest.
-    pub fn set_transfer_whitelist(e: &Env, account: Address, allowed: bool, caller: Address) {
+    /// Operational accounts are the sale contract and distributors, never
+    /// investors: an ordinary transfer passes only if the sender or the
+    /// recipient is one, so investors can return quotas to the platform but
+    /// not trade among themselves. They are not the investor allowlist,
+    /// which decides who may invest.
+    pub fn set_operational_account(e: &Env, account: Address, allowed: bool, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
-        storage::set_whitelisted(e, &account, allowed);
+        storage::set_operational_account(e, &account, allowed);
         storage::extend_instance(e);
-        WhitelistUpdated { account, allowed }.publish(e);
+        OperationalAccountUpdated { account, allowed }.publish(e);
     }
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
@@ -133,7 +134,7 @@ impl OfferToken {
         OfferUriUpdated { uri }.publish(e);
     }
 
-    /// Moves `amount` from `from` to `to`, ignoring pause and the whitelist:
+    /// Moves `amount` from `from` to `to`, ignoring pause and the operational-account rule:
     /// court orders, lost keys, estates, manual returns.
     pub fn admin_transfer(e: &Env, from: Address, to: Address, amount: i128, caller: Address) {
         storage::require_power(
@@ -164,10 +165,10 @@ impl OfferToken {
     }
 
     /// Whether `account` is an operational account that may send or receive
-    /// quotas in an ordinary transfer. Investors are never whitelisted; see
-    /// `set_transfer_whitelist`.
-    pub fn is_transfer_whitelisted(e: &Env, account: Address) -> bool {
-        storage::is_whitelisted(e, &account)
+    /// quotas in an ordinary transfer. Investors are never operational
+    /// accounts; see `set_operational_account`.
+    pub fn is_operational_account(e: &Env, account: Address) -> bool {
+        storage::is_operational_account(e, &account)
     }
 
     pub fn offer_uri(e: &Env) -> String {
@@ -202,10 +203,10 @@ fn set_uri_checked(e: &Env, uri: &String) {
     storage::set_offer_uri(e, uri);
 }
 
-fn whitelist_if_new(e: &Env, account: &Address) {
-    if !storage::is_whitelisted(e, account) {
-        storage::set_whitelisted(e, account, true);
-        WhitelistUpdated {
+fn add_operational_if_new(e: &Env, account: &Address) {
+    if !storage::is_operational_account(e, account) {
+        storage::set_operational_account(e, account, true);
+        OperationalAccountUpdated {
             account: account.clone(),
             allowed: true,
         }
@@ -215,7 +216,7 @@ fn whitelist_if_new(e: &Env, account: &Address) {
 
 #[contractimpl(contracttrait)]
 impl FungibleToken for OfferToken {
-    type ContractType = Whitelisted;
+    type ContractType = OperationalRule;
 
     #[when_not_paused]
     fn transfer(e: &Env, from: Address, to: MuxedAddress, amount: i128) {

@@ -7,8 +7,8 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum OfferTokenError {
-    /// Neither the sender nor the recipient is whitelisted.
-    TransferNotWhitelisted = 6000,
+    /// Neither the sender nor the recipient is an operational account.
+    NoOperationalParty = 6000,
     /// A forced transfer with `from == to` or a non-positive amount.
     InvalidAdminTransfer = 6001,
     /// `burn` and `burn_from` exist for SEP-41 shape only; supply is fixed.
@@ -23,9 +23,9 @@ pub enum OfferTokenError {
     NotUpgrader = 6006,
     /// The constructor received a supply that is zero or negative.
     InvalidSupply = 6007,
-    /// The constructor's whitelist has more than `MAX_INITIAL_WHITELIST`
-    /// accounts; add the rest with `set_transfer_whitelist`.
-    WhitelistTooLong = 6008,
+    /// The constructor's `operational_accounts` has more than `MAX_INITIAL_OPERATIONAL_ACCOUNTS`
+    /// accounts; add the rest with `set_operational_account`.
+    TooManyOperationalAccounts = 6008,
     /// The offering URI is longer than `MAX_URI_LEN` bytes.
     UriTooLong = 6009,
 }

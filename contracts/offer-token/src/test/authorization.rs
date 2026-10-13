@@ -11,10 +11,12 @@ use super::{err, setup};
 use crate::OfferTokenError;
 
 #[test]
-fn only_admin_manages_the_whitelist() {
+fn only_admin_manages_the_operational_accounts() {
     let s = setup();
     for caller in [&s.xfer_admin, &s.pauser, &s.upgrader, &s.alice] {
-        let r = s.client.try_set_transfer_whitelist(&s.alice, &true, caller);
+        let r = s
+            .client
+            .try_set_operational_account(&s.alice, &true, caller);
         assert_eq!(err(r), OfferTokenError::NotAdmin.into());
     }
 }
@@ -84,9 +86,9 @@ macro_rules! needs_signature {
     };
 }
 
-needs_signature!(whitelist_needs_admins_signature, |s| s
+needs_signature!(operational_account_needs_admins_signature, |s| s
     .client
-    .set_transfer_whitelist(&s.alice, &true, &s.admin));
+    .set_operational_account(&s.alice, &true, &s.admin));
 needs_signature!(uri_needs_admins_signature, |s| s
     .client
     .set_offer_uri(&String::from_str(&s.e, "ipfs://x"), &s.admin));
@@ -105,20 +107,20 @@ needs_signature!(investor_transfer_needs_the_investors_signature, |s| s
     .transfer(&s.alice, &s.listed, &1));
 
 #[test]
-fn admin_signature_alone_manages_the_whitelist() {
+fn admin_signature_alone_manages_the_operational_accounts() {
     let s = setup();
     let args = (&s.alice, true, &s.admin).into_val(&s.e);
     s.e.mock_auths(&[MockAuth {
         address: &s.admin,
         invoke: &MockAuthInvoke {
             contract: &s.id,
-            fn_name: "set_transfer_whitelist",
+            fn_name: "set_operational_account",
             args,
             sub_invokes: &[],
         },
     }]);
-    s.client.set_transfer_whitelist(&s.alice, &true, &s.admin);
-    assert!(s.client.is_transfer_whitelisted(&s.alice));
+    s.client.set_operational_account(&s.alice, &true, &s.admin);
+    assert!(s.client.is_operational_account(&s.alice));
 }
 
 #[test]
@@ -162,7 +164,7 @@ fn a_stranger_cannot_reach_any_power() {
     assert_eq!(
         err(s
             .client
-            .try_set_transfer_whitelist(&mallory, &true, &mallory)),
+            .try_set_operational_account(&mallory, &true, &mallory)),
         OfferTokenError::NotAdmin.into()
     );
     assert_eq!(

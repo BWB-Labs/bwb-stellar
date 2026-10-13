@@ -32,9 +32,9 @@ pub struct Setup<'a> {
     pub upgrader: Address,
     /// The initial holder, standing in for the offering's sale contract.
     pub sale: Address,
-    /// An operational account whitelisted at construction (e.g. a distributor).
+    /// An operational account added at construction (e.g. a distributor).
     pub listed: Address,
-    /// Two investors, never whitelisted.
+    /// Two investors, never operational accounts.
     pub alice: Address,
     pub bob: Address,
 }
@@ -43,7 +43,7 @@ pub fn ctor_args(
     e: &Env,
     s: &Parties,
     supply: i128,
-    whitelist: Vec<Address>,
+    operational_accounts: Vec<Address>,
 ) -> (
     Address,
     Address,
@@ -65,7 +65,7 @@ pub fn ctor_args(
         String::from_str(e, "AUR"),
         supply,
         s.sale.clone(),
-        whitelist,
+        operational_accounts,
         String::from_str(e, URI),
     )
 }

@@ -2,7 +2,9 @@
 use soroban_sdk::{testutils::Address as _, vec, Address, Env};
 
 use super::{code, ctor_args, err, parties, setup};
-use crate::{OfferToken, OfferTokenClient, OfferTokenError, MAX_INITIAL_WHITELIST, MAX_URI_LEN};
+use crate::{
+    OfferToken, OfferTokenClient, OfferTokenError, MAX_INITIAL_OPERATIONAL_ACCOUNTS, MAX_URI_LEN,
+};
 
 const INSUFFICIENT_BALANCE: u32 = 100;
 
@@ -24,27 +26,27 @@ fn negative_supply_is_rejected_at_construction() {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #6008)")]
-fn constructor_rejects_a_whitelist_over_the_cap() {
+fn constructor_rejects_operational_accounts_over_the_cap() {
     let e = Env::default();
     let p = parties(&e);
     let mut list = soroban_sdk::Vec::new(&e);
-    for _ in 0..=MAX_INITIAL_WHITELIST {
+    for _ in 0..=MAX_INITIAL_OPERATIONAL_ACCOUNTS {
         list.push_back(Address::generate(&e));
     }
     e.register(OfferToken, ctor_args(&e, &p, 10, list));
 }
 
 #[test]
-fn constructor_accepts_a_whitelist_at_the_cap() {
+fn constructor_accepts_operational_accounts_at_the_cap() {
     let e = Env::default();
     let p = parties(&e);
     let mut list = soroban_sdk::Vec::new(&e);
-    for _ in 0..MAX_INITIAL_WHITELIST {
+    for _ in 0..MAX_INITIAL_OPERATIONAL_ACCOUNTS {
         list.push_back(Address::generate(&e));
     }
     let last = list.last().unwrap();
     let id = e.register(OfferToken, ctor_args(&e, &p, 10, list));
-    assert!(OfferTokenClient::new(&e, &id).is_transfer_whitelisted(&last));
+    assert!(OfferTokenClient::new(&e, &id).is_operational_account(&last));
 }
 
 #[test]
@@ -67,15 +69,15 @@ fn supply_of_one_is_valid() {
 }
 
 #[test]
-fn duplicate_whitelist_inputs_are_ignored() {
+fn duplicate_operational_account_inputs_are_ignored() {
     let e = Env::default();
     let p = parties(&e);
     let listed = Address::generate(&e);
     let list = vec![&e, listed.clone(), p.sale.clone(), listed.clone()];
     let id = e.register(OfferToken, ctor_args(&e, &p, 10, list));
     let client = OfferTokenClient::new(&e, &id);
-    assert!(client.is_transfer_whitelisted(&listed));
-    assert!(client.is_transfer_whitelisted(&p.sale));
+    assert!(client.is_operational_account(&listed));
+    assert!(client.is_operational_account(&p.sale));
 }
 
 #[test]
