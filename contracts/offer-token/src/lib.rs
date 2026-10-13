@@ -7,8 +7,8 @@
 //! whitelisted, so investors can only send quotas back to operational
 //! accounts.
 //!
-//! Four powers, each a stored address fixed at construction with no setter
-//! (ADR 0005): `admin` manages the whitelist and the offering URI, pauses and
+//! Four powers, each a stored address fixed at construction with no setter:
+//! `admin` manages the whitelist and the offering URI, pauses and
 //! unpauses; `xfer_admin` moves tokens between any two accounts, ignoring
 //! pause and the whitelist; `pauser` pauses but never unpauses; `upgrader`
 //! replaces the code. There is no access-control root, so no holder can grant
