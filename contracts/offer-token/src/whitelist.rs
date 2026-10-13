@@ -2,6 +2,10 @@
 //! recipient is whitelisted. Base's `OfferERC20` has the same rule;
 //! OpenZeppelin's `AllowList` requires both sides, so the token supplies its
 //! own contract type in the same shape.
+//!
+//! Whitelisted accounts are operational (the sale contract, distributors),
+//! never investors, so investors can return quotas but not trade among
+//! themselves. Not to be confused with the investor allowlist.
 use soroban_sdk::{panic_with_error, Address, Env, MuxedAddress};
 use stellar_tokens::fungible::{Base, ContractOverrides};
 

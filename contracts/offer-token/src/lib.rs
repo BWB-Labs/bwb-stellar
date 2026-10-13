@@ -113,6 +113,12 @@ impl OfferToken {
 
     /// Adds `account` to the whitelist or removes it. Emits every time, as
     /// Base does, even when nothing changes.
+    ///
+    /// The whitelist holds operational accounts (the sale contract,
+    /// distributors), never investors: an ordinary transfer passes only if
+    /// the sender or the recipient is on it, so investors can return quotas
+    /// to the platform but not trade among themselves. It is not the
+    /// investor allowlist, which decides who may invest.
     pub fn set_transfer_whitelist(e: &Env, account: Address, allowed: bool, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_whitelisted(e, &account, allowed);
@@ -157,6 +163,9 @@ impl OfferToken {
         panic_with_error!(e, OfferTokenError::BurnDisabled);
     }
 
+    /// Whether `account` is an operational account that may send or receive
+    /// quotas in an ordinary transfer. Investors are never whitelisted; see
+    /// `set_transfer_whitelist`.
     pub fn is_transfer_whitelisted(e: &Env, account: Address) -> bool {
         storage::is_whitelisted(e, &account)
     }

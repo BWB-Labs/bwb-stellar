@@ -6,6 +6,34 @@
 
 **Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-2`. The cross-cutting rules are in [interface.md](interface.md).
 
+## The whitelist
+
+The whitelist is the token's list of **operational accounts**: the offering's sale contract, distributors and other platform contracts. Investors are never on it.
+
+**The rule.** An ordinary transfer (`transfer`, `transfer_from`) passes only if the sender **or** the recipient is whitelisted:
+
+| From | To | Result | Example |
+|---|---|---|---|
+| whitelisted | anyone | passes | the sale releases quotas to an investor |
+| anyone | whitelisted | passes | an investor returns quotas to the sale or a distributor |
+| not whitelisted | not whitelisted | fails, 6000 | an investor sends quotas to another investor |
+
+**Why.** The quotas are a regulated security sold in a private offer, so investors must not trade them among themselves. It also keeps balances from moving between investors, which a holdings-based yield distributor relies on (audit NF-03). Base's `OfferERC20` has the same rule and the same list.
+
+**Not the allowlist.** The two lists are independent:
+
+| | Allowlist (`offer-allowlist`) | Whitelist (this token) |
+|---|---|---|
+| Answers | may this address **invest**, and up to how much? | may this address **send or receive** quotas in an ordinary transfer? |
+| Who is on it | every investor who passed KYC | operational accounts only |
+| Scope | one for the whole platform | one per offering |
+
+An investor is on the allowlist and never on the whitelist. They receive quotas because the sender, the sale contract, is whitelisted.
+
+**Who manages it.** `admin` adds and removes accounts. The constructor whitelists the initial holder and an optional list. Forced transfers by `xfer_admin` ignore the whitelist.
+
+**Keep it to accounts BWB or its contracts control.** Whitelisting an investor would let that investor send to anyone, including other investors. Whitelisting a third party's account, such as an exchange or custodian that credits customers by ID, would let anyone holding an investor's key deposit stolen quotas there.
+
 ## Powers
 
 Four powers, each a stored address set at construction, **with no setter**. There is no access-control admin: nobody can grant anyone a power, so neither the tokenizer nor the platform can take the other's (ADR 0005).
@@ -60,8 +88,6 @@ Read functions:
 - state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `schema_version` (1).
 
 The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
-
-Investors are never whitelisted. An investor can only send tokens to a whitelisted account, never to another investor. Base has the same restriction.
 
 The whitelist can drop the sale contract. Release then fails with 6000 until the sale contract is added back. Documented, not prevented, as on Base.
 
