@@ -41,5 +41,30 @@
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
       }
     }
+  },
+  "contracts": {
+    "offer-allowlist": {
+      "crate": "offer-allowlist",
+      "contract_id": "CBTU5S5VALHOX4WDOBR2N4MXFM53CNX4B3UGG3RXIJAEKQ3G74KC42XU",
+      "wasm_hash": "b04e8a83269cea8e29f0bb8865bc657f95f306b2b15897c2a348bc0fdd4f032b",
+      "deploy_tx": "0722d56150dc8249f525548d58ab0b4039dca063bb45571a63e881c08c356292",
+      "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+      "deployed_at": "2026-10-15T16:15:53Z",
+      "constructor_args": [
+        "--admin",
+        "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
+        "--controllers",
+        "[\"GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI\"]"
+      ],
+      "toolchain": {
+        "rustc": "1.97.1",
+        "soroban_sdk": "26.1.1",
+        "stellar_cli": "28.1.0"
+      },
+      "explorer": {
+        "contract": "https://stellar.expert/explorer/testnet/contract/CBTU5S5VALHOX4WDOBR2N4MXFM53CNX4B3UGG3RXIJAEKQ3G74KC42XU",
+        "tx": "https://stellar.expert/explorer/testnet/tx/0722d56150dc8249f525548d58ab0b4039dca063bb45571a63e881c08c356292"
+      }
+    }
   }
 }
