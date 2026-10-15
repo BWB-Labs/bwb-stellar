@@ -216,11 +216,11 @@ fn an_admin_transfer_emits_initiated_then_completed() {
     );
 }
 
-/// Not a rule, a measurement: prints the XDR size of each allowlist event
-/// so the interface document's batch arithmetic can be checked.
-/// `cargo test -p offer-allowlist event_sizes -- --nocapture`.
+/// The XDR size of each allowlist event, which the interface document's
+/// batch arithmetic rests on. Asserted so the documents can't drift from
+/// the code; `-- --nocapture` prints them.
 #[test]
-fn event_sizes() {
+fn event_sizes_match_the_interface_document() {
     use soroban_sdk::xdr::{Limits, WriteXdr};
     let s = setup();
     let size = |ev: xdr::ContractEvent| ev.to_xdr(Limits::none()).unwrap().len();
@@ -244,10 +244,16 @@ fn event_sizes() {
         consumed: 1,
         period: 1,
     };
-    std::println!(
-        "allocation_set {} B, allocation_consumed {} B, allocation_restored {} B",
+    let sizes = (
         size(set.to_xdr(&s.e, &s.id)),
         size(consumed.to_xdr(&s.e, &s.id)),
-        size(restored.to_xdr(&s.e, &s.id))
+        size(restored.to_xdr(&s.e, &s.id)),
     );
+    std::println!(
+        "allocation_set {} B, allocation_consumed {} B, allocation_restored {} B",
+        sizes.0,
+        sizes.1,
+        sizes.2
+    );
+    assert_eq!(sizes, (240, 268, 268));
 }

@@ -123,6 +123,32 @@ fn a_restore_for_a_future_period_fails_with_invalid_period() {
 }
 
 #[test]
+fn a_batch_over_thirty_fails_with_batch_too_large() {
+    let s = setup();
+    let mut entries = soroban_sdk::Vec::new(&s.e);
+    for _ in 0..=crate::MAX_BATCH {
+        entries.push_back(entry(&s.alice, 1, true));
+    }
+    let r = s.client.try_set_allocations(&entries, &s.hot_key);
+    assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
+    let mut refunds = soroban_sdk::Vec::new(&s.e);
+    for _ in 0..=crate::MAX_BATCH {
+        refunds.push_back(give_back(period(2026, 10), 1));
+    }
+    let r = s.client.try_restore(&s.alice, &refunds, &s.hot_key);
+    assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
+}
+
+#[test]
+fn renouncing_the_admin_fails_with_renounce_blocked() {
+    let s = setup();
+    assert_eq!(
+        err(s.client.try_renounce_admin()),
+        OfferAllowlistError::RenounceBlocked.into()
+    );
+}
+
+#[test]
 fn revoking_a_role_not_held_fails_with_role_not_held() {
     let s = setup();
     let r = s

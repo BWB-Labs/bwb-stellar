@@ -40,7 +40,8 @@ const SCHEMA_VERSION: u32 = 1;
 
 /// The role that writes allocations, consumes and restores room, and grants
 /// and revokes itself. Held by the platform hot key and by each offering's
-/// sale contract.
+/// sale contract. The `#[only_role]` attributes below repeat it as a literal
+/// because the macro takes one; this constant is for everything else.
 pub const CONTROLLER: &str = "controller";
 
 /// Most entries in one `set_allocations` or `restore` call. Bounded by the
@@ -100,7 +101,7 @@ impl OfferAllowlist {
             }
             .publish(e);
         }
-        touched_by_controller(e, &caller);
+        extend_controller_call_ttl(e, &caller);
     }
 
     /// Uses `amount` of the investor's room in the current period and
@@ -113,22 +114,17 @@ impl OfferAllowlist {
         if amount <= 0 {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
         }
-        let allocation = storage::allocation(e, &investor);
+        let (allocation, period, used) = allocation_now(e, &investor);
         if !allocation.enabled {
             panic_with_error!(e, OfferAllowlistError::InvestorNotEnabled);
         }
-        let period = current_period(e);
-        let used = storage::usage(e, &investor, period);
-        // Compared as `amount` against the room rather than `used + amount`
-        // against `max`, so the sum can't overflow. The room is negative when
-        // the cap was lowered below this period's usage; then nothing fits.
-        if amount > allocation.max - used {
+        if amount > room(&allocation, used) {
             panic_with_error!(e, OfferAllowlistError::AllocationExceeded);
         }
         let consumed = used + amount;
         storage::set_usage(e, &investor, period, consumed);
         storage::extend_allocation_ttl(e, &investor);
-        touched_by_controller(e, &caller);
+        extend_controller_call_ttl(e, &caller);
         AllocationConsumed {
             investor,
             caller,
@@ -156,7 +152,7 @@ impl OfferAllowlist {
         if entries.len() > MAX_BATCH {
             panic_with_error!(e, OfferAllowlistError::BatchTooLarge);
         }
-        let current = current_period(e);
+        let current = period_now(e);
         // Sums per period, in first-seen order. At most MAX_BATCH entries,
         // so the quadratic scan is cheaper than a map.
         let mut sums: Vec<(u32, i128)> = Vec::new(e);
@@ -195,16 +191,15 @@ impl OfferAllowlist {
             }
             .publish(e);
         }
-        touched_by_controller(e, &caller);
+        extend_controller_call_ttl(e, &caller);
     }
 
     /// The investor's cap and flag with the current period and its usage.
     /// An investor with no entry reads as cap 0, not enabled.
     pub fn allocation(e: &Env, investor: Address) -> AllocationView {
-        let allocation = storage::allocation(e, &investor);
-        let period = current_period(e);
+        let (allocation, period, used) = allocation_now(e, &investor);
         AllocationView {
-            consumed: storage::usage(e, &investor, period),
+            consumed: used,
             enabled: allocation.enabled,
             max: allocation.max,
             period,
@@ -220,12 +215,11 @@ impl OfferAllowlist {
     /// enabled, else 0. Never negative, even when the cap was lowered below
     /// this period's usage.
     pub fn remaining(e: &Env, investor: Address) -> i128 {
-        let allocation = storage::allocation(e, &investor);
+        let (allocation, _, used) = allocation_now(e, &investor);
         if !allocation.enabled {
             return 0;
         }
-        let used = storage::usage(e, &investor, current_period(e));
-        (allocation.max - used).max(0)
+        room(&allocation, used).max(0)
     }
 
     /// Whether `consume(investor, amount, …)` would pass its amount,
@@ -235,18 +229,14 @@ impl OfferAllowlist {
         if amount <= 0 {
             return false;
         }
-        let allocation = storage::allocation(e, &investor);
-        if !allocation.enabled {
-            return false;
-        }
-        let used = storage::usage(e, &investor, current_period(e));
-        amount <= allocation.max - used
+        let (allocation, _, used) = allocation_now(e, &investor);
+        allocation.enabled && amount <= room(&allocation, used)
     }
 
     /// The period of the current ledger time: `year * 12 + (month − 1)` of
     /// the UTC calendar month.
     pub fn current_period(e: &Env) -> u32 {
-        current_period(e)
+        period_now(e)
     }
 
     pub fn schema_version(e: &Env) -> u32 {
@@ -256,11 +246,28 @@ impl OfferAllowlist {
 
 /// The period of the ledger's timestamp. Fails with `InvalidPeriod` when it
 /// does not fit a `u32`, which no real ledger time reaches.
-fn current_period(e: &Env) -> u32 {
+fn period_now(e: &Env) -> u32 {
     match period::from_timestamp(e.ledger().timestamp()) {
         Some(period) => period,
         None => panic_with_error!(e, OfferAllowlistError::InvalidPeriod),
     }
+}
+
+/// What every room computation starts from: the investor's allocation (or
+/// the zero one), the current period and the investor's usage in it. Reads
+/// only; extends nothing.
+fn allocation_now(e: &Env, investor: &Address) -> (Allocation, u32, i128) {
+    let allocation = storage::allocation(e, investor);
+    let period = period_now(e);
+    let used = storage::usage(e, investor, period);
+    (allocation, period, used)
+}
+
+/// `max − usage`, the room, possibly negative when the cap was lowered below
+/// this period's usage. An amount is compared against it rather than
+/// `used + amount` against `max`, so the sum can't overflow.
+fn room(allocation: &Allocation, used: i128) -> i128 {
+    allocation.max - used
 }
 
 fn controller(e: &Env) -> Symbol {
@@ -270,7 +277,7 @@ fn controller(e: &Env) -> Symbol {
 /// After a controller call: keeps the instance and the caller's own role
 /// entry alive under the allowlist's policy. The role check has already
 /// read the entry, so it exists.
-fn touched_by_controller(e: &Env, caller: &Address) {
+fn extend_controller_call_ttl(e: &Env, caller: &Address) {
     storage::extend_role_ttl(e, caller, &controller(e));
     storage::extend_instance_ttl(e);
 }
@@ -356,6 +363,8 @@ impl Upgradeable for OfferAllowlist {
     /// admin and authorize; anyone else fails with 2000. The constructor
     /// does not run again; storage is kept as is. No `migrate` in v1.
     fn upgrade(e: &Env, new_wasm_hash: BytesN<32>, operator: Address) {
+        // Membership before the signature, the order `#[only_role]` uses on
+        // the controller calls, so every gate on this contract reads alike.
         if access_control::get_admin(e) != Some(operator.clone()) {
             panic_with_error!(e, AccessControlError::Unauthorized);
         }
