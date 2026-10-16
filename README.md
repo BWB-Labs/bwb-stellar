@@ -47,7 +47,7 @@ From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is gl
 | `offer-token` | [`CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM`](https://stellar.expert/explorer/testnet/contract/CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM) | `40bf9cc67d2cf9e0d2b3c238f8e5b0f3ed3dfb016998453d4ddfc0069037f385` |
 | `offer-sale` | `CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT` (precomputed, not deployed) | |
 
-The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only controller is the deployer hot key; the sale contract is granted `controller` at its own deploy (L4).
+The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator.
 
 ## Build and test
 
@@ -80,13 +80,13 @@ NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer
   --supply 1000 --initial_holder <sale address> --whitelist '[]'
 ```
 
-The global allowlist takes no `OFFERING`; its admin and initial controllers are
+The global allowlist takes no `OFFERING`; its admin and initial allocators are
 constructor arguments:
 
 ```bash
 NETWORK=testnet SOURCE=<identity> scripts/deploy.sh offer-allowlist -- \
   --admin "$(stellar keys address bwb-testnet-platform)" \
-  --controllers "[\"$(stellar keys address bwb-testnet-deployer)\"]"
+  --allocators "[\"$(stellar keys address bwb-testnet-deployer)\"]"
 ```
 
 An offering's token and sale contract live at addresses derived from the

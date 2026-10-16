@@ -78,7 +78,7 @@ The hard cap is checked against `raised`. Success means `sold_tokens × 100 ≥ 
 
 | Call | Authorized by | State | Effect |
 |---|---|---|---|
-| `activate()` | Open, decided with inventory in L2/L4 | Preparing | Checks the sale contract holds the whole supply (6204) and is a `controller` on the allowlist (6219), then moves to Active. So it must run after the `controller` grant. |
+| `activate()` | Open, decided with inventory in L2/L4 | Preparing | Checks the sale contract holds the whole supply (6204) and holds `sale` on the allowlist (6219), then moves to Active. So it must run after the `sale` grant, signed by the platform hot key as an allocator. |
 | `buy(investor, amount)` | `investor` | Active, not paused | Takes `amount` USDC from the investor and measures what actually arrived, as in Base. What arrived must be positive and an exact multiple of `price`. It reserves `received / price` tokens and consumes `received` of allowlist room. |
 | `finalize()` | owner | Active | Requires success, and that the sale contract still holds every sold token (as in Base, since `xfer_admin` can move tokens). This check runs only once. Moves to Successful. |
 | `mark_failed()` | owner | Active | Requires the minimum not sold. Moves to Failed. |
@@ -114,7 +114,7 @@ Under this cap the backend computes the payout amounts from the on-chain `withdr
 - **Release waits for the cooling-off window** (recommended, ADR 0002, pending the team). Audit SCAN-01's recommended fix was `onlyOwner` on release; here release stays open to anyone and the window is enforced on chain instead, which removes the early-release path without making release depend on the treasury.
 - **Withdrawals are limited to released money** (audit NF-04; recommended, ADR 0004, pending the team).
 - **`withdraw_payment` takes every payout at once.** It replaces several `withdrawBrla` calls batched in one Safe transaction.
-- **Pause is new.** Base's sale has none; there the platform could still stop purchases by revoking the sale's allowlist `controller` role or disabling allocations. The platform's `pauser` is recommended (ADR 0003), pending the team. What a paused sale contract blocks is provisional: today `buy` only. The recommendation to the team is (c): block everything that sends money to the tokenizer (`buy`, `release`, `withdraw_payment`), never the investor's exit (`refund`, `cooling_off_refund`).
+- **Pause is new.** Base's sale has none; there the platform could still stop purchases by revoking the sale's allowlist `sale` role or disabling allocations. The platform's `pauser` is recommended (ADR 0003), pending the team. What a paused sale contract blocks is provisional: today `buy` only. The recommendation to the team is (c): block everything that sends money to the tokenizer (`buy`, `release`, `withdraw_payment`), never the investor's exit (`refund`, `cooling_off_refund`).
 - **`RefundsEnabled` is split** into `marked_failed` and `cancelled`.
 - **Removed:**
   - `inventoryProvider`, `updateInventoryProvider` and its event, replaced by the inventory mechanism ([interface 5.1](interface.md#51-deploying-an-offering));
@@ -176,7 +176,7 @@ Also emitted:
 | 6216 | `InvalidConfig` | Constructor arguments outside the limits |
 | 6217 | `TokensMissing` | `finalize` while the sale contract holds fewer tokens than sold |
 | 6218 | `ExceedsWithdrawable` | `withdraw_payment` beyond `released_paid − withdrawn` |
-| 6219 | `NotController` | `activate` before the sale contract is a `controller` on the allowlist |
+| 6219 | `NotSale` | `activate` before the sale contract holds `sale` on the allowlist (renamed from `NotController` by L3) |
 
 Codes from the contracts it calls, which surface unchanged:
 
