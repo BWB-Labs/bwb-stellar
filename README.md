@@ -43,11 +43,11 @@ From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is gl
 
 | Contract | Contract ID | WASM hash |
 |---|---|---|
-| `offer-allowlist` | [`CBTU5S5VALHOX4WDOBR2N4MXFM53CNX4B3UGG3RXIJAEKQ3G74KC42XU`](https://stellar.expert/explorer/testnet/contract/CBTU5S5VALHOX4WDOBR2N4MXFM53CNX4B3UGG3RXIJAEKQ3G74KC42XU) | `b04e8a83269cea8e29f0bb8865bc657f95f306b2b15897c2a348bc0fdd4f032b` |
+| `offer-allowlist` | [`CAWUBAUYADIOTHDXGQTCV4C63VZN5USWUL4J4KWHTSQVM7D6IESWRBKF`](https://stellar.expert/explorer/testnet/contract/CAWUBAUYADIOTHDXGQTCV4C63VZN5USWUL4J4KWHTSQVM7D6IESWRBKF) | `6b11369ccf5500d2c42d086c7477c0d636cb777c011d2c25a52634bcc63195c0` |
 | `offer-token` | [`CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM`](https://stellar.expert/explorer/testnet/contract/CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM) | `40bf9cc67d2cf9e0d2b3c238f8e5b0f3ed3dfb016998453d4ddfc0069037f385` |
 | `offer-sale` | `CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT` (precomputed, not deployed) | |
 
-The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator.
+The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator. An earlier instance at `CBTU5S5V…KC42XU` (the single-role code before the audit) is superseded and unused.
 
 ## Build and test
 
