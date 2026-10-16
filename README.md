@@ -28,25 +28,26 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 | Crate | Base counterpart | Role | Tranche |
 |---|---|---|---|
 | `offer-token` | `OfferERC20` | Investor position in one offering; transfer whitelist, pause, admin transfer, metadata ([docs](docs/offer-token.md)) | 1 |
-| `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much; one global instance | 1 |
+| `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much, per UTC month; one global instance ([docs](docs/offer-allowlist.md)) | 1 |
 | `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, finalize, cancel, cooling-off, refund, release | 1 |
 
-`offer-token-upgrade-fixture` (`contracts/offer-token/upgrade-fixture`) is a test-only second version of the token, used by
-its upgrade test. It is never deployed.
+`offer-token-upgrade-fixture` and `offer-allowlist-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are
+test-only second versions of the token and the allowlist, used by their upgrade tests. They are never deployed.
 
 Distributors and factories follow in Tranche 2. Each contract has a document in
 `docs/` once it lands.
 
 ### Testnet
 
-Offering `l2-demo-3`, from [`deployments/testnet.json`](deployments/testnet.json):
+From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; the token and the sale contract belong to offering `l2-demo-3`:
 
 | Contract | Contract ID | WASM hash |
 |---|---|---|
+| `offer-allowlist` | [`CAWUBAUYADIOTHDXGQTCV4C63VZN5USWUL4J4KWHTSQVM7D6IESWRBKF`](https://stellar.expert/explorer/testnet/contract/CAWUBAUYADIOTHDXGQTCV4C63VZN5USWUL4J4KWHTSQVM7D6IESWRBKF) | `6b11369ccf5500d2c42d086c7477c0d636cb777c011d2c25a52634bcc63195c0` |
 | `offer-token` | [`CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM`](https://stellar.expert/explorer/testnet/contract/CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM) | `40bf9cc67d2cf9e0d2b3c238f8e5b0f3ed3dfb016998453d4ddfc0069037f385` |
 | `offer-sale` | `CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT` (precomputed, not deployed) | |
 
-The token's whole supply is minted to the sale contract's precomputed address.
+The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator. An earlier instance at `CBTU5S5V…KC42XU` (the single-role code before the audit) is superseded and unused.
 
 ## Build and test
 
@@ -58,15 +59,15 @@ soroban-sdk's spec-shaking feature, which only builds through the CLI.
 ```bash
 rustup show                     # installs the pinned toolchain and wasm32v1-none
 cargo fmt --all -- --check
-scripts/test.sh                 # builds the upgrade fixture, then cargo test --workspace
+scripts/test.sh                 # builds the upgrade fixtures, then cargo test --workspace
 cargo clippy --all-targets --workspace -- -D warnings
 stellar contract build          # WASM to target/wasm32v1-none/release/
 ```
 
 CI runs exactly these four commands on every pull request. Run the tests through
-`scripts/test.sh`: `offer-token`'s upgrade test swaps to a second WASM that only
-the Stellar CLI builds. A plain `cargo test` before that fails one test with a
-hint saying so.
+`scripts/test.sh`: the upgrade tests of `offer-token` and `offer-allowlist` swap
+to second WASMs that only the Stellar CLI builds. A plain `cargo test` before
+that fails one test per crate with a hint saying so.
 
 ## Deploy
 
@@ -77,6 +78,15 @@ NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer
   --power_holders '{"admin":"G...","xfer_admin":"G...","pauser":"G...","upgrader":"G..."}' \
   --metadata '{"name":"...","symbol":"...","offer_uri":"ipfs://..."}' \
   --supply 1000 --initial_holder <sale address> --whitelist '[]'
+```
+
+The global allowlist takes no `OFFERING`; its admin and initial allocators are
+constructor arguments:
+
+```bash
+NETWORK=testnet SOURCE=<identity> scripts/deploy.sh offer-allowlist -- \
+  --admin "$(stellar keys address bwb-testnet-platform)" \
+  --allocators "[\"$(stellar keys address bwb-testnet-deployer)\"]"
 ```
 
 An offering's token and sale contract live at addresses derived from the
