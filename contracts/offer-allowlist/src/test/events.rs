@@ -6,7 +6,7 @@ use soroban_sdk::{
 };
 use stellar_access::access_control::{RoleAdminChanged, RoleGranted, RoleRevoked};
 
-use super::{at, controller, entry, give_back, period, setup};
+use super::{allocator, at, entry, give_back, period, sale_role, setup};
 use crate::events::{AllocationConsumed, AllocationRestored, AllocationSet, Initialized};
 use crate::OfferAllowlist;
 
@@ -40,8 +40,8 @@ fn construction_emits_the_role_setup_then_initialized() {
     let admin = Address::generate(&e);
     let hot_key = Address::generate(&e);
     let other = Address::generate(&e);
-    let controllers = vec![&e, hot_key.clone(), other.clone()];
-    let id = e.register(OfferAllowlist, (admin.clone(), controllers.clone()));
+    let allocators = vec![&e, hot_key.clone(), other.clone()];
+    let id = e.register(OfferAllowlist, (admin.clone(), allocators.clone()));
 
     assert_eq!(
         names(&e, &id),
@@ -58,14 +58,14 @@ fn construction_emits_the_role_setup_then_initialized() {
     let evs = emitted(&e, &id);
     // The previous role-admin is the empty symbol: the role had none.
     let reparented = RoleAdminChanged {
-        role: controller(&e),
+        role: sale_role(&e),
         previous_admin_role: Symbol::new(&e, ""),
-        new_admin_role: controller(&e),
+        new_admin_role: allocator(&e),
     };
     assert_eq!(evs[0], reparented.to_xdr(&e, &id));
     for (i, account) in [&hot_key, &other].into_iter().enumerate() {
         let granted = RoleGranted {
-            role: controller(&e),
+            role: allocator(&e),
             account: account.clone(),
             caller: admin.clone(),
         };
@@ -73,13 +73,13 @@ fn construction_emits_the_role_setup_then_initialized() {
     }
     let init = Initialized {
         admin: admin.clone(),
-        controllers,
+        allocators,
     };
     assert_eq!(evs[3], init.to_xdr(&e, &id));
 }
 
 #[test]
-fn construction_with_no_controllers_still_reparents_the_role() {
+fn construction_with_no_allocators_still_reparents_sale() {
     let e = Env::default();
     let admin = Address::generate(&e);
     let none: soroban_sdk::Vec<Address> = vec![&e];
@@ -119,11 +119,11 @@ fn set_allocations_emits_one_allocation_set_per_entry() {
 fn consume_emits_allocation_consumed_with_the_usage_after_and_the_period() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &30, &s.hot_key);
-    let returned = s.client.consume(&s.alice, &25, &s.hot_key);
+    s.sale().buy(&s.id, &s.alice, &30);
+    let returned = s.sale().buy(&s.id, &s.alice, &25);
     let ev = AllocationConsumed {
         investor: s.alice.clone(),
-        caller: s.hot_key.clone(),
+        caller: s.sale.clone(),
         amount: 25,
         consumed: 55,
         period: returned,
@@ -137,10 +137,11 @@ fn a_restore_spanning_two_months_emits_one_event_per_month() {
     let s = setup();
     s.allow(&s.alice, 100);
     at(&s.e, 2026, 9, 20);
-    let september = s.client.consume(&s.alice, &70, &s.hot_key);
+    let september = s.sale().buy(&s.id, &s.alice, &70);
     at(&s.e, 2026, 10, 15);
-    let october = s.client.consume(&s.alice, &30, &s.hot_key);
-    s.client.restore(
+    let october = s.sale().buy(&s.id, &s.alice, &30);
+    s.sale().refund(
+        &s.id,
         &s.alice,
         &vec![
             &s.e,
@@ -148,19 +149,18 @@ fn a_restore_spanning_two_months_emits_one_event_per_month() {
             give_back(september, 50),
             give_back(october, 5),
         ],
-        &s.hot_key,
     );
     // One event per period, in first-seen order, each with the period's sum.
     let oct = AllocationRestored {
         investor: s.alice.clone(),
-        caller: s.hot_key.clone(),
+        caller: s.sale.clone(),
         amount: 15,
         consumed: 15,
         period: october,
     };
     let sep = AllocationRestored {
         investor: s.alice.clone(),
-        caller: s.hot_key.clone(),
+        caller: s.sale.clone(),
         amount: 50,
         consumed: 20,
         period: september,
@@ -174,27 +174,29 @@ fn a_restore_spanning_two_months_emits_one_event_per_month() {
 #[test]
 fn role_changes_emit_open_zeppelins_events() {
     let s = setup();
-    s.grant_sale();
+    let next_sale = s.e.register(super::SaleStub, ());
+    s.client
+        .grant_role(&next_sale, &sale_role(&s.e), &s.hot_key);
     let granted = RoleGranted {
-        role: controller(&s.e),
-        account: s.sale.clone(),
+        role: sale_role(&s.e),
+        account: next_sale.clone(),
         caller: s.hot_key.clone(),
     };
     assert_eq!(emitted(&s.e, &s.id), [granted.to_xdr(&s.e, &s.id)]);
 
-    s.client.revoke_role(&s.sale, &controller(&s.e), &s.admin);
+    s.client.revoke_role(&next_sale, &sale_role(&s.e), &s.admin);
     let revoked = RoleRevoked {
-        role: controller(&s.e),
-        account: s.sale.clone(),
+        role: sale_role(&s.e),
+        account: next_sale.clone(),
         caller: s.admin.clone(),
     };
     assert_eq!(emitted(&s.e, &s.id), [revoked.to_xdr(&s.e, &s.id)]);
 
     let nobody = Symbol::new(&s.e, "nobody");
-    s.client.set_role_admin(&controller(&s.e), &nobody);
+    s.client.set_role_admin(&sale_role(&s.e), &nobody);
     let reparented = RoleAdminChanged {
-        role: controller(&s.e),
-        previous_admin_role: controller(&s.e),
+        role: sale_role(&s.e),
+        previous_admin_role: allocator(&s.e),
         new_admin_role: nobody,
     };
     assert_eq!(emitted(&s.e, &s.id), [reparented.to_xdr(&s.e, &s.id)]);

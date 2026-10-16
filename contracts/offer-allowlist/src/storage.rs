@@ -50,10 +50,10 @@ fn extend_persistent_ttl<K: IntoVal<Env, Val>>(e: &Env, key: &K) {
     e.storage().persistent().extend_ttl(key, threshold, to);
 }
 
-/// Extends the caller's own role entry, which the role check has just
-/// read. OpenZeppelin extends it only to 90 days; a sale contract that is
-/// quiet for months (a late cooling-off, late refunds) must still find its
-/// `controller` alive. Only this module knows where OpenZeppelin keeps a
+/// Extends one account's entry for one role, which the caller has just read
+/// or written. OpenZeppelin extends it only to 90 days; a sale contract
+/// that is quiet for months (a late cooling-off, late refunds) must still
+/// find its `sale` alive. Only this module knows where OpenZeppelin keeps a
 /// role membership (`AccessControlStorageKey::HasRole`).
 pub fn extend_role_ttl(e: &Env, account: &Address, role: &Symbol) {
     extend_persistent_ttl(

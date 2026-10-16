@@ -3,6 +3,7 @@
 use soroban_sdk::{vec, Symbol};
 
 use super::{code, entry, err, give_back, period, setup, ROLE_NOT_HELD};
+
 use crate::OfferAllowlistError;
 
 #[test]
@@ -10,14 +11,14 @@ fn consume_for_a_disabled_investor_fails_with_investor_not_enabled() {
     let s = setup();
     s.client
         .set_allocations(&vec![&s.e, entry(&s.alice, 100, false)], &s.hot_key);
-    let r = s.client.try_consume(&s.alice, &1, &s.hot_key);
+    let r = s.try_consume(&s.alice, &1);
     assert_eq!(err(r), OfferAllowlistError::InvestorNotEnabled.into());
 }
 
 #[test]
 fn consume_for_an_unknown_investor_fails_with_investor_not_enabled() {
     let s = setup();
-    let r = s.client.try_consume(&s.alice, &1, &s.hot_key);
+    let r = s.try_consume(&s.alice, &1);
     assert_eq!(err(r), OfferAllowlistError::InvestorNotEnabled.into());
     let view = s.client.allocation(&s.alice);
     assert!(!view.enabled);
@@ -29,7 +30,7 @@ fn consume_for_an_unknown_investor_fails_with_investor_not_enabled() {
 fn consume_beyond_the_room_fails_with_allocation_exceeded() {
     let s = setup();
     s.allow(&s.alice, 10);
-    let r = s.client.try_consume(&s.alice, &11, &s.hot_key);
+    let r = s.try_consume(&s.alice, &11);
     assert_eq!(err(r), OfferAllowlistError::AllocationExceeded.into());
 }
 
@@ -47,7 +48,7 @@ fn a_non_positive_consume_fails_with_invalid_amount() {
     let s = setup();
     s.allow(&s.alice, 100);
     for amount in [0_i128, -1] {
-        let r = s.client.try_consume(&s.alice, &amount, &s.hot_key);
+        let r = s.try_consume(&s.alice, &amount);
         assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
     }
 }
@@ -56,13 +57,9 @@ fn a_non_positive_consume_fails_with_invalid_amount() {
 fn a_non_positive_restore_amount_fails_with_invalid_amount() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &10, &s.hot_key);
+    s.consume(&s.alice, &10);
     for amount in [0_i128, -1] {
-        let r = s.client.try_restore(
-            &s.alice,
-            &vec![&s.e, give_back(period(2026, 10), amount)],
-            &s.hot_key,
-        );
+        let r = s.try_restore(&s.alice, &vec![&s.e, give_back(period(2026, 10), amount)]);
         assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
     }
 }
@@ -70,18 +67,14 @@ fn a_non_positive_restore_amount_fails_with_invalid_amount() {
 #[test]
 fn an_empty_restore_list_fails_with_invalid_amount() {
     let s = setup();
-    let r = s.client.try_restore(&s.alice, &vec![&s.e], &s.hot_key);
+    let r = s.try_restore(&s.alice, &vec![&s.e]);
     assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
 }
 
 #[test]
 fn a_restore_for_an_investor_with_no_allocation_fails_with_restore_exceeds_usage() {
     let s = setup();
-    let r = s.client.try_restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 1)],
-        &s.hot_key,
-    );
+    let r = s.try_restore(&s.alice, &vec![&s.e, give_back(period(2026, 10), 1)]);
     assert_eq!(err(r), OfferAllowlistError::RestoreExceedsUsage.into());
 }
 
@@ -89,12 +82,8 @@ fn a_restore_for_an_investor_with_no_allocation_fails_with_restore_exceeds_usage
 fn a_restore_of_a_month_with_no_usage_fails_with_restore_exceeds_usage() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &10, &s.hot_key);
-    let r = s.client.try_restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 9), 1)],
-        &s.hot_key,
-    );
+    s.consume(&s.alice, &10);
+    let r = s.try_restore(&s.alice, &vec![&s.e, give_back(period(2026, 9), 1)]);
     assert_eq!(err(r), OfferAllowlistError::RestoreExceedsUsage.into());
 }
 
@@ -102,23 +91,16 @@ fn a_restore_of_a_month_with_no_usage_fails_with_restore_exceeds_usage() {
 fn a_double_restore_fails_with_restore_exceeds_usage() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let p = s.client.consume(&s.alice, &10, &s.hot_key);
-    s.client
-        .restore(&s.alice, &vec![&s.e, give_back(p, 10)], &s.hot_key);
-    let r = s
-        .client
-        .try_restore(&s.alice, &vec![&s.e, give_back(p, 10)], &s.hot_key);
+    let p = s.consume(&s.alice, &10);
+    s.restore(&s.alice, &vec![&s.e, give_back(p, 10)]);
+    let r = s.try_restore(&s.alice, &vec![&s.e, give_back(p, 10)]);
     assert_eq!(err(r), OfferAllowlistError::RestoreExceedsUsage.into());
 }
 
 #[test]
 fn a_restore_for_a_future_period_fails_with_invalid_period() {
     let s = setup();
-    let r = s.client.try_restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 11), 1)],
-        &s.hot_key,
-    );
+    let r = s.try_restore(&s.alice, &vec![&s.e, give_back(period(2026, 11), 1)]);
     assert_eq!(err(r), OfferAllowlistError::InvalidPeriod.into());
 }
 
@@ -135,7 +117,7 @@ fn a_batch_over_thirty_fails_with_batch_too_large() {
     for _ in 0..=crate::MAX_BATCH {
         refunds.push_back(give_back(period(2026, 10), 1));
     }
-    let r = s.client.try_restore(&s.alice, &refunds, &s.hot_key);
+    let r = s.try_restore(&s.alice, &refunds);
     assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
 }
 
@@ -153,7 +135,7 @@ fn revoking_a_role_not_held_fails_with_role_not_held() {
     let s = setup();
     let r = s
         .client
-        .try_revoke_role(&s.alice, &super::controller(&s.e), &s.admin);
+        .try_revoke_role(&s.alice, &super::allocator(&s.e), &s.admin);
     assert_eq!(err(r), code(ROLE_NOT_HELD));
     let r = s
         .client
@@ -166,13 +148,12 @@ fn a_failed_restore_reverts_every_period_in_the_call() {
     let s = setup();
     s.allow(&s.alice, 100);
     super::at(&s.e, 2026, 9, 1);
-    let september = s.client.consume(&s.alice, &50, &s.hot_key);
+    let september = s.consume(&s.alice, &50);
     super::at(&s.e, 2026, 10, 1);
-    let october = s.client.consume(&s.alice, &50, &s.hot_key);
-    let r = s.client.try_restore(
+    let october = s.consume(&s.alice, &50);
+    let r = s.try_restore(
         &s.alice,
         &vec![&s.e, give_back(september, 50), give_back(october, 51)],
-        &s.hot_key,
     );
     assert_eq!(err(r), OfferAllowlistError::RestoreExceedsUsage.into());
     assert_eq!(s.client.usage(&s.alice, &september), 50);

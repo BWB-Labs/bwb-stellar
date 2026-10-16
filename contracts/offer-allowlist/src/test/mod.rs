@@ -16,7 +16,7 @@ mod upgrade;
 
 use soroban_sdk::{
     contract, contractimpl, testutils::Address as _, testutils::Ledger as _, vec, Address, Env,
-    InvokeError, Vec,
+    InvokeError, Symbol, Vec,
 };
 
 use crate::{AllocationEntry, OfferAllowlist, OfferAllowlistClient, RestoreEntry};
@@ -47,16 +47,18 @@ impl SaleStub {
 }
 
 /// One deployed allowlist with the platform multisig as admin and the
-/// platform hot key as the only initial controller, plus a sale stub and
-/// two investors with no allocation yet. Auths are mocked; authorization
-/// tests replace the mocks per call.
+/// platform hot key as the only initial allocator, a sale stub already
+/// granted `sale` by the hot key (the way an offering's deploy batch does),
+/// and two investors with no allocation yet. Auths are mocked;
+/// authorization tests replace the mocks per call.
 pub struct Setup<'a> {
     pub e: Env,
     pub id: Address,
     pub client: OfferAllowlistClient<'a>,
     pub admin: Address,
+    /// The platform hot key: the only allocator at construction.
     pub hot_key: Address,
-    /// The sale stub's address, not yet a controller.
+    /// The sale stub's address, holding `sale`.
     pub sale: Address,
     pub alice: Address,
     pub bob: Address,
@@ -70,6 +72,7 @@ pub fn setup<'a>() -> Setup<'a> {
     let id = e.register(OfferAllowlist, (admin.clone(), vec![&e, hot_key.clone()]));
     let client = OfferAllowlistClient::new(&e, &id);
     let sale = e.register(SaleStub, ());
+    client.grant_role(&sale, &sale_role(&e), &hot_key);
     at(&e, 2026, 10, 15);
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -92,16 +95,40 @@ impl Setup<'_> {
             .set_allocations(&vec![&self.e, entry(investor, max, true)], &self.hot_key);
     }
 
-    /// Grants `controller` to the sale stub as the hot key, the way an
-    /// offering's deploy batch does.
-    pub fn grant_sale(&self) {
-        self.client
-            .grant_role(&self.sale, &controller(&self.e), &self.hot_key);
+    /// The sale stub's client.
+    pub fn sale(&self) -> SaleStubClient<'_> {
+        SaleStubClient::new(&self.e, &self.sale)
+    }
+
+    /// Consumes through the sale stub, the only kind of account that may.
+    pub fn consume(&self, investor: &Address, amount: &i128) -> u32 {
+        self.sale().buy(&self.id, investor, amount)
+    }
+
+    pub fn try_consume(&self, investor: &Address, amount: &i128) -> TryResult<u32> {
+        self.sale().try_buy(&self.id, investor, amount)
+    }
+
+    /// Restores through the sale stub.
+    pub fn restore(&self, investor: &Address, entries: &Vec<RestoreEntry>) {
+        self.sale().refund(&self.id, investor, entries)
+    }
+
+    pub fn try_restore(&self, investor: &Address, entries: &Vec<RestoreEntry>) -> TryResult<()> {
+        self.sale().try_refund(&self.id, investor, entries)
     }
 }
 
-pub fn controller(e: &Env) -> soroban_sdk::Symbol {
-    soroban_sdk::Symbol::new(e, crate::CONTROLLER)
+/// What a client's `try_` call returns.
+pub type TryResult<T> =
+    Result<Result<T, soroban_sdk::ConversionError>, Result<soroban_sdk::Error, InvokeError>>;
+
+pub fn allocator(e: &Env) -> Symbol {
+    Symbol::new(e, crate::ALLOCATOR)
+}
+
+pub fn sale_role(e: &Env) -> Symbol {
+    Symbol::new(e, crate::SALE)
 }
 
 pub fn entry(investor: &Address, max: i128, enabled: bool) -> AllocationEntry {

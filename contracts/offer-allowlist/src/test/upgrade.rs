@@ -15,8 +15,11 @@ fn upgrade_fixture_is_built() {
 mod with_fixture {
     use soroban_sdk::{testutils::Events as _, vec, Event as _};
 
-    use super::super::{at, code, controller, err, give_back, period, setup, UNAUTHORIZED};
+    use super::super::{
+        allocator, at, code, err, give_back, period, sale_role, setup, UNAUTHORIZED,
+    };
     use crate::events::Upgraded;
+    use crate::OfferAllowlistError;
 
     mod v2 {
         soroban_sdk::contractimport!(
@@ -28,11 +31,10 @@ mod with_fixture {
     fn storage_survives_the_code_swap() {
         let s = setup();
         s.allow(&s.alice, 100);
-        s.grant_sale();
         at(&s.e, 2026, 9, 1);
-        s.client.consume(&s.alice, &40, &s.hot_key);
+        s.sale().buy(&s.id, &s.alice, &40);
         at(&s.e, 2026, 10, 15);
-        s.client.consume(&s.alice, &25, &s.sale);
+        s.sale().buy(&s.id, &s.alice, &25);
         s.client.set_allocations(
             &vec![&s.e, super::super::entry(&s.bob, 7, false)],
             &s.hot_key,
@@ -58,10 +60,12 @@ mod with_fixture {
         assert_eq!(v2.usage(&s.alice, &period(2026, 9)), 40);
         assert_eq!(v2.usage(&s.alice, &period(2026, 10)), 25);
         assert_eq!(v2.usage(&s.bob, &period(2026, 10)), 0);
-        assert!(v2.has_role(&s.hot_key, &controller(&s.e)).is_some());
-        assert!(v2.has_role(&s.sale, &controller(&s.e)).is_some());
-        assert_eq!(v2.get_role_member_count(&controller(&s.e)), 2);
-        assert_eq!(v2.get_role_admin(&controller(&s.e)), Some(controller(&s.e)));
+        assert!(v2.has_role(&s.hot_key, &allocator(&s.e)).is_some());
+        assert!(v2.has_role(&s.sale, &sale_role(&s.e)).is_some());
+        assert_eq!(v2.get_role_member_count(&allocator(&s.e)), 1);
+        assert_eq!(v2.get_role_member_count(&sale_role(&s.e)), 1);
+        assert_eq!(v2.get_role_admin(&sale_role(&s.e)), Some(allocator(&s.e)));
+        assert_eq!(v2.get_role_admin(&allocator(&s.e)), None);
         assert_eq!(v2.get_admin(), Some(s.admin.clone()));
         assert_eq!(v2.schema_version(), 1);
     }
@@ -76,6 +80,22 @@ mod with_fixture {
         assert_eq!(err(v2.try_upgrade(&hash, &s.hot_key)), code(UNAUTHORIZED));
         v2.upgrade(&hash, &s.admin);
         assert_eq!(v2.v2_marker(), 2);
+    }
+
+    /// A version that let the admin renounce would freeze upgrades for
+    /// good; the fixture keeps v1's override, and so must every release.
+    #[test]
+    fn the_upgraded_code_still_blocks_renounce_admin() {
+        let s = setup();
+        let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
+        s.client.upgrade(&hash, &s.admin);
+        let v2 = v2::Client::new(&s.e, &s.id);
+        assert_eq!(
+            err(v2.try_renounce_admin()),
+            OfferAllowlistError::RenounceBlocked.into()
+        );
+        assert_eq!(v2.get_admin(), Some(s.admin.clone()));
+        v2.upgrade(&hash, &s.admin);
     }
 
     #[test]
@@ -99,8 +119,8 @@ mod with_fixture {
         assert_eq!(s.client.schema_version(), 1);
         // Still the v1 code: restore exists and works.
         s.allow(&s.alice, 10);
-        let p = s.client.consume(&s.alice, &10, &s.hot_key);
-        s.client
-            .restore(&s.alice, &vec![&s.e, give_back(p, 10)], &s.hot_key);
+        let p = s.sale().buy(&s.id, &s.alice, &10);
+        s.sale()
+            .refund(&s.id, &s.alice, &vec![&s.e, give_back(p, 10)]);
     }
 }

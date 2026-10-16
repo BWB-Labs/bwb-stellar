@@ -7,7 +7,8 @@
 
 // `Symbol` and `Vec` are used by the trait's default methods.
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, Address, BytesN, Env, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
+    Symbol, Vec,
 };
 use stellar_access::access_control::{self, AccessControl, AccessControlError};
 use stellar_contract_utils::upgradeable;
@@ -26,6 +27,14 @@ pub struct Allocation {
     pub schema: u32,
     pub max: i128,
     pub enabled: bool,
+}
+
+/// Same code as v1's `RenounceBlocked`.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum FixtureError {
+    RenounceBlocked = 6105,
 }
 
 #[contract]
@@ -71,6 +80,13 @@ impl OfferAllowlistV2Fixture {
     }
 }
 
-/// OpenZeppelin's defaults: the role getters read the v1 role storage.
+/// OpenZeppelin's defaults read the v1 role storage. `renounce_admin` is
+/// overridden to fail as in v1: every future version must keep this
+/// override, or one release could make the allowlist admin-less and
+/// therefore un-upgradeable (the upgrade test checks it).
 #[contractimpl(contracttrait)]
-impl AccessControl for OfferAllowlistV2Fixture {}
+impl AccessControl for OfferAllowlistV2Fixture {
+    fn renounce_admin(e: &Env) {
+        panic_with_error!(e, FixtureError::RenounceBlocked);
+    }
+}

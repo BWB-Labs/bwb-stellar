@@ -10,7 +10,7 @@ use soroban_sdk::{contractevent, Address, BytesN, Vec};
 #[contractevent]
 pub struct Initialized {
     pub admin: Address,
-    pub controllers: Vec<Address>,
+    pub allocators: Vec<Address>,
 }
 
 /// An investor's cap and enabled flag were written. Usage is untouched.

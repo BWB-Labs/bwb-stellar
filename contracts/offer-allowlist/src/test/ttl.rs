@@ -1,8 +1,9 @@
 //! A quiet contract must not archive between touches: every call tops the
 //! instance and the entries it touches up to the network maximum once they
-//! fall a month below it, the caller's own role entry included. Reads
-//! extend nothing. An entry that did archive must be restored before the
-//! call that touches it.
+//! fall a month below it, the caller's own role entry included, and a grant
+//! tops up the granted entry. Reads of the allowlist's own entries extend
+//! nothing. An entry that did archive is restored by the call that touches
+//! it (protocol 23), then topped up like any other.
 use soroban_sdk::{
     testutils::{
         storage::{Instance as _, Persistent as _},
@@ -12,8 +13,9 @@ use soroban_sdk::{
 };
 use stellar_access::access_control::AccessControlStorageKey;
 
-use super::{at, controller, give_back, period, setup};
+use super::{allocator, at, give_back, period, sale_role, setup};
 use crate::storage::DataKey;
+use soroban_sdk::Symbol;
 
 const DAY: u32 = 17_280;
 
@@ -37,14 +39,11 @@ fn usage_ttl(e: &Env, id: &Address, who: &Address, period: u32) -> u32 {
     })
 }
 
-fn role_ttl(e: &Env, id: &Address, who: &Address) -> u32 {
+fn role_ttl(e: &Env, id: &Address, who: &Address, role: Symbol) -> u32 {
     e.as_contract(id, || {
         e.storage()
             .persistent()
-            .get_ttl(&AccessControlStorageKey::HasRole(
-                who.clone(),
-                controller(e),
-            ))
+            .get_ttl(&AccessControlStorageKey::HasRole(who.clone(), role))
     })
 }
 
@@ -89,45 +88,71 @@ fn writing_an_allocation_gives_it_the_maximum_ttl() {
 }
 
 #[test]
-fn consume_extends_the_allocation_the_usage_and_the_callers_role() {
+fn consume_extends_the_allocation_the_usage_and_the_sales_role() {
     let s = setup();
     s.allow(&s.alice, 100);
     advance(&s.e, 40 * DAY);
     assert!(allocation_ttl(&s.e, &s.id, &s.alice) < max_ttl(&s.e, &s.id));
-    s.client.consume(&s.alice, &1, &s.hot_key);
+    assert!(role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)) < max_ttl(&s.e, &s.id));
+    s.consume(&s.alice, &1);
     let max = max_ttl(&s.e, &s.id);
     assert_eq!(allocation_ttl(&s.e, &s.id, &s.alice), max);
     assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10)), max);
-    assert_eq!(role_ttl(&s.e, &s.id, &s.hot_key), max);
+    assert_eq!(role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)), max);
 }
 
 #[test]
-fn the_callers_role_outlives_open_zeppelins_ninety_days() {
+fn set_allocations_extends_the_allocators_role() {
     let s = setup();
-    s.grant_sale();
-    // Granted through OpenZeppelin alone, the entry has its default life.
-    assert!(role_ttl(&s.e, &s.id, &s.sale) < 90 * DAY);
+    advance(&s.e, 40 * DAY);
+    assert!(role_ttl(&s.e, &s.id, &s.hot_key, allocator(&s.e)) < max_ttl(&s.e, &s.id));
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &1, &s.sale);
-    assert_eq!(role_ttl(&s.e, &s.id, &s.sale), max_ttl(&s.e, &s.id));
+    assert_eq!(
+        role_ttl(&s.e, &s.id, &s.hot_key, allocator(&s.e)),
+        max_ttl(&s.e, &s.id)
+    );
+}
+
+#[test]
+fn a_grant_tops_the_granted_entry_up_to_the_maximum() {
+    let s = setup();
+    // At construction and at every grant, not OpenZeppelin's default life.
+    assert_eq!(
+        role_ttl(&s.e, &s.id, &s.hot_key, allocator(&s.e)),
+        max_ttl(&s.e, &s.id)
+    );
+    advance(&s.e, 40 * DAY);
+    let next_sale = s.e.register(super::SaleStub, ());
+    s.client
+        .grant_role(&next_sale, &sale_role(&s.e), &s.hot_key);
+    assert_eq!(
+        role_ttl(&s.e, &s.id, &next_sale, sale_role(&s.e)),
+        max_ttl(&s.e, &s.id)
+    );
+}
+
+#[test]
+fn the_sales_role_outlives_open_zeppelins_ninety_days() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.consume(&s.alice, &1);
     // A refund after a long silence still finds the role alive, and renews it.
     advance(&s.e, 200 * DAY);
-    s.client.restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 1)],
-        &s.sale,
+    assert!(role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)) > 90 * DAY);
+    s.restore(&s.alice, &vec![&s.e, give_back(period(2026, 10), 1)]);
+    assert_eq!(
+        role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)),
+        max_ttl(&s.e, &s.id)
     );
-    assert_eq!(role_ttl(&s.e, &s.id, &s.sale), max_ttl(&s.e, &s.id));
 }
 
 #[test]
 fn restore_extends_the_usage_entries_it_touches() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let p = s.client.consume(&s.alice, &10, &s.hot_key);
+    let p = s.consume(&s.alice, &10);
     advance(&s.e, 40 * DAY);
-    s.client
-        .restore(&s.alice, &vec![&s.e, give_back(p, 1)], &s.hot_key);
+    s.restore(&s.alice, &vec![&s.e, give_back(p, 1)]);
     assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, p), max_ttl(&s.e, &s.id));
 }
 
@@ -135,7 +160,7 @@ fn restore_extends_the_usage_entries_it_touches() {
 fn reads_extend_nothing() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &10, &s.hot_key);
+    s.consume(&s.alice, &10);
     advance(&s.e, 40 * DAY);
     let allocation = allocation_ttl(&s.e, &s.id, &s.alice);
     let usage = usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10));
@@ -153,10 +178,10 @@ fn reads_extend_nothing() {
 fn an_untouched_old_month_is_left_to_expire() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let september = s.client.consume(&s.alice, &10, &s.hot_key);
+    let september = s.consume(&s.alice, &10);
     advance(&s.e, 40 * DAY);
     at(&s.e, 2026, 11, 24);
-    s.client.consume(&s.alice, &10, &s.hot_key);
+    s.consume(&s.alice, &10);
     // November's write touched nothing of October's.
     assert_eq!(
         usage_ttl(&s.e, &s.id, &s.alice, september),
@@ -173,7 +198,7 @@ fn an_untouched_old_month_is_left_to_expire() {
 fn a_late_refund_of_an_archived_month_restores_the_entry_and_tops_it_up() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let october = s.client.consume(&s.alice, &10, &s.hot_key);
+    let october = s.consume(&s.alice, &10);
     let max = max_ttl(&s.e, &s.id);
     // A later write keeps the instance, the allocation and the hot key's
     // role alive without touching October's usage.
@@ -182,8 +207,7 @@ fn a_late_refund_of_an_archived_month_restores_the_entry_and_tops_it_up() {
     // Past October's lifetime, before the instance's.
     advance(&s.e, max - 40 * DAY + 1);
     assert!(instance_ttl(&s.e, &s.id) > 0);
-    s.client
-        .restore(&s.alice, &vec![&s.e, give_back(october, 4)], &s.hot_key);
+    s.restore(&s.alice, &vec![&s.e, give_back(october, 4)]);
     assert_eq!(s.client.usage(&s.alice, &october), 6);
     assert_eq!(
         usage_ttl(&s.e, &s.id, &s.alice, october),

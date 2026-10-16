@@ -2,13 +2,13 @@
 //! with the write path at the same ledger time.
 use soroban_sdk::{testutils::Events as _, vec};
 
-use super::{controller, entry, period, setup};
+use super::{allocator, entry, period, setup};
 
 #[test]
 fn writing_the_same_allocations_twice_keeps_the_usage() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &40, &s.hot_key);
+    s.consume(&s.alice, &40);
     s.allow(&s.alice, 100);
     s.allow(&s.alice, 100);
     let view = s.client.allocation(&s.alice);
@@ -49,7 +49,7 @@ fn the_last_duplicate_in_a_batch_wins() {
 fn disabling_keeps_the_cap_and_the_usage() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &40, &s.hot_key);
+    s.consume(&s.alice, &40);
     s.client
         .set_allocations(&vec![&s.e, entry(&s.alice, 100, false)], &s.hot_key);
     let view = s.client.allocation(&s.alice);
@@ -63,7 +63,7 @@ fn disabling_keeps_the_cap_and_the_usage() {
 #[test]
 fn granting_a_held_role_is_silent() {
     let s = setup();
-    s.client.grant_role(&s.hot_key, &controller(&s.e), &s.admin);
+    s.client.grant_role(&s.hot_key, &allocator(&s.e), &s.admin);
     assert!(s
         .e
         .events()
@@ -71,26 +71,20 @@ fn granting_a_held_role_is_silent() {
         .filter_by_contract(&s.id)
         .events()
         .is_empty());
-    assert_eq!(s.client.get_role_member_count(&controller(&s.e)), 1);
+    assert_eq!(s.client.get_role_member_count(&allocator(&s.e)), 1);
 }
 
 #[test]
 fn remaining_and_can_invest_agree_with_consume() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.client.consume(&s.alice, &35, &s.hot_key);
+    s.consume(&s.alice, &35);
     let room = s.client.remaining(&s.alice);
     assert_eq!(room, 65);
     assert!(s.client.can_invest(&s.alice, &room));
     assert!(!s.client.can_invest(&s.alice, &(room + 1)));
-    assert!(s
-        .client
-        .try_consume(&s.alice, &(room + 1), &s.hot_key)
-        .is_err());
-    assert_eq!(
-        s.client.consume(&s.alice, &room, &s.hot_key),
-        period(2026, 10)
-    );
+    assert!(s.try_consume(&s.alice, &(room + 1)).is_err());
+    assert_eq!(s.consume(&s.alice, &room), period(2026, 10));
     assert_eq!(s.client.remaining(&s.alice), 0);
     assert!(!s.client.can_invest(&s.alice, &1));
 }

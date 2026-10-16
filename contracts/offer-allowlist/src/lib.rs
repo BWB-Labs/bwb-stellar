@@ -8,11 +8,13 @@
 //! current period and returns that period; a refund gives each period's
 //! amount back to that period and fails when a period cannot account for it.
 //!
-//! Access control is OpenZeppelin's (ADR 0008): the platform multisig is the
-//! admin, `controller` is held by the platform hot key and by every sale
-//! contract and is its own role-admin, so a controller can grant and revoke
-//! `controller`. The admin alone upgrades, and `renounce_admin` always
-//! fails, so the allowlist can never become un-upgradeable.
+//! Access control is OpenZeppelin's (ADR 0008), with two roles: `allocator`
+//! (the platform hot key) writes allocations and is the role-admin of
+//! `sale`, so the backend wires each new sale contract itself; `sale` (each
+//! offering's sale contract) consumes and restores room and grants nothing.
+//! Only the admin grants `allocator`. The admin alone upgrades, and
+//! `renounce_admin` always fails, so the allowlist can never become
+//! un-upgradeable.
 #![no_std]
 
 mod errors;
@@ -38,14 +40,21 @@ contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 /// Version of the storage layout this code writes and reads.
 const SCHEMA_VERSION: u32 = 1;
 
-/// The role that writes allocations, consumes and restores room, and grants
-/// and revokes itself. Held by the platform hot key and by each offering's
-/// sale contract. The `#[only_role]` attributes below repeat it as a literal
-/// because the macro takes one; this constant is for everything else.
-pub const CONTROLLER: &str = "controller";
+/// The role that writes allocations and grants and revokes `sale`. Held by
+/// the platform hot key; granted only by the admin. The `#[only_role]`
+/// attributes below repeat the names as literals because the macro takes
+/// one; the constants are for everything else.
+pub const ALLOCATOR: &str = "allocator";
 
-/// Most entries in one `set_allocations` or `restore` call. Bounded by the
-/// per-transaction event limit, not by storage.
+/// The role that consumes and restores room. Held by each offering's sale
+/// contract; granted and revoked by an allocator or the admin. Grants
+/// nothing.
+pub const SALE: &str = "sale";
+
+/// Most entries in one `set_allocations` or `restore` call. At 30 the
+/// binding limits are the transaction's write entries (31 of 50: the
+/// entries plus the instance) and its footprint (about 35 of 100), not the
+/// event bytes (7 to 8 KB of 16 KB).
 pub const MAX_BATCH: u32 = 30;
 
 #[contract]
@@ -53,29 +62,31 @@ pub struct OfferAllowlist;
 
 #[contractimpl]
 impl OfferAllowlist {
-    /// Sets `admin` as the access-control admin, makes `controller` its own
-    /// role-admin and grants it to each address in `controllers`.
+    /// Sets `admin` as the access-control admin, makes `allocator` the
+    /// role-admin of `sale` and grants `allocator` to each address in
+    /// `allocators`. `allocator` itself has no role-admin, so only the admin
+    /// grants or revokes it.
     ///
-    /// Emits, in this order: `role_admin_changed` for `controller` (with an
-    /// empty previous role), one `role_granted` per controller, then
-    /// `initialized`.
-    pub fn __constructor(e: &Env, admin: Address, controllers: Vec<Address>) {
-        let controller = controller(e);
+    /// Emits, in this order: `role_admin_changed` for `sale` (with an empty
+    /// previous role), one `role_granted` per allocator, then `initialized`.
+    pub fn __constructor(e: &Env, admin: Address, allocators: Vec<Address>) {
+        let allocator = role(e, ALLOCATOR);
         access_control::set_admin(e, &admin);
-        access_control::set_role_admin_no_auth(e, &controller, &controller);
-        for account in controllers.iter() {
-            access_control::grant_role_no_auth(e, &account, &controller, &admin);
+        access_control::set_role_admin_no_auth(e, &role(e, SALE), &allocator);
+        for account in allocators.iter() {
+            access_control::grant_role_no_auth(e, &account, &allocator, &admin);
+            storage::extend_role_ttl(e, &account, &allocator);
         }
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         storage::extend_instance_ttl(e);
-        Initialized { admin, controllers }.publish(e);
+        Initialized { admin, allocators }.publish(e);
     }
 
     /// Writes each investor's cap and enabled flag, at most `MAX_BATCH`
-    /// entries. Usage is untouched, so a cap rewrite at a new exchange rate
-    /// never gives or takes room already used this period. Duplicates in
-    /// one list: last wins. An empty list succeeds as a no-op.
-    #[only_role(caller, "controller")]
+    /// entries. Usage is untouched, so a cap change never gives or takes
+    /// room already used this period. Duplicates in one list: last wins. An
+    /// empty list succeeds as a no-op.
+    #[only_role(caller, "allocator")]
     pub fn set_allocations(e: &Env, entries: Vec<AllocationEntry>, caller: Address) {
         if entries.len() > MAX_BATCH {
             panic_with_error!(e, OfferAllowlistError::BatchTooLarge);
@@ -101,7 +112,7 @@ impl OfferAllowlist {
             }
             .publish(e);
         }
-        extend_controller_call_ttl(e, &caller);
+        extend_caller_role_ttl(e, &caller, ALLOCATOR);
     }
 
     /// Uses `amount` of the investor's room in the current period and
@@ -109,7 +120,7 @@ impl OfferAllowlist {
     /// per period without computing dates. The investor must be enabled and
     /// `amount` must fit `max − usage` (the room). `caller` is normally the
     /// sale contract, authorized as the direct cross-contract caller.
-    #[only_role(caller, "controller")]
+    #[only_role(caller, "sale")]
     pub fn consume(e: &Env, investor: Address, amount: i128, caller: Address) -> u32 {
         if amount <= 0 {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
@@ -124,7 +135,7 @@ impl OfferAllowlist {
         let consumed = used + amount;
         storage::set_usage(e, &investor, period, consumed);
         storage::extend_allocation_ttl(e, &investor);
-        extend_controller_call_ttl(e, &caller);
+        extend_caller_role_ttl(e, &caller, SALE);
         AllocationConsumed {
             investor,
             caller,
@@ -144,7 +155,7 @@ impl OfferAllowlist {
     /// only be a double restore or a wrong amount. No `enabled` check: a
     /// disabled investor can still be refunded. One `allocation_restored`
     /// per period touched.
-    #[only_role(caller, "controller")]
+    #[only_role(caller, "sale")]
     pub fn restore(e: &Env, investor: Address, entries: Vec<RestoreEntry>, caller: Address) {
         if entries.is_empty() {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
@@ -191,7 +202,7 @@ impl OfferAllowlist {
             }
             .publish(e);
         }
-        extend_controller_call_ttl(e, &caller);
+        extend_caller_role_ttl(e, &caller, SALE);
     }
 
     /// The investor's cap and flag with the current period and its usage.
@@ -270,22 +281,24 @@ fn room(allocation: &Allocation, used: i128) -> i128 {
     allocation.max - used
 }
 
-fn controller(e: &Env) -> Symbol {
-    Symbol::new(e, CONTROLLER)
+fn role(e: &Env, name: &str) -> Symbol {
+    Symbol::new(e, name)
 }
 
-/// After a controller call: keeps the instance and the caller's own role
-/// entry alive under the allowlist's policy. The role check has already
-/// read the entry, so it exists.
-fn extend_controller_call_ttl(e: &Env, caller: &Address) {
-    storage::extend_role_ttl(e, caller, &controller(e));
+/// After a role-gated write: keeps the instance and the caller's own entry
+/// for `role_name` alive under the allowlist's policy. The role check has
+/// already read the entry, so it exists.
+fn extend_caller_role_ttl(e: &Env, caller: &Address, role_name: &str) {
+    storage::extend_role_ttl(e, caller, &role(e, role_name));
     storage::extend_instance_ttl(e);
 }
 
 /// OpenZeppelin's role functions, each delegated to the library so that one
 /// of them, `renounce_admin`, can be written to fail. State-changing calls
-/// also keep the instance alive; reads extend nothing of the allowlist's
-/// own (OpenZeppelin extends the role entry it reads, to 90 days).
+/// also keep the instance alive. The getters are not rent-free: `has_role`,
+/// `get_role_admin`, `get_role_member_count`, `get_role_member` and
+/// `get_existing_roles` each extend the role entry they read to 90 days,
+/// OpenZeppelin's own rule.
 #[contractimpl]
 impl AccessControl for OfferAllowlist {
     fn has_role(e: &Env, account: Address, role: Symbol) -> Option<u32> {
@@ -312,10 +325,14 @@ impl AccessControl for OfferAllowlist {
         access_control::get_admin(e)
     }
 
-    /// `caller` must be the admin or hold the role's admin role. Granting a
-    /// role already held succeeds silently, with no event.
+    /// `caller` must be the admin or hold the role's admin role (an
+    /// allocator, for `sale`). Granting a role already held succeeds
+    /// silently, with no event. The granted entry is topped up to the
+    /// network maximum, so a freshly wired sale contract does not start at
+    /// the minimum lifetime.
     fn grant_role(e: &Env, account: Address, role: Symbol, caller: Address) {
         access_control::grant_role(e, &account, &role, &caller);
+        storage::extend_role_ttl(e, &account, &role);
         storage::extend_instance_ttl(e);
     }
 
@@ -343,9 +360,9 @@ impl AccessControl for OfferAllowlist {
         storage::extend_instance_ttl(e);
     }
 
-    /// Admin only. Moving `controller`'s role-admin to a role nobody holds
-    /// leaves the admin as the only account that grants or revokes
-    /// `controller`: the containment step for a leaked hot key.
+    /// Admin only. Moving `sale`'s role-admin to a role nobody holds
+    /// freezes sale grants while a leaked hot key is cleaned up; moving it
+    /// back to `allocator` restores the backend's wiring.
     fn set_role_admin(e: &Env, role: Symbol, admin_role: Symbol) {
         access_control::set_role_admin(e, &role, &admin_role);
         storage::extend_instance_ttl(e);
@@ -364,7 +381,7 @@ impl Upgradeable for OfferAllowlist {
     /// does not run again; storage is kept as is. No `migrate` in v1.
     fn upgrade(e: &Env, new_wasm_hash: BytesN<32>, operator: Address) {
         // Membership before the signature, the order `#[only_role]` uses on
-        // the controller calls, so every gate on this contract reads alike.
+        // the role-gated writes, so every gate on this contract reads alike.
         if access_control::get_admin(e) != Some(operator.clone()) {
             panic_with_error!(e, AccessControlError::Unauthorized);
         }
