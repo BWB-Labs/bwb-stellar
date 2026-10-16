@@ -6,7 +6,6 @@ use soroban_sdk::contracterror;
 /// `upgrade`) and 2007 `RoleNotHeld` (revoking a role not held). The
 /// allowlist document lists both.
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum OfferAllowlistError {
     /// `consume` for a disabled or unknown investor. The eligibility
