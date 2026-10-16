@@ -22,7 +22,6 @@ pub enum DataKey {
 
 /// Must match `offer-allowlist`'s `Allocation` field by field.
 #[contracttype]
-#[derive(Clone)]
 pub struct Allocation {
     pub schema: u32,
     pub max: i128,
@@ -31,7 +30,6 @@ pub struct Allocation {
 
 /// Same code as v1's `RenounceBlocked`.
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum FixtureError {
     RenounceBlocked = 6105,
@@ -56,16 +54,12 @@ impl OfferAllowlistV2Fixture {
         upgradeable::upgrade(e, &new_wasm_hash);
     }
 
-    /// The stored v1 struct, or the zero allocation.
+    /// The stored v1 struct. The test only reads investors it wrote.
     pub fn allocation(e: &Env, investor: Address) -> Allocation {
         e.storage()
             .persistent()
             .get(&DataKey::Allocation(investor))
-            .unwrap_or(Allocation {
-                schema: 0,
-                max: 0,
-                enabled: false,
-            })
+            .unwrap()
     }
 
     pub fn usage(e: &Env, investor: Address, period: u32) -> i128 {
