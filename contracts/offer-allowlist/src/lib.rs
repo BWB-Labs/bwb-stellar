@@ -7,7 +7,7 @@
 //! by itself and there is no reset call. A purchase consumes room in the
 //! current period and leaves a receipt, numbered per sale contract; a
 //! refund names receipts, and each gives its amount back to its own period
-//! once, and only to the sale contract that made it.
+//! once, and only when the sale contract that made it asks.
 //!
 //! Access control is OpenZeppelin's (ADR 0008), with two roles: `allocator`
 //! (the platform hot key) writes allocations and is the role-admin of

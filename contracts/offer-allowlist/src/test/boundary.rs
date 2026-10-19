@@ -77,7 +77,7 @@ fn restore_takes_twenty_receipts_and_not_twenty_one() {
 /// With the sale contract as the direct caller (no authorization entry)
 /// the allowlist writes 40 of the transaction's 50 entries and emits 20 ×
 /// 292 B of events; the rest is the sale contract's. The interface
-/// document quotes these numbers; `-- --nocapture` prints the footprint.
+/// document quotes these numbers; `-- --nocapture` prints them.
 #[test]
 fn a_full_restore_leaves_ten_write_entries_to_the_sale() {
     let s = setup();
@@ -99,7 +99,10 @@ fn a_full_restore_leaves_ten_write_entries_to_the_sale() {
         used.contract_events_size_bytes
     );
     assert_eq!(used.write_entries, 2 * MAX_RESTORE);
-    assert!(used.memory_read_entries <= 50);
+    // The written entries plus the instances, code-free in the test
+    // environment, and the sale's role: 44 of the 100 a transaction may
+    // touch.
+    assert_eq!(used.memory_read_entries, 44);
     assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
 }
 

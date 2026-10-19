@@ -116,24 +116,25 @@ fn a_number_repeated_in_one_list_fails_and_changes_nothing() {
     assert!(s.client.receipt(&s.sale, &b).is_some());
 }
 
-/// The audit's finding A, kept as a regression: sale A refunding twice
-/// while sale B holds usage in the same month. With month totals the second
-/// refund passed, B's honest refund then failed, and the investor could
-/// buy past the cap. With receipts A's second refund fails and B is
-/// untouched.
+/// The audit's finding A, kept as a regression: sale A refunds its
+/// purchase twice while sale B holds more usage in the same month. With
+/// month totals B's usage covered the second refund, so it passed; then B's
+/// honest refund failed and the investor could buy past the cap. With
+/// receipts A's second refund fails and B is untouched.
 #[test]
 fn one_sale_cannot_over_restore_into_another_sales_usage() {
     let s = setup();
     s.allow(&s.alice, 1_000);
     let b = s.another_sale();
-    let from_a = s.consume(&s.alice, &600);
-    let from_b = b.buy(&s.id, &s.alice, &400);
+    let from_a = s.consume(&s.alice, &400);
+    let from_b = b.buy(&s.id, &s.alice, &600);
     assert_eq!(s.client.remaining(&s.alice), 0);
 
     s.restore(&[from_a]);
     let r = s.try_restore(&[from_a]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
-    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 400);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 600);
+    assert_eq!(s.client.remaining(&s.alice), 400);
 
     b.refund(&s.id, &vec![&s.e, from_b]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
