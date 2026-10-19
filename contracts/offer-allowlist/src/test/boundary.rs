@@ -101,10 +101,10 @@ fn a_full_restore_writes_one_entry_per_month_plus_the_receipts() {
         used.contract_events_size_bytes
     );
     assert_eq!(used.write_entries, MAX_RESTORE + 1);
-    // The written entries plus four every restore through the stub reads
-    // whatever it gives back (the two instances and the sale's role among
-    // them).
-    assert_eq!(used.memory_read_entries, MAX_RESTORE + 5);
+    // The 21 written entries, plus 4 a restore through the stub reads
+    // whatever it gives back. The test environment loads no contract code;
+    // on the network the code entries add to the footprint.
+    assert_eq!(used.memory_read_entries, (MAX_RESTORE + 1) + 4);
     assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
 }
 
@@ -260,8 +260,11 @@ impl Simulate {
 
 /// Two purchases racing for the same ledger. `racer`'s purchase is
 /// simulated first, then, if `other_lands_first`, `other` buys; then the
-/// footprint is frozen, as a submitted transaction's is, and `racer`'s
-/// purchase runs against it.
+/// footprint is frozen and `racer`'s purchase runs against it. The frozen
+/// footprint is everything the run touched so far, so the harness proves
+/// that `racer`'s purchase needs no key its own simulation didn't record
+/// beyond what `other`'s purchase recorded: with different investors,
+/// none at all.
 #[contract]
 pub struct Race;
 
@@ -316,19 +319,22 @@ fn purchases_by_different_investors_never_conflict() {
     assert_eq!(race(false, true), 0);
 }
 
-/// The same investor's two purchases share their receipts entry, so the
-/// footprint holds either way, and the second gets the next number.
+/// The same investor's two purchases use the same keys, so the footprint
+/// holds either way; the second gets the next number. What breaks is the
+/// write size, below.
 #[test]
 fn the_same_investors_second_purchase_keeps_its_footprint() {
     assert_eq!(race(true, false), 1);
     assert_eq!(race(true, true), 2);
 }
 
-/// But the shared entry grows by one receipt per purchase. A purchase
-/// simulated before the same investor's previous one lands declares the
-/// smaller entry's write bytes and, on the network, fails when it writes
-/// the bigger one. The backend re-simulates and resubmits; the documents
-/// describe it.
+/// But the shared entry grows by one receipt per purchase. Purchases A and
+/// B by the same investor are both simulated against the same state; A
+/// lands first. B's simulation ran against the state A ran against, with
+/// the same arguments, so it is A's own run: it declared A's write bytes.
+/// B then runs after A and writes the entry with one receipt more. On the
+/// network that exceeds B's declared write bytes unless the submitter left
+/// a margin; the backend re-simulates and resubmits, as the documents say.
 #[test]
 fn the_same_investors_next_purchase_writes_one_receipt_more_than_simulated() {
     let s = setup();
@@ -341,7 +347,8 @@ fn the_same_investors_next_purchase_writes_one_receipt_more_than_simulated() {
     s.consume(&s.alice, &1);
     let landed = s.e.cost_estimate().resources().write_bytes;
     std::println!("same investor: {simulated} B simulated, {landed} B landed");
-    assert!(landed > simulated);
+    // One more `{amount, period}` item under its number: 80 B.
+    assert_eq!(landed - simulated, 80);
 }
 
 /// The period Alice's receipt in the stub sale was charged to.

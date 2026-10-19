@@ -150,24 +150,24 @@ impl OfferAllowlist {
         if amount > room(&allocation, used) {
             panic_with_error!(e, OfferAllowlistError::AllocationExceeded);
         }
-        let mut receipts = storage::receipts(e, &caller, &investor).unwrap_or(Receipts {
+        let mut held = storage::receipts(e, &caller, &investor).unwrap_or_else(|| Receipts {
             next: 0,
             items: Map::new(e),
         });
-        if receipts.items.len() >= MAX_RECEIPTS {
+        if held.items.len() >= MAX_RECEIPTS {
             panic_with_error!(e, OfferAllowlistError::TooManyReceipts);
         }
-        let number = receipts.next;
+        let number = held.next;
         // u32::MAX purchases by one investor in one sale contract is out of
         // reach; failing keeps a wrapped counter from reusing a number.
         let Some(next) = number.checked_add(1) else {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
         };
-        receipts.items.set(number, Receipt { amount, period });
-        receipts.next = next;
+        held.items.set(number, Receipt { amount, period });
+        held.next = next;
         let consumed = used + amount;
         storage::set_usage(e, &investor, period, consumed);
-        storage::set_receipts(e, &caller, &investor, &receipts);
+        storage::set_receipts(e, &caller, &investor, &held);
         storage::extend_allocation_ttl(e, &investor);
         extend_caller_role_ttl(e, &caller, SALE);
         AllocationConsumed {

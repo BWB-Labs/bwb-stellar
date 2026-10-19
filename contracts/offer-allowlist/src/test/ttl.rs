@@ -229,7 +229,7 @@ fn an_untouched_old_month_is_left_to_expire() {
 /// late refund of an archived receipt and month passes, and the allowlist
 /// then tops both entries up to the maximum.
 #[test]
-fn a_late_refund_of_an_archived_receipt_restores_the_entries_and_tops_up_the_usage() {
+fn a_late_refund_of_an_archived_receipt_restores_and_tops_up_both_entries() {
     let s = setup();
     s.allow(&s.alice, 100);
     let late = s.consume(&s.alice, &4);
