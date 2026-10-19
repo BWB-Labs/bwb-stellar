@@ -60,8 +60,8 @@ One persistent entry per investor:
 | `schema` | Struct version |
 | `tokens` | Tokens reserved |
 | `paid` | Stroops received |
-| `last_purchase_at` | Ledger time of the last purchase. Every purchase restarts the window. |
-| paid per period | **Changed by L3, handed to L4.** The amount paid in each allowlist period (UTC month), keyed by the period `consume` returns at each purchase, so refunds can restore each month's amount to that month without computing dates. Bounded by the months the offering was open. |
+| `last_purchase_at` | Ledger time of the last purchase. **Changed by the team's per-purchase cooling-off, handed to L4:** each purchase now has its own window, counted from when it was made, so one timestamp for the reservation no longer describes the windows. |
+| purchases | **Changed by L3, handed to L4.** Each purchase stored under the receipt number the allowlist's `consume` returns for it (with at least what it paid, the tokens it reserved and when), so a refund names exactly the purchases it undoes. Replaces the paid-per-period list: the allowlist keeps each receipt's period, so the sale contract never handles one. |
 
 ## Totals
 
@@ -83,9 +83,9 @@ The hard cap is checked against `raised`. Success means `sold_tokens × 100 ≥ 
 | `finalize()` | owner | Active | Requires success, and that the sale contract still holds every sold token (as in Base, since `xfer_admin` can move tokens). This check runs only once. Moves to Successful. |
 | `mark_failed()` | owner | Active | Requires the minimum not sold. Moves to Failed. |
 | `cancel()` | owner | Active | Moves to Failed at any time. This is Base's `enableRefunds`. |
-| `release(investors)` | anyone | Successful | For each investor, at most 30: transfers the reserved tokens, adds their `paid` to `released_paid`, and ends the reservation. Investors with nothing reserved are skipped. Fails if any investor's window is still open: `now ≤ last_purchase_at + cooling_off_secs` (recommended, ADR 0002, pending the team). |
-| `refund(investors)` | anyone | Failed | For each investor, at most 20 (**batch re-measured in L4**): returns the payment, ends the reservation and restores allowlist room **per month** (changed by L3, handed to L4: one `restore` call per investor with the reservation's paid-per-period list). Investors with nothing reserved are skipped. |
-| `cooling_off_refund(investor)` | `investor` | Active or Successful | Allowed until `last_purchase_at + cooling_off_secs` inclusive, and before release. Returns the payment, ends the reservation, restores allowlist room **per month** (changed by L3, handed to L4), and lowers `sold_tokens` and `raised`. Whether cooling-off is per reservation (as in Base) or per purchase is L4's decision and does not change the allowlist interface. |
+| `release(investors)` | anyone | Successful | For each investor, at most 30: transfers the reserved tokens, adds their `paid` to `released_paid`, and ends the reservation. Investors with nothing reserved are skipped. Fails if any investor's window is still open: `now ≤ last_purchase_at + cooling_off_secs` (recommended, ADR 0002, pending the team). When tokens are released now that each purchase has its own window is handed to L4. |
+| `refund(investors)` | anyone | Failed | For each investor (**batch set in L4**): returns the payment, ends the reservation and restores allowlist room **by receipt** (changed by L3, handed to L4: the allowlist's `restore` takes at most 20 receipts per call, of any investors, and at 20 uses 40 of the transaction's 50 write entries). Investors with nothing reserved are skipped. |
+| `cooling_off_refund(investor)` | `investor` | Active or Successful | Before release. **Changed by the team's per-purchase cooling-off and by L3, handed to L4:** returns the payment of every purchase still inside its own window (`made_at + cooling_off_secs` inclusive) and restores those purchases' receipts on the allowlist; older purchases stay in the reservation. Letting the investor pick which purchases to undo is optional. Lowers `sold_tokens` and `raised`. |
 | `withdraw_payment(payouts)` | owner | Successful | Pays every `(recipient, amount)` in one call, at most 30 payouts. **The total may not exceed `released_paid − withdrawn`** (recommended, ADR 0004, pending the team). |
 | `withdraw_tokens(to, amount)` | owner | Failed | Sends tokens to the address the owner names. |
 | `pause(caller)` | `caller`, owner or `pauser` | any | Blocks `buy`. The scope is provisional (see below). The platform's `pauser` is recommended (ADR 0003), pending the team. |
@@ -103,7 +103,15 @@ Read functions:
 - `preview_tokens(amount)`, which fails on an amount that isn't an exact multiple;
 - `paused`, `has_role` (the role index, or void when not held), `schema_version`.
 
-**Batch sizes.** 30 investors per `release` (about 364 B of events per investor, about 10.9 KB), and 30 payouts per `withdraw_payment` (roughly 430 B per payout: USDC `transfer` plus `payment_withdrawn`; about 12.9 KB at 30). The L1 estimate of 20 per `refund` is **invalidated by L3**: `allocation_restored` measures 268 B (it carries the period) and a refund emits one per month the investor bought in, so 20 investors with one month each already fill about 16.2 KB of the 16 KB limit's 16,384 B. L4 re-measures by simulation with the worst case of investors × months and sets the limit ([interface 6.4](interface.md#64-batch-sizes)).
+**Batch sizes.** 30 investors per `release` (about 364 B of events per investor, about 10.9 KB), and 30 payouts per `withdraw_payment` (roughly 430 B per payout: USDC `transfer` plus `payment_withdrawn`; about 12.9 KB at 30). The L1 estimate of 20 per `refund` is **invalidated by L3**: a refund now restores purchases by receipt, the allowlist's `restore` takes at most 20 receipts per call, and at 20 receipts in 20 different months it uses 40 of the transaction's 50 write entries and 5,840 B of events. The other 10 write entries must hold the sale contract's own entries, the USDC balances and any authorization nonce, so L4 sizes the refund batch by write entries and confirms by simulation ([interface 6.4](interface.md#64-batch-sizes)).
+
+**Handed to L4 by the allowlist's receipts (L3).** Decided on the allowlist side, open on this side:
+
+- the sale contract stores each purchase under its receipt number;
+- `cooling_off_refund` restores every receipt still inside its own window; letting the investor pick purchases is optional;
+- when tokens are released now that each purchase has its own window (the interplay with ADR 0002);
+- failed-offering refunds go to the allowlist in batches of at most 20 receipts, sized by write entries;
+- whether to cap the number of purchases per investor, which bounds a reservation's size and a cooling-off refund's receipts.
 
 **Withdrawals. Recommended (ADR 0004), pending the team.** The tokenizer can only withdraw money from released reservations: money that no investor can ask back anymore. Release is open to anyone, so the path is: release everyone past their window, then withdraw. The consequence the team is asked to accept: the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase. This replaces Base's behaviour (NF-04), where the tokenizer could withdraw everything at once; the audit response claims a backend check against open refund obligations, but no such check exists in Base's code. Base's backend got away with it by releasing everyone in the same batch, which silently ended open cooling-off rights.
 
@@ -172,7 +180,7 @@ Also emitted:
 | 6212 | `CoolingOffClosed` | `cooling_off_refund` outside the window, after release, or in Failed |
 | 6213 | `NothingReserved` | `cooling_off_refund` with no reservation |
 | 6214 | `CoolingOffOpen` | `release` that includes an investor whose window is still open |
-| 6215 | `BatchTooLarge` | More than 30 investors in `release`, 20 in `refund`, or 30 payouts |
+| 6215 | `BatchTooLarge` | More than 30 investors in `release`, more than the refund limit (set in L4) in `refund`, or 30 payouts |
 | 6216 | `InvalidConfig` | Constructor arguments outside the limits |
 | 6217 | `TokensMissing` | `finalize` while the sale contract holds fewer tokens than sold |
 | 6218 | `ExceedsWithdrawable` | `withdraw_payment` beyond `released_paid − withdrawn` |
@@ -180,7 +188,7 @@ Also emitted:
 
 Codes from the contracts it calls, which surface unchanged:
 
-- **allowlist:** 6100 `InvestorNotEnabled` and 6101 `AllocationExceeded` during `buy`, and 6103 `RestoreExceedsUsage` during refunds, which with no monthly reset can only be a bug in the paid-per-period list (changed by L3; see [offer-allowlist.md](offer-allowlist.md#errors));
+- **allowlist:** 6100 `InvestorNotEnabled` and 6101 `AllocationExceeded` during `buy`, and 6103 `ReceiptNotFound` during refunds, which means the sale contract named a receipt it doesn't hold or already restored, a bug in its purchase bookkeeping (changed by L3; see [offer-allowlist.md](offer-allowlist.md#errors));
 - **token:** 6000 and 100;
 - **USDC** (a Stellar Asset Contract), as `Error(Contract, #n)`, during a payment, refund or payout. The backend leaves an investor failing with 11 or 13 out of the batch and retries the rest. These codes don't collide with OpenZeppelin's (100+) or BWB's (6000+):
   - 8 `NegativeAmountError`;

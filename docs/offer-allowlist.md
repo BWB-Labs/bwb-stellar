@@ -2,10 +2,10 @@
 
 - **What it does.** Records who may invest and up to how much. Each investor has an allocation: a cap in USDC stroops and whether they may invest. Usage is counted per investor per UTC calendar month (the *period*), inside the contract, so a new month starts from zero by itself. The allowlist admits addresses, never assets.
 - **Scope.** One global instance, shared by every offering. A cap is global, not per offering, by design.
-- **Who uses it.** The platform hot key, as `allocator`, writes caps after KYC and when compliance changes them, and wires each new offering's sale contract in as `sale`. Each sale contract consumes room on a purchase and restores it, per month, on a refund. The platform multisig is the access-control admin and the only account that upgrades.
-- **Where it comes from.** A port of Base's `OfferSaleAllowlist`, with two changes that remove Base's monthly reset and its refund-after-reset failure (ADR 0007), and with OpenZeppelin's roles in place of Base's owner and controller map, split in two so that a sale contract can only consume and restore (ADR 0008; Base audit NF-01).
+- **Who uses it.** The platform hot key, as `allocator`, writes caps after KYC and when compliance changes them, and wires each new offering's sale contract in as `sale`. Each sale contract consumes room on a purchase, which leaves a *receipt*, and restores room on a refund by naming receipts. The platform multisig is the access-control admin and the only account that upgrades.
+- **Where it comes from.** A port of Base's `OfferSaleAllowlist`, with two changes that remove Base's monthly reset and its refund-after-reset failure (ADR 0007), per-purchase receipts so that a refund gives back only what its own sale consumed, once, and with OpenZeppelin's roles in place of Base's owner and controller map, split in two so that a sale contract can only consume and restore (ADR 0008; Base audit NF-01).
 
-**Delivered in L3 (interface v0.7).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json). The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L3 (interface v0.8: receipts).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json). The cross-cutting rules are in [interface.md](interface.md).
 
 ## Periods
 
@@ -19,7 +19,7 @@ month  = period % 12 + 1
 
 October 2026 is `2026 * 12 + 9 = 24321`. The limit renews at 00:00 UTC on the first of the month, 21:00 in Brasília, as the off-chain gate already does. The monthly limit is BWB's product choice, not CVM 88 (annual, enforced off-chain), so the period is a code constant and changing it is an upgrade.
 
-**Only the allowlist computes periods.** `consume` returns the period it charged, the sale contract keeps what each reservation paid per period, and `restore` receives those periods back. The backend reads `current_period()` and uses the formula above to label events. A ledger time whose period does not fit a `u32` fails with 6106 `InvalidPeriod`, which no real ledger time reaches (year 357,913,941).
+**Only the allowlist computes periods.** Each receipt records the period its purchase was charged to, and `restore` gives the amount back to that period, so the sale contract never handles a period. The backend reads `current_period()` and uses the formula above to label events. A ledger time whose period does not fit a `u32` fails with 6106 `InvalidPeriod`, which no real ledger time reaches (year 357,913,941).
 
 **Around midnight UTC on the last day of a month:**
 
@@ -76,6 +76,27 @@ An investor with no entry reads as `max = 0`, not enabled, usage 0. The backend'
 
 **Room** is `max − usage(current period)` when the investor is enabled, else 0, and never negative: a cap lowered below this month's usage leaves no room until next month, and keeps the usage.
 
+## Receipts
+
+Every purchase leaves a **receipt**: the allowlist's record of that purchase, kept under the sale contract that made it.
+
+| Field | Meaning |
+|---|---|
+| `amount` | What the purchase used, in USDC stroops |
+| `investor` | Whose usage it went to |
+| `period` | The period it was charged to |
+
+`consume` writes the receipt and returns its **number**. Numbers count from 0 per sale contract (two offerings both have a receipt 0) and are never reused, not even after a restore. The sale contract keeps the number with the purchase.
+
+A refund names receipts. `restore(receipts, caller)` looks each number up under the calling sale contract, subtracts its amount from its own investor's usage in its own period, and deletes it. So:
+
+- **each purchase is given back once.** A second restore of the same number finds nothing and fails with 6103, whatever other usage the investor has that month;
+- **a sale contract only gives back its own purchases.** It cannot name another sale contract's receipts: numbers are looked up under the caller. An accomplice granted `sale` by a leaked hot key holds no receipts, so it cannot free anyone's room;
+- **receipts are whole.** There is no partial restore of a purchase;
+- one call may name receipts of different investors and different months, at most 20.
+
+Usage is always the sum of its period's live receipts. A restore that brings a usage entry to 0 removes the entry.
+
 **When caps are written.** At KYC approval and whenever compliance changes an investor's limit or status, as on Base. There is no periodic rewrite and no reset: the only job the backend runs against the allowlist is the one it already runs on Base. Whether the cap is the BRL limit converted by the backend or a separate dollar limit is pending the team ([interface 3](interface.md#3-premises), [interface 11](interface.md#11-open-points)). Because `set_allocations` writes both `max` and `enabled`, **build every write from a fresh read**: an entry built from a read taken before compliance disabled the investor re-enables them.
 
 ## Calls
@@ -85,8 +106,8 @@ Every write that names its acting account takes it as the **last** argument (`ca
 | Call | Authorized by | Effect |
 |---|---|---|
 | `set_allocations(entries, caller)` | `caller` holding `allocator` | For each `{investor, max, enabled}`, at most 30: writes the cap and the flag, keeps usage. `max` must be non-negative (6102). Duplicates in one list: last wins. An empty list succeeds as a no-op. Emits `allocation_set` per entry. |
-| `consume(investor, amount, caller) → period` | `caller` holding `sale`: the sale contract as the direct caller | Uses `amount` of the investor's room in the current period and returns that period. `amount` must be positive (6102), the investor enabled (6100) and `amount ≤ max − usage` (6101). Emits `allocation_consumed`. |
-| `restore(investor, entries, caller)` | `caller` holding `sale`: the sale contract on refund or cooling-off | Gives room back per period: each `{period, amount}` names a period `consume` returned and the amount to return to it; 1 to 30 entries (6102 when empty, 6104 above 30), each `amount` positive (6102) and each `period` at or before the current one (6106). Entries are summed per period with checked arithmetic (overflow is 6102); a period whose usage is below its sum fails the whole call with 6103. No `enabled` check: a disabled investor can still be refunded. Emits one `allocation_restored` per period touched, in the order the periods first appear. |
+| `consume(investor, amount, caller) → receipt` | `caller` holding `sale`: the sale contract as the direct caller | Uses `amount` of the investor's room in the current period, writes a receipt under `caller` and returns its number ([Receipts](#receipts)). `amount` must be positive (6102), the investor enabled (6100) and `amount ≤ max − usage` (6101). Emits `allocation_consumed`. |
+| `restore(receipts, caller)` | `caller` holding `sale`: the sale contract on refund or cooling-off | Gives back whole purchases: 1 to 20 receipt numbers (6102 when empty, 6104 above 20), which may belong to different investors. For each number in list order: the receipt is looked up under `caller`; a number that is unknown, already restored, another sale contract's, or repeated in the list fails the whole call with 6103. Its amount is subtracted from its investor's usage in its period (the entry is removed at 0) and the receipt is deleted. No `enabled` check: a disabled investor can still be refunded. Emits one `allocation_restored` per receipt, in list order. |
 | `grant_role(account, role, caller)` | the admin for any role; `caller` holding `allocator` for `sale` | OpenZeppelin, plus the granted entry topped up to the network maximum. Granting a role already held succeeds silently, with no event. |
 | `revoke_role(account, role, caller)` | the admin for any role; `caller` holding `allocator` for `sale`, as Base's `setControllerFromController(…, false)` | OpenZeppelin. Revoking a role the account does not hold fails with 2007. |
 | `renounce_role(role, caller)` | `caller` | OpenZeppelin: the caller drops its own role. |
@@ -101,6 +122,7 @@ Read functions, the backend's read path (Base's app reads raw storage slots; her
 |---|---|---|
 | `allocation(investor)` | `{consumed, enabled, max, period}`: the stored cap and flag, the current period and its usage. One simulation for the investor page. | none: Base reads storage slots |
 | `usage(investor, period)` | That period's usage, any period, 0 when absent. For support audits of past months. | none |
+| `receipt(sale, receipt)` | `{amount, investor, period}` of that sale contract's receipt, or void once restored and for a number never issued | none |
 | `remaining(investor)` | The room: `max − usage(now)` when enabled, else 0, never negative | `remainingAllocation` |
 | `can_invest(investor, amount)` | Whether `consume`'s amount, eligibility and room checks would pass at this ledger time. False for `amount ≤ 0`. It cannot see the caller's role. | `canPurchase` |
 | `current_period()` | The period of the current ledger time | none |
@@ -108,14 +130,15 @@ Read functions, the backend's read path (Base's app reads raw storage slots; her
 | `has_role(account, role)` | The role index when held, void otherwise. The backend tests for non-void. | `controllers(account)` |
 | `get_role_member_count(role)`, `get_role_member(role, index)`, `get_role_admin(role)`, `get_admin()`, `get_existing_roles()` | OpenZeppelin's enumeration | none |
 
-The allowlist's own reads (`allocation`, `usage`, `remaining`, `can_invest`, `current_period`) extend nothing, so simulating them pays no rent. OpenZeppelin's role getters are not rent-free: `has_role`, `get_role_admin`, `get_role_member_count`, `get_role_member` and `get_existing_roles` each extend the role entry they read to 90 days when submitted (a simulation alone changes nothing).
+The allowlist's own reads (`allocation`, `usage`, `receipt`, `remaining`, `can_invest`, `current_period`) extend nothing, so simulating them pays no rent. OpenZeppelin's role getters are not rent-free: `has_role`, `get_role_admin`, `get_role_member_count`, `get_role_member` and `get_existing_roles` each extend the role entry they read to 90 days when submitted (a simulation alone changes nothing).
 
 The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
 
 ## Differences from Base
 
 - **No reset.** Base runs `resetConsumed` from a monthly cron; here a new month starts from zero by itself. There is no reset call and no periodic job at all.
-- **Usage per month, and refunds per month.** Base keeps one running `consumed`; a refund after the reset reverts and takes its whole batch with it, and the backend skips investors with open positions to avoid it (bwb-tokenization #1235). Here `restore` names each month and the amount to give back to it, so a refund across a month boundary succeeds in one call and a refund of last month's money never frees this month's room.
+- **Usage per month, refunds per purchase.** Base keeps one running `consumed`; a refund after the reset reverts and takes its whole batch with it, and the backend skips investors with open positions to avoid it (bwb-tokenization #1235). Here each purchase leaves a receipt with its period, and `restore` names receipts, so a refund across a month boundary succeeds in one call and a refund of last month's money never frees this month's room.
+- **A refund can't over-restore.** Base's `restoreAllocation` takes an amount and only checks it against the running total, so one sale contract restoring twice, or more than it consumed, passes whenever another purchase covers it. Here a receipt is given back once, and only by the sale contract that made it.
 - **Two roles instead of one controller map.** On Base every controller, the hot key and each sale contract alike, could write allocations, consume, restore and add or remove controllers (audit NF-01, accepted). Here the hot key is `allocator` and a sale contract is `sale`: it consumes and restores and nothing else. The backend still wires sales itself, because `allocator` administers `sale`.
 - **`consume` rejects 0** (6102). Base accepts it; its sale contract never sends it.
 - **`can_invest(…, 0)` is false.** Base's `canPurchase` returns true for 0.
@@ -133,15 +156,15 @@ Data fields are listed in sorted name order, which is how the SDK encodes a `con
 |---|---|---|---|
 | `initialized` | `initialized` | `{admin, allocators}` | Once, at construction, after the role events. |
 | `allocation_set` | `allocation_set`, investor | `{caller, enabled, max}` | `set_allocations`, per entry. The backend confirms its writes landed from it. |
-| `allocation_consumed` | `allocation_consumed`, investor, caller | `{amount, consumed, period}` | `consume`. `consumed` is the period's usage after the call; `period` is the one returned. `caller` identifies the offering. |
-| `allocation_restored` | `allocation_restored`, investor, caller | `{amount, consumed, period}` | `restore`, one per period touched. `amount` is the sum restored to that period, `consumed` its usage after the call. |
+| `allocation_consumed` | `allocation_consumed`, investor, caller | `{amount, consumed, period, receipt}` | `consume`. `consumed` is the period's usage after the call; `receipt` is the number returned. `caller` identifies the offering. |
+| `allocation_restored` | `allocation_restored`, investor, caller | `{amount, consumed, period, receipt}` | `restore`, one per receipt, in list order. `amount` and `period` are the receipt's, `consumed` the period's usage right after it. |
 | `upgraded` | `upgraded` | `{from_schema_version, new_wasm_hash}` | `upgrade`. The old code emits it, so `from_schema_version` is the schema version before the upgrade. The host also emits its own `executable_update`. |
 
-An indexer can rebuild usage per investor per period from `allocation_consumed` and `allocation_restored` alone, since each carries the period and the usage after.
+An indexer can rebuild usage per investor per period, and the open receipts of each sale contract (`caller`, `receipt`), from `allocation_consumed` and `allocation_restored` alone, since each carries the period, the usage after and the receipt number.
 
 Inherited from OpenZeppelin, shapes in [interface R4](interface.md#r4-inherited-event-shapes): `role_granted` and `role_revoked` (topics `role`, `account`; data `{caller}`), `role_admin_changed` (topic `role`; data `{new_admin_role, previous_admin_role}`, where the previous role is the empty symbol at construction), `admin_transfer_initiated`, `admin_transfer_completed`.
 
-**Sizes and the batch limit.** Measured XDR encodings: `allocation_set` 240 B, `allocation_consumed` 268 B, `allocation_restored` 268 B. At 30 entries, `set_allocations` and `restore` each emit 7 to 8 KB of the 16 KB event limit; what binds the batch at 30 is the transaction's **write entries** (31 of 50: the entries plus the instance) and its footprint (about 35 of 100). The L1 estimate of 20 investors per `refund`, derived from event bytes, is **invalidated**: a refund writes one usage entry per month the investor bought in, plus the sale contract's own entries and the USDC entries, so L4 sizes the refund batch by write entries with the worst case of investors × months ([interface 6.4](interface.md#64-batch-sizes)).
+**Sizes and the batch limits.** Measured XDR encodings: `allocation_set` 240 B, `allocation_consumed` 292 B, `allocation_restored` 292 B. At 30 entries, `set_allocations` emits about 7.2 KB of the 16 KB event limit; what binds it is the transaction's **write entries** (31 of 50: the entries plus the instance) and its footprint (about 35 of 100). `restore` writes up to two entries per receipt (the receipt deleted, its usage entry written or removed), so its worst case, 20 receipts in 20 different months, writes **40 of the 50 write entries**, reads about 45 footprint entries of 100 and emits 5,840 B of events, measured on the real WASM. That leaves 10 write entries to the calling sale contract's own refund (its own entries, the USDC balances, an authorization nonce), which sizes L4's refund batch ([interface 6.4](interface.md#64-batch-sizes)).
 
 ## Errors
 
@@ -149,11 +172,11 @@ Inherited from OpenZeppelin, shapes in [interface R4](interface.md#r4-inherited-
 |---|---|---|
 | 6100 | `InvestorNotEnabled` | `consume` for a disabled or unknown investor. **The eligibility rejection.** |
 | 6101 | `AllocationExceeded` | `consume` beyond `max − usage` this period. **The allocation rejection.** |
-| 6102 | `InvalidAmount` | A negative cap, a non-positive amount in `consume` or `restore`, an empty restore list, or a restore sum that overflows |
-| 6103 | `RestoreExceedsUsage` | A period's usage cannot account for the sum restored to it: a double restore, a wrong amount, or an investor with no allocation |
-| 6104 | `BatchTooLarge` | More than 30 entries in `set_allocations` or `restore` |
+| 6102 | `InvalidAmount` | A negative cap, a non-positive amount in `consume`, or an empty restore list. Also two states the contract never reaches: a sale contract out of receipt numbers (`u32::MAX` purchases), and a receipt larger than its period's usage, which is always the sum of its live receipts |
+| 6103 | `ReceiptNotFound` | `restore` names a receipt the calling sale contract doesn't hold: never issued, already restored (a double refund), another sale contract's, or repeated in the same list. The whole call reverts |
+| 6104 | `BatchTooLarge` | More than 30 entries in `set_allocations`, or more than 20 receipts in `restore` |
 | 6105 | `RenounceBlocked` | `renounce_admin` |
-| 6106 | `InvalidPeriod` | A restore period after the current one, or a ledger time whose period does not fit |
+| 6106 | `InvalidPeriod` | A ledger time whose period does not fit a `u32`, which no real ledger time reaches |
 
 OpenZeppelin codes that surface unchanged: 2000 `Unauthorized` (a caller without the role; a non-admin operator on `upgrade`; a caller granting or revoking a role it does not administer), 2007 `RoleNotHeld` (revoking or renouncing a role not held), and on the admin transfer 2001 `AdminNotSet` and the role-transfer codes (`NoPendingTransfer`, `InvalidLiveUntilLedger`, `TransferExpired`).
 
@@ -162,17 +185,19 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 ## Storage and expiry
 
 - Allocations: one persistent entry per investor. Never removed.
-- Usage: one persistent entry per `(investor, period)`, written by `consume` and `restore` only.
+- Usage: one persistent entry per `(investor, period)`, written by `consume` and `restore` only, removed when a restore brings it to 0.
+- Receipts: one persistent entry per purchase, `(sale contract, number)`, written by `consume` and removed by `restore`.
+- Receipt counters: one persistent `u32` per sale contract, the number its next purchase gets.
 - Roles: persistent, through OpenZeppelin (membership, member lists, counts, role-admins).
 - The admin and the schema version: instance, through OpenZeppelin.
 
-**Policy.** Every state-changing call tops the instance, and every entry it touches, up to the network maximum (about 180 days on mainnet) once it falls a month below it: `set_allocations` the allocations it writes; `consume` the allocation and the current period's usage; `restore` the usage entries it writes; `grant_role` the membership it grants. The allowlist's own reads extend nothing.
+**Policy.** Every state-changing call tops the instance, and every entry it touches, up to the network maximum (about 180 days on mainnet) once it falls a month below it: `set_allocations` the allocations it writes; `consume` the allocation, the current period's usage, the new receipt and the sale contract's counter; `restore` the usage entries it writes (a removed entry needs nothing); `grant_role` the membership it grants. The allowlist's own reads extend nothing.
 
 **Roles.** OpenZeppelin extends a role entry only to 90 days when it reads it. The allowlist goes further for the memberships that matter: every `set_allocations` tops the **caller's own** `allocator` entry up to the network maximum, every `consume` and `restore` the caller's own `sale` entry, and every `grant_role` the entry it grants, so a sale contract wired in today and then quiet for months (Successful, then a late cooling-off; Failed, then late refunds) still finds its role alive. The other OpenZeppelin keys (member lists, counts, role-admins) stay on OpenZeppelin's 90-day rule; the role calls and getters read them, which keeps them alive in routine operation, and anyone may extend any entry without permission.
 
-**Old months expire on their own.** A usage entry is never written again once its month is over, so it archives at no cost and storage does not grow forever. Nobody deletes anything.
+**Old months and old receipts expire on their own.** A usage entry is written after its month only by a refund, and a receipt is never written again, so a month nobody refunds and a receipt nobody restores archive at no cost and storage does not grow forever. Nobody needs to delete anything; a restore deletes the receipts it gives back.
 
-**Archived entries are not gone.** Since protocol 23 (CAP-0066) the call that touches an archived persistent entry restores it: simulation lists the key in the transaction's read-write footprint and the transaction pays the restoration rent, after which the allowlist tops the entry up to the maximum like any other. A late refund of a month older than the network maximum therefore works, at the cost of that restoration, provided the submitter simulates the call afresh and submits what simulation returned rather than a footprint built from an earlier run. A simulated read of an archived month (`usage`, `allocation`) returns its value and marks the entry for restoration; nothing is restored until a transaction is submitted.
+**Archived entries are not gone.** Since protocol 23 (CAP-0066) the call that touches an archived persistent entry restores it: simulation lists the key in the transaction's read-write footprint and the transaction pays the restoration rent, after which the allowlist tops the entry up to the maximum like any other. A late refund of a receipt or a month older than the network maximum therefore works, at the cost of that restoration, provided the submitter simulates the call afresh and submits what simulation returned rather than a footprint built from an earlier run. A simulated read of an archived entry (`usage`, `receipt`, `allocation`) returns its value and marks the entry for restoration; nothing is restored until a transaction is submitted.
 
 ## Tests
 
@@ -180,11 +205,11 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 
 | Module | Covers |
 |---|---|
-| `authorization` | The admin grants and revokes any role, `allocator` included; an allocator grants and revokes `sale` and nothing else, and cannot consume or restore; a sale cannot write allocations, grant or revoke; a stranger cannot do any of it (2000); an unsigned call fails at authorization; the sale stub consumes and restores as the direct caller with no authorization entry, an unwired stub cannot, and nobody can act in a sale's name from outside; only the admin upgrades (2000); `renounce_admin` fails (6105); the two-step admin transfer; the containment runbook step by step against what a leaked hot key did first |
-| `boundary` | Exact cap, cap + 1, cap 0, cap at the top of `i128`; batches of 30 and 31 for both lists; 23:59:59 against 00:00:00 UTC; December to January; the grill scenario (buy in September and October, restore both in October); last month's refund never frees this month's room; restore of the exact usage and one above (6103); a list summed per period; a period equal to the current one and one after it (6106); a cap lowered below the usage; a restore sum that overflows (6102) |
-| `idempotency` | The same `set_allocations` twice keeps the usage; an empty batch; last duplicate wins; disabling keeps cap and usage; granting a held role is silent; `remaining` and `can_invest` agree with `consume` at a pinned time |
-| `failure` | Every 61xx code reached at least once (6104 and 6105 here as well as in the modules that own the rule), 2007 on revoking a role not held, 6103 for an address with no allocation and for a double restore, and a failed restore reverting every period in the call |
-| `events` | Exact events and order for construction (with and without allocators), each write, consume (with the returned period), a restore spanning two months (two events, first-seen order), the OpenZeppelin role and admin-transfer events; the measured event sizes the interface document quotes (`upgraded` is asserted in `upgrade`, which has the second binary) |
-| `upgrade` | Swap to `offer-allowlist-upgrade-fixture`, a test-only second binary, with the exact `upgraded` event; allocations, usage, both roles, the role-admin, admin and `schema_version` survive; the upgraded code can upgrade again under the same gate and still blocks `renounce_admin`; a hash never uploaded fails; a non-admin cannot swap |
-| `ttl` | The instance, an allocation, a usage entry and the caller's role entry (`allocator` on a write, `sale` on consume and restore) are extended on write; a grant tops the granted entry up; the sale's role outlives OpenZeppelin's 90 days; the allowlist's reads extend nothing; an untouched old month is left to expire; a late refund of an archived month restores the entry (the test environment's recording mode) and tops it up |
+| `authorization` | The admin grants and revokes any role, `allocator` included; an allocator grants and revokes `sale` and nothing else, and cannot consume or restore; a sale cannot write allocations, grant or revoke; a stranger cannot do any of it (2000); an unsigned call fails at authorization; the sale stub consumes and restores as the direct caller with no authorization entry, an unwired stub cannot, and nobody can act in a sale's name from outside; only the admin upgrades (2000); `renounce_admin` fails (6105); the two-step admin transfer; the containment runbook step by step against what a leaked hot key did first, including an accomplice sale that cannot restore anyone's receipts |
+| `boundary` | Exact cap, cap + 1, cap 0, cap at the top of `i128`; batches of 30 and 31 for `set_allocations` and of 20 and 21 receipts for `restore`; 23:59:59 against 00:00:00 UTC; December to January; receipt numbers from 0, per sale contract, never reused; the cooling-off case (buy, buy again 10 days later, restore only the second); one restore across investors; a usage entry removed at 0; the grill scenario (buy in September and October, restore both in October); last month's refund never frees this month's room; each receipt gives back exactly its amount; a cap lowered below the usage; a full restore (20 receipts in 20 months) uses 40 write entries and 5,840 B of events |
+| `idempotency` | The same `set_allocations` twice keeps the usage; an empty batch; last duplicate wins; disabling keeps cap and usage; granting a held role is silent; `remaining` and `can_invest` agree with `consume` at a pinned time; the `receipt` getter before a purchase, after it and after its restore |
+| `failure` | Every 61xx code reached at least once (6104 and 6105 here as well as in the modules that own the rule), 2007 on revoking a role not held; 6103 for an unknown receipt, a double restore, another sale contract's receipt and a number repeated in one list (which changes nothing); the audit's cross-sale over-restore, now rejected; a failed restore reverting every receipt in the call; 6102 for a sale out of receipt numbers and for a receipt its usage no longer covers (both unreachable, forced through storage) |
+| `events` | Exact events and order for construction (with and without allocators), each write, consume (with the receipt), a restore of four receipts across investors and months (one event per receipt, list order, usage falling step by step), the OpenZeppelin role and admin-transfer events; the measured event sizes the interface document quotes (`upgraded` is asserted in `upgrade`, which has the second binary) |
+| `upgrade` | Swap to `offer-allowlist-upgrade-fixture`, a test-only second binary, with the exact `upgraded` event; allocations, usage, a receipt and the receipt counter, both roles, the role-admin, admin and `schema_version` survive; the upgraded code can upgrade again under the same gate and still blocks `renounce_admin`; a hash never uploaded fails; a non-admin cannot swap |
+| `ttl` | The instance, an allocation, a usage entry, a receipt, the receipt counter and the caller's role entry (`allocator` on a write, `sale` on consume and restore) are extended on write; a grant tops the granted entry up; the sale's role outlives OpenZeppelin's 90 days; the allowlist's reads extend nothing; an untouched old month and its receipt are left to expire; a late refund of an archived receipt and month restores the entries (the test environment's recording mode) and tops it up |
 | `period` | The date arithmetic against known timestamps, including the `u32` bound (inside the module), and the contract's getter at pinned ledger times (through the client), including 6106 |
