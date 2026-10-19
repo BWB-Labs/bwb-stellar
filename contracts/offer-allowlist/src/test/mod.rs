@@ -19,11 +19,13 @@ use soroban_sdk::{
     InvokeError, Symbol, Vec,
 };
 
-use crate::{AllocationEntry, OfferAllowlist, OfferAllowlistClient, RestoreEntry};
+use crate::{AllocationEntry, OfferAllowlist, OfferAllowlistClient};
 
 /// A test-only stand-in for the sale contract: it calls `consume` and
 /// `restore` with its own address as `caller`, so the direct-caller
-/// authorization is exercised for real, not through mocked auths.
+/// authorization is exercised for real, not through mocked auths. `buy`
+/// returns the receipt number, which a real sale contract would store with
+/// the purchase.
 #[contract]
 pub struct SaleStub;
 
@@ -37,12 +39,8 @@ impl SaleStub {
         )
     }
 
-    pub fn refund(e: &Env, allowlist: Address, investor: Address, entries: Vec<RestoreEntry>) {
-        OfferAllowlistClient::new(e, &allowlist).restore(
-            &investor,
-            &entries,
-            &e.current_contract_address(),
-        )
+    pub fn refund(e: &Env, allowlist: Address, receipts: Vec<u32>) {
+        OfferAllowlistClient::new(e, &allowlist).restore(&receipts, &e.current_contract_address())
     }
 }
 
@@ -100,7 +98,16 @@ impl Setup<'_> {
         SaleStubClient::new(&self.e, &self.sale)
     }
 
-    /// Consumes through the sale stub, the only kind of account that may.
+    /// A second sale stub, granted `sale` by the hot key: another offering.
+    pub fn another_sale(&self) -> SaleStubClient<'_> {
+        let sale = self.e.register(SaleStub, ());
+        self.client
+            .grant_role(&sale, &sale_role(&self.e), &self.hot_key);
+        SaleStubClient::new(&self.e, &sale)
+    }
+
+    /// Consumes through the sale stub, the only kind of account that may,
+    /// and returns the receipt number.
     pub fn consume(&self, investor: &Address, amount: &i128) -> u32 {
         self.sale().buy(&self.id, investor, amount)
     }
@@ -109,13 +116,18 @@ impl Setup<'_> {
         self.sale().try_buy(&self.id, investor, amount)
     }
 
-    /// Restores through the sale stub.
-    pub fn restore(&self, investor: &Address, entries: &Vec<RestoreEntry>) {
-        self.sale().refund(&self.id, investor, entries)
+    /// Restores receipts through the sale stub.
+    pub fn restore(&self, receipts: &[u32]) {
+        self.sale().refund(&self.id, &self.list(receipts))
     }
 
-    pub fn try_restore(&self, investor: &Address, entries: &Vec<RestoreEntry>) -> TryResult<()> {
-        self.sale().try_refund(&self.id, investor, entries)
+    pub fn try_restore(&self, receipts: &[u32]) -> TryResult<()> {
+        self.sale().try_refund(&self.id, &self.list(receipts))
+    }
+
+    /// Receipt numbers as the contract's `Vec`.
+    pub fn list(&self, receipts: &[u32]) -> Vec<u32> {
+        Vec::from_slice(&self.e, receipts)
     }
 }
 
@@ -137,10 +149,6 @@ pub fn entry(investor: &Address, max: i128, enabled: bool) -> AllocationEntry {
         max,
         enabled,
     }
-}
-
-pub fn give_back(period: u32, amount: i128) -> RestoreEntry {
-    RestoreEntry { period, amount }
 }
 
 /// `year * 12 + (month - 1)`, the documented period of a UTC month.

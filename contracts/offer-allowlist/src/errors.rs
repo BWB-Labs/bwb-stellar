@@ -14,17 +14,22 @@ pub enum OfferAllowlistError {
     /// `consume` beyond the investor's room this period. The allocation
     /// rejection.
     AllocationExceeded = 6101,
-    /// A negative cap, a non-positive amount, an empty restore list, or a
-    /// restore sum that overflows.
+    /// A negative cap, a non-positive amount or an empty restore list. Also
+    /// two states the contract never reaches: a sale contract out of
+    /// receipt numbers (`u32::MAX` purchases), and a receipt larger than its
+    /// period's usage, which is always the sum of its live receipts.
     InvalidAmount = 6102,
-    /// A period cannot account for the sum restored to it.
-    RestoreExceedsUsage = 6103,
-    /// More than `MAX_BATCH` entries in `set_allocations` or `restore`.
+    /// `restore` names a receipt the calling sale contract does not hold:
+    /// never issued, already restored, another sale contract's, or repeated
+    /// in the same list.
+    ReceiptNotFound = 6103,
+    /// More than `MAX_BATCH` entries in `set_allocations`, or more than
+    /// `MAX_RESTORE` receipts in `restore`.
     BatchTooLarge = 6104,
     /// `renounce_admin` always fails: an admin-less allowlist could never be
     /// upgraded.
     RenounceBlocked = 6105,
-    /// A restore period after the current one, or a ledger timestamp whose
-    /// period does not fit a `u32`.
+    /// A ledger timestamp whose period does not fit a `u32`, which no real
+    /// ledger time reaches.
     InvalidPeriod = 6106,
 }

@@ -8,9 +8,7 @@ use soroban_sdk::{
     vec, Address, BytesN, IntoVal, Symbol,
 };
 
-use super::{
-    allocator, code, entry, err, give_back, period, sale_role, setup, SaleStubClient, UNAUTHORIZED,
-};
+use super::{allocator, code, entry, err, sale_role, setup, SaleStubClient, UNAUTHORIZED};
 use crate::OfferAllowlistError;
 
 #[test]
@@ -73,11 +71,7 @@ fn an_allocator_cannot_consume_or_restore() {
     s.allow(&s.alice, 100);
     let r = s.client.try_consume(&s.alice, &1, &s.hot_key);
     assert_eq!(err(r), code(UNAUTHORIZED));
-    let r = s.client.try_restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 1)],
-        &s.hot_key,
-    );
+    let r = s.client.try_restore(&vec![&s.e, 0], &s.hot_key);
     assert_eq!(err(r), code(UNAUTHORIZED));
 }
 
@@ -112,11 +106,7 @@ fn a_stranger_cannot_write_consume_or_restore() {
         assert_eq!(err(r), code(UNAUTHORIZED));
         let r = s.client.try_consume(&s.alice, &1, caller);
         assert_eq!(err(r), code(UNAUTHORIZED));
-        let r = s.client.try_restore(
-            &s.alice,
-            &vec![&s.e, give_back(period(2026, 10), 1)],
-            caller,
-        );
+        let r = s.client.try_restore(&vec![&s.e, 0], caller);
         assert_eq!(err(r), code(UNAUTHORIZED));
     }
 }
@@ -143,11 +133,9 @@ needs_signature!(set_allocations_needs_the_allocators_signature, |s| s
 needs_signature!(consume_needs_the_sales_authorization, |s| s
     .client
     .consume(&s.alice, &1, &s.sale));
-needs_signature!(restore_needs_the_sales_authorization, |s| s.client.restore(
-    &s.alice,
-    &vec![&s.e, give_back(period(2026, 10), 1)],
-    &s.sale
-));
+needs_signature!(restore_needs_the_sales_authorization, |s| s
+    .client
+    .restore(&vec![&s.e, 0], &s.sale));
 needs_signature!(grant_role_needs_the_callers_signature, |s| s
     .client
     .grant_role(&s.alice, &sale_role(&s.e), &s.hot_key));
@@ -184,13 +172,9 @@ fn the_sale_consumes_and_restores_as_the_direct_caller_with_no_auth_entry() {
     // the contract that invokes the allowlist.
     s.e.set_auths(&[]);
     let sale = s.sale();
-    assert_eq!(sale.buy(&s.id, &s.alice, &60), period(2026, 10));
+    let receipt = sale.buy(&s.id, &s.alice, &60);
     assert_eq!(s.client.remaining(&s.alice), 40);
-    sale.refund(
-        &s.id,
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 60)],
-    );
+    sale.refund(&s.id, &vec![&s.e, receipt]);
     assert_eq!(s.client.remaining(&s.alice), 100);
 }
 
@@ -261,20 +245,22 @@ fn the_admin_moves_in_two_steps_and_the_new_admin_is_still_blocked() {
 fn the_admin_contains_a_leaked_hot_key() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let p = s.sale().buy(&s.id, &s.alice, &100);
+    let bought = s.sale().buy(&s.id, &s.alice, &100);
 
     // What the leaked key does before anyone notices.
     let accomplice = s.e.register(super::SaleStub, ());
     s.client
         .grant_role(&accomplice, &sale_role(&s.e), &s.hot_key);
+    // An accomplice sale holds no receipts, so it cannot give back anyone's
+    // usage: it names its own receipt numbers, and it has none.
+    let r = SaleStubClient::new(&s.e, &accomplice).try_refund(&s.id, &vec![&s.e, bought]);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     s.client.revoke_role(&s.sale, &sale_role(&s.e), &s.hot_key);
     let mallory = Address::generate(&s.e);
     s.client
         .set_allocations(&vec![&s.e, entry(&mallory, i128::MAX, true)], &s.hot_key);
     // The legitimate sale's refunds fail until it is re-granted.
-    let r = s
-        .sale()
-        .try_refund(&s.id, &s.alice, &vec![&s.e, give_back(p, 100)]);
+    let r = s.sale().try_refund(&s.id, &vec![&s.e, bought]);
     assert_eq!(err(r), code(UNAUTHORIZED));
 
     // Optional first: freeze sale grants while cleaning up.
@@ -308,8 +294,7 @@ fn the_admin_contains_a_leaked_hot_key() {
 
     // Back to normal: the new allocator wires sales again.
     s.client.set_role_admin(&sale_role(&s.e), &allocator(&s.e));
-    s.sale()
-        .refund(&s.id, &s.alice, &vec![&s.e, give_back(p, 100)]);
+    s.sale().refund(&s.id, &vec![&s.e, bought]);
     assert_eq!(s.client.remaining(&s.alice), 100);
     let another = Address::generate(&s.e);
     s.client.grant_role(&another, &sale_role(&s.e), &fresh);

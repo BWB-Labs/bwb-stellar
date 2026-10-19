@@ -18,6 +18,8 @@ use stellar_contract_utils::upgradeable;
 pub enum DataKey {
     Allocation(Address),
     Usage(Address, u32),
+    NextReceipt(Address),
+    Receipt(Address, u32),
 }
 
 /// Must match `offer-allowlist`'s `Allocation` field by field.
@@ -26,6 +28,14 @@ pub struct Allocation {
     pub schema: u32,
     pub max: i128,
     pub enabled: bool,
+}
+
+/// Must match `offer-allowlist`'s `Receipt` field by field.
+#[contracttype]
+pub struct Receipt {
+    pub amount: i128,
+    pub investor: Address,
+    pub period: u32,
 }
 
 /// Same code as v1's `RenounceBlocked`.
@@ -66,6 +76,21 @@ impl OfferAllowlistV2Fixture {
         e.storage()
             .persistent()
             .get(&DataKey::Usage(investor, period))
+            .unwrap_or(0)
+    }
+
+    /// A stored v1 receipt. The test only reads receipts it left unrestored.
+    pub fn receipt(e: &Env, sale: Address, number: u32) -> Receipt {
+        e.storage()
+            .persistent()
+            .get(&DataKey::Receipt(sale, number))
+            .unwrap()
+    }
+
+    pub fn next_receipt(e: &Env, sale: Address) -> u32 {
+        e.storage()
+            .persistent()
+            .get(&DataKey::NextReceipt(sale))
             .unwrap_or(0)
     }
 

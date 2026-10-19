@@ -3,6 +3,7 @@
 use soroban_sdk::{testutils::Events as _, vec};
 
 use super::{allocator, entry, period, setup};
+use crate::Receipt;
 
 #[test]
 fn writing_the_same_allocations_twice_keeps_the_usage() {
@@ -84,7 +85,8 @@ fn remaining_and_can_invest_agree_with_consume() {
     assert!(s.client.can_invest(&s.alice, &room));
     assert!(!s.client.can_invest(&s.alice, &(room + 1)));
     assert!(s.try_consume(&s.alice, &(room + 1)).is_err());
-    assert_eq!(s.consume(&s.alice, &room), period(2026, 10));
+    s.consume(&s.alice, &room);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 100);
     assert_eq!(s.client.remaining(&s.alice), 0);
     assert!(!s.client.can_invest(&s.alice, &1));
 }
@@ -95,4 +97,22 @@ fn can_invest_is_false_for_a_non_positive_amount() {
     s.allow(&s.alice, 100);
     assert!(!s.client.can_invest(&s.alice, &0));
     assert!(!s.client.can_invest(&s.alice, &-1));
+}
+
+#[test]
+fn the_receipt_getter_follows_consume_and_restore() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    assert_eq!(s.client.receipt(&s.sale, &0), None);
+    let n = s.consume(&s.alice, &35);
+    let expected = Receipt {
+        amount: 35,
+        investor: s.alice.clone(),
+        period: period(2026, 10),
+    };
+    assert_eq!(s.client.receipt(&s.sale, &n), Some(expected));
+    // Under its own sale only.
+    assert_eq!(s.client.receipt(&s.hot_key, &n), None);
+    s.restore(&[n]);
+    assert_eq!(s.client.receipt(&s.sale, &n), None);
 }

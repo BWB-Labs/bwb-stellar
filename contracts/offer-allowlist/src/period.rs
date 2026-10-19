@@ -1,8 +1,9 @@
 //! The period rule (ADR 0007): usage is counted per UTC calendar month, and
 //! a month is named by `period = year * 12 + (month - 1)`, so `period / 12`
 //! is the year and `period % 12` the zero-based month. Only this module
-//! turns a ledger timestamp into a period; the sale contract and the backend
-//! receive periods from `consume` and never compute them.
+//! turns a ledger timestamp into a period; the sale contract keeps receipt
+//! numbers and never handles a period, and the backend reads periods from
+//! the allowlist's events and getters.
 //!
 //! The civil-date arithmetic is Howard Hinnant's `civil_from_days`, which is
 //! exact for every non-negative day count. A ledger timestamp is seconds

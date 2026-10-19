@@ -1,5 +1,5 @@
 //! The allowlist's value types: the stored allocation, the view the backend
-//! reads, and the entries of the two batched calls. Each is a
+//! reads, the entry of `set_allocations` and the stored receipt. Each is a
 //! `#[contracttype]` struct, so callers pass named fields (JSON on the CLI)
 //! and two fields of the same type can't be swapped by position.
 use soroban_sdk::{contracttype, Address};
@@ -43,12 +43,15 @@ pub struct AllocationEntry {
     pub enabled: bool,
 }
 
-/// One entry of `restore`: an amount to give back to the period it was
-/// consumed in, the period `consume` returned at the time.
+/// The record of one purchase, kept under the sale contract that made it
+/// and the number `consume` returned. `restore` reads it to know what to
+/// give back and deletes it, so each purchase is given back at most once.
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RestoreEntry {
-    pub period: u32,
-    /// Must be positive.
+#[derive(Debug, PartialEq)]
+pub struct Receipt {
+    /// What the purchase used, in USDC stroops. Positive.
     pub amount: i128,
+    pub investor: Address,
+    /// The period the amount was charged to.
+    pub period: u32,
 }

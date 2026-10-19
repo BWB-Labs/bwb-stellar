@@ -5,8 +5,9 @@
 //! may invest. Usage is counted per investor per UTC calendar month (the
 //! period, ADR 0007), inside the contract, so a new month starts from zero
 //! by itself and there is no reset call. A purchase consumes room in the
-//! current period and returns that period; a refund gives each period's
-//! amount back to that period and fails when a period cannot account for it.
+//! current period and leaves a receipt, numbered per sale contract; a
+//! refund names receipts, and each gives its amount back to its own period
+//! once, and only to the sale contract that made it.
 //!
 //! Access control is OpenZeppelin's (ADR 0008), with two roles: `allocator`
 //! (the platform hot key) writes allocations and is the role-admin of
@@ -32,7 +33,7 @@ use stellar_macros::only_role;
 
 pub use crate::errors::OfferAllowlistError;
 use crate::events::{AllocationConsumed, AllocationRestored, AllocationSet, Initialized, Upgraded};
-pub use crate::types::{Allocation, AllocationEntry, AllocationView, RestoreEntry};
+pub use crate::types::{Allocation, AllocationEntry, AllocationView, Receipt};
 
 // Contract metadata that goes on the compiled file.
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
@@ -51,11 +52,17 @@ pub const ALLOCATOR: &str = "allocator";
 /// nothing.
 pub const SALE: &str = "sale";
 
-/// Most entries in one `set_allocations` or `restore` call. At 30 the
-/// binding limits are the transaction's write entries (31 of 50: the
-/// entries plus the instance) and its footprint (about 35 of 100), not the
-/// event bytes (7 to 8 KB of 16 KB).
+/// Most entries in one `set_allocations` call. At 30 the binding limits are
+/// the transaction's write entries (31 of 50: the entries plus the
+/// instance) and its footprint (about 35 of 100), not the event bytes (7 to
+/// 8 KB of 16 KB).
 pub const MAX_BATCH: u32 = 30;
+
+/// Most receipts in one `restore` call. Each receipt writes up to two
+/// entries (it is deleted, and its usage entry written or deleted), so 20
+/// receipts in 20 different months use 40 of the transaction's 50 write
+/// entries and leave the rest to the calling sale contract.
+pub const MAX_RESTORE: u32 = 20;
 
 #[contract]
 pub struct OfferAllowlist;
@@ -115,11 +122,13 @@ impl OfferAllowlist {
         extend_caller_role_ttl(e, &caller, ALLOCATOR);
     }
 
-    /// Uses `amount` of the investor's room in the current period and
-    /// returns that period, so the sale contract can keep the amount paid
-    /// per period without computing dates. The investor must be enabled and
-    /// `amount` must fit `max − usage` (the room). `caller` is normally the
-    /// sale contract, authorized as the direct cross-contract caller.
+    /// Uses `amount` of the investor's room in the current period, records
+    /// the purchase as a receipt under the calling sale contract and returns
+    /// the receipt's number, which the sale contract keeps with the purchase
+    /// to refund it later. Numbers count from 0 per sale contract and are
+    /// never reused. The investor must be enabled and `amount` must fit
+    /// `max − usage` (the room). `caller` is normally the sale contract,
+    /// authorized as the direct cross-contract caller.
     #[only_role(caller, "sale")]
     pub fn consume(e: &Env, investor: Address, amount: i128, caller: Address) -> u32 {
         if amount <= 0 {
@@ -132,8 +141,25 @@ impl OfferAllowlist {
         if amount > room(&allocation, used) {
             panic_with_error!(e, OfferAllowlistError::AllocationExceeded);
         }
+        let number = storage::next_receipt(e, &caller);
+        // u32::MAX purchases from one sale contract is out of reach; failing
+        // keeps a wrapped counter from overwriting receipt 0.
+        let Some(next) = number.checked_add(1) else {
+            panic_with_error!(e, OfferAllowlistError::InvalidAmount);
+        };
         let consumed = used + amount;
         storage::set_usage(e, &investor, period, consumed);
+        storage::set_receipt(
+            e,
+            &caller,
+            number,
+            &Receipt {
+                amount,
+                investor: investor.clone(),
+                period,
+            },
+        );
+        storage::set_next_receipt(e, &caller, next);
         storage::extend_allocation_ttl(e, &investor);
         extend_caller_role_ttl(e, &caller, SALE);
         AllocationConsumed {
@@ -142,63 +168,49 @@ impl OfferAllowlist {
             amount,
             consumed,
             period,
+            receipt: number,
         }
         .publish(e);
-        period
+        number
     }
 
-    /// Gives room back, per period: each entry names a period `consume`
-    /// returned and the amount to return to it. 1 to `MAX_BATCH` entries,
-    /// each amount positive and each period at or before the current one.
-    /// Entries are summed per period; a period whose usage can't account
-    /// for its sum fails the whole call (6103), which with no reset call can
-    /// only be a double restore or a wrong amount. No `enabled` check: a
-    /// disabled investor can still be refunded. One `allocation_restored`
-    /// per period touched.
+    /// Gives back whole purchases: each number names one of the calling
+    /// sale contract's receipts, whose amount goes back to the usage of its
+    /// own investor and period. 1 to `MAX_RESTORE` numbers, which may belong
+    /// to different investors. Each receipt is deleted as it is restored, so
+    /// a number that is unknown, already restored, another sale contract's
+    /// or repeated in the list fails the whole call (6103). No `enabled`
+    /// check: a disabled investor can still be refunded. One
+    /// `allocation_restored` per receipt, in list order.
     #[only_role(caller, "sale")]
-    pub fn restore(e: &Env, investor: Address, entries: Vec<RestoreEntry>, caller: Address) {
-        if entries.is_empty() {
+    pub fn restore(e: &Env, receipts: Vec<u32>, caller: Address) {
+        if receipts.is_empty() {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
         }
-        if entries.len() > MAX_BATCH {
+        if receipts.len() > MAX_RESTORE {
             panic_with_error!(e, OfferAllowlistError::BatchTooLarge);
         }
-        let current = period_now(e);
-        // Sums per period, in first-seen order. At most MAX_BATCH entries,
-        // so the quadratic scan is cheaper than a map.
-        let mut sums: Vec<(u32, i128)> = Vec::new(e);
-        for entry in entries.iter() {
-            if entry.amount <= 0 {
+        for number in receipts.iter() {
+            let Some(receipt) = storage::receipt(e, &caller, number) else {
+                panic_with_error!(e, OfferAllowlistError::ReceiptNotFound);
+            };
+            let used = storage::usage(e, &receipt.investor, receipt.period);
+            // Usage is the sum of its period's live receipts, so it always
+            // covers one of them; fail rather than write a negative usage
+            // if that ever stops holding.
+            if receipt.amount > used {
                 panic_with_error!(e, OfferAllowlistError::InvalidAmount);
             }
-            if entry.period > current {
-                panic_with_error!(e, OfferAllowlistError::InvalidPeriod);
-            }
-            let found = sums.iter().position(|(p, _)| p == entry.period);
-            match found {
-                Some(i) => {
-                    let (p, sum) = sums.get_unchecked(i as u32);
-                    let Some(sum) = sum.checked_add(entry.amount) else {
-                        panic_with_error!(e, OfferAllowlistError::InvalidAmount);
-                    };
-                    sums.set(i as u32, (p, sum));
-                }
-                None => sums.push_back((entry.period, entry.amount)),
-            }
-        }
-        for (period, amount) in sums.iter() {
-            let used = storage::usage(e, &investor, period);
-            if amount > used {
-                panic_with_error!(e, OfferAllowlistError::RestoreExceedsUsage);
-            }
-            let consumed = used - amount;
-            storage::set_usage(e, &investor, period, consumed);
+            let consumed = used - receipt.amount;
+            storage::set_usage(e, &receipt.investor, receipt.period, consumed);
+            storage::remove_receipt(e, &caller, number);
             AllocationRestored {
-                investor: investor.clone(),
+                investor: receipt.investor,
                 caller: caller.clone(),
-                amount,
+                amount: receipt.amount,
                 consumed,
-                period,
+                period: receipt.period,
+                receipt: number,
             }
             .publish(e);
         }
@@ -220,6 +232,13 @@ impl OfferAllowlist {
     /// The investor's usage in `period`, any period. 0 when absent.
     pub fn usage(e: &Env, investor: Address, period: u32) -> i128 {
         storage::usage(e, &investor, period)
+    }
+
+    /// Sale contract `sale`'s receipt `receipt`: the investor, amount and
+    /// period of that purchase. None once restored, and for a number never
+    /// issued.
+    pub fn receipt(e: &Env, sale: Address, receipt: u32) -> Option<Receipt> {
+        storage::receipt(e, &sale, receipt)
     }
 
     /// The room: `max − usage` in the current period when the investor is
