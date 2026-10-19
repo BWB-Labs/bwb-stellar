@@ -1,10 +1,12 @@
 //! Edges of the cap, the batches, the month, the receipt numbers and the
 //! restore list.
 extern crate std;
-use soroban_sdk::{testutils::Address as _, Address, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, testutils::Address as _, Address, Env, Vec,
+};
 
-use super::{at, at_time, entry, err, period, setup};
-use crate::{AllocationEntry, OfferAllowlistError, Receipt, MAX_BATCH, MAX_RESTORE};
+use super::{at, at_time, entry, err, period, setup, SaleStubClient};
+use crate::{AllocationEntry, OfferAllowlistError, Receipt, MAX_BATCH, MAX_RECEIPTS, MAX_RESTORE};
 
 #[test]
 fn the_exact_cap_fits_and_one_more_does_not() {
@@ -66,20 +68,19 @@ fn restore_takes_twenty_receipts_and_not_twenty_one() {
     let s = setup();
     s.allow(&s.alice, 100);
     let receipts: std::vec::Vec<u32> = (0..=MAX_RESTORE).map(|_| s.consume(&s.alice, &1)).collect();
-    let r = s.try_restore(&receipts);
+    let r = s.try_restore(&s.alice, &receipts);
     assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
-    s.restore(&receipts[..MAX_RESTORE as usize]);
+    s.restore(&s.alice, &receipts[..MAX_RESTORE as usize]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 1);
 }
 
 /// The worst case `MAX_RESTORE` is sized for: 20 receipts in 20 different
-/// months, each emptying its month, so every receipt deletes two entries.
-/// With the sale contract as the direct caller (no authorization entry)
-/// the allowlist writes 40 of the transaction's 50 entries and emits 20 ×
-/// 292 B of events; the rest is the sale contract's. The interface
-/// document quotes these numbers; `-- --nocapture` prints them.
+/// months, each emptying its month. The allowlist writes the investor's
+/// receipts entry once and one usage entry per month, 21 of the
+/// transaction's 50 write entries, and emits 20 × 292 B of events. The
+/// interface document quotes these numbers; `-- --nocapture` prints them.
 #[test]
-fn a_full_restore_leaves_ten_write_entries_to_the_sale() {
+fn a_full_restore_writes_one_entry_per_month_plus_the_receipts() {
     let s = setup();
     s.allow(&s.alice, 1_000);
     let receipts: std::vec::Vec<u32> = (0..u64::from(MAX_RESTORE))
@@ -90,37 +91,83 @@ fn a_full_restore_leaves_ten_write_entries_to_the_sale() {
         .collect();
     s.e.set_auths(&[]);
     s.e.cost_estimate().budget().reset_unlimited();
-    s.restore(&receipts);
+    s.restore(&s.alice, &receipts);
     let used = s.e.cost_estimate().resources();
     std::println!(
-        "restore x{MAX_RESTORE}: {} write entries, {} footprint entries, {} B of events",
+        "restore x{MAX_RESTORE}: {} write entries, {} footprint entries, {} B written, {} B of events",
         used.write_entries,
         used.memory_read_entries,
+        used.write_bytes,
         used.contract_events_size_bytes
     );
-    assert_eq!(used.write_entries, 2 * MAX_RESTORE);
-    // The written entries plus the instances, code-free in the test
-    // environment, and the sale's role: 44 of the 100 a transaction may
-    // touch.
-    assert_eq!(used.memory_read_entries, 44);
+    assert_eq!(used.write_entries, MAX_RESTORE + 1);
+    // The written entries plus four every restore through the stub reads
+    // whatever it gives back (the two instances and the sale's role among
+    // them).
+    assert_eq!(used.memory_read_entries, MAX_RESTORE + 5);
     assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
 }
 
+/// `MAX_RECEIPTS` bounds the one entry every purchase and refund of an
+/// investor rewrites whole. At 100 live receipts its value encodes to the
+/// size pinned here, far under the 65,536-byte ledger entry limit.
 #[test]
-fn receipt_numbers_start_at_zero_and_count_per_sale() {
+fn a_full_receipts_entry_stays_far_under_the_ledger_entry_limit() {
+    use soroban_sdk::{
+        xdr::{Limits, ScVal, WriteXdr},
+        IntoVal, TryFromVal, Val,
+    };
+    let s = setup();
+    s.allow(&s.alice, i128::MAX);
+    for _ in 1..MAX_RECEIPTS {
+        s.consume(&s.alice, &1_000_000_000_000);
+    }
+    s.e.cost_estimate().budget().reset_unlimited();
+    s.consume(&s.alice, &1_000_000_000_000);
+    let written = s.e.cost_estimate().resources().write_bytes;
+    let entry = s.client.receipts(&s.sale, &s.alice).unwrap();
+    assert_eq!(entry.items.len(), MAX_RECEIPTS);
+    let value: Val = entry.into_val(&s.e);
+    let size = ScVal::try_from_val(&s.e, &value)
+        .unwrap()
+        .to_xdr(Limits::none())
+        .unwrap()
+        .len();
+    std::println!(
+        "receipts entry at {MAX_RECEIPTS}: value {size} B; the 100th purchase writes {written} B"
+    );
+    assert_eq!(size, 8_060);
+}
+
+#[test]
+fn receipt_numbers_start_at_zero_per_sale_and_investor() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.allow(&s.bob, 100);
     let other = s.another_sale();
     assert_eq!(s.consume(&s.alice, &1), 0);
-    assert_eq!(s.consume(&s.bob, &1), 1);
-    // Another offering numbers its own purchases from 0.
+    assert_eq!(s.consume(&s.bob, &1), 0);
     assert_eq!(other.buy(&s.id, &s.alice, &1), 0);
+    at(&s.e, 2026, 10, 20);
+    assert_eq!(s.consume(&s.alice, &1), 1);
+    at(&s.e, 2026, 11, 2);
     assert_eq!(s.consume(&s.alice, &1), 2);
-    assert_eq!(other.buy(&s.id, &s.bob, &1), 1);
+    assert_eq!(s.consume(&s.bob, &1), 1);
     // A restore never frees a number for reuse.
-    s.restore(&[2]);
+    s.restore(&s.alice, &[2]);
     assert_eq!(s.consume(&s.alice, &1), 3);
+}
+
+#[test]
+fn a_fully_refunded_investor_keeps_the_entry_and_its_next_number() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let a = s.consume(&s.alice, &10);
+    let b = s.consume(&s.alice, &20);
+    s.restore(&s.alice, &[a, b]);
+    let left = s.client.receipts(&s.sale, &s.alice).unwrap();
+    assert_eq!((left.next, left.items.len()), (2, 0));
+    assert_eq!(s.consume(&s.alice, &5), 2);
 }
 
 /// The case that decided per-purchase receipts: buy 100, buy 100 again ten
@@ -135,31 +182,31 @@ fn cooling_off_returns_only_the_purchase_still_in_its_window() {
     at(&s.e, 2026, 10, 11);
     let second = s.consume(&s.alice, &100);
     at(&s.e, 2026, 10, 13);
-    s.restore(&[second]);
+    s.restore(&s.alice, &[second]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 100);
     assert_eq!(s.client.remaining(&s.alice), 900);
     assert_eq!(
-        s.client.receipt(&s.sale, &first),
+        s.receipt(&s.alice, first),
         Some(Receipt {
             amount: 100,
-            investor: s.alice.clone(),
             period: period(2026, 10),
         })
     );
-    assert_eq!(s.client.receipt(&s.sale, &second), None);
+    assert_eq!(s.receipt(&s.alice, second), None);
 }
 
 #[test]
-fn one_restore_takes_receipts_of_different_investors() {
+fn a_restore_reaches_only_the_named_investors_receipts() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.allow(&s.bob, 100);
     let alice = s.consume(&s.alice, &30);
     let bob = s.consume(&s.bob, &40);
-    s.consume(&s.bob, &5);
-    s.restore(&[bob, alice]);
-    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
-    assert_eq!(s.client.usage(&s.bob, &period(2026, 10)), 5);
+    assert_eq!(alice, bob);
+    s.restore(&s.bob, &[bob]);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 30);
+    assert_eq!(s.client.usage(&s.bob, &period(2026, 10)), 0);
+    assert!(s.receipt(&s.alice, alice).is_some());
 }
 
 #[test]
@@ -178,16 +225,128 @@ fn a_usage_restored_to_zero_is_removed() {
                 ))
         })
     };
-    s.restore(&[a]);
+    s.restore(&s.alice, &[a]);
     assert!(has_usage());
-    s.restore(&[b]);
+    s.restore(&s.alice, &[b]);
     assert!(!has_usage());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
 }
 
-/// The period the stub sale's receipt was charged to.
+/// Stands in for a simulation: buys through the sale stub, then fails, so
+/// the state rolls back while the footprint the buy recorded stays.
+#[contract]
+pub struct Simulate;
+
+#[contracterror]
+#[derive(Copy, Clone, Debug)]
+#[repr(u32)]
+pub enum SimError {
+    RolledBack = 1,
+}
+
+#[contractimpl]
+impl Simulate {
+    pub fn run(
+        e: &Env,
+        sale: Address,
+        allowlist: Address,
+        investor: Address,
+        amount: i128,
+    ) -> Result<(), SimError> {
+        SaleStubClient::new(e, &sale).buy(&allowlist, &investor, &amount);
+        Err(SimError::RolledBack)
+    }
+}
+
+/// Two purchases racing for the same ledger. `racer`'s purchase is
+/// simulated first, then, if `other_lands_first`, `other` buys; then the
+/// footprint is frozen, as a submitted transaction's is, and `racer`'s
+/// purchase runs against it.
+#[contract]
+pub struct Race;
+
+#[contractimpl]
+impl Race {
+    pub fn run(
+        e: &Env,
+        sale: Address,
+        allowlist: Address,
+        simulate: Address,
+        other: Address,
+        racer: Address,
+        other_lands_first: bool,
+    ) -> u32 {
+        let stub = SaleStubClient::new(e, &sale);
+        // Warm-up: the shared entries exist, as on a live offering.
+        let n = stub.buy(&allowlist, &other, &1);
+        stub.refund(&allowlist, &other, &soroban_sdk::vec![e, n]);
+        let _ = SimulateClient::new(e, &simulate).try_run(&sale, &allowlist, &racer, &1);
+        if other_lands_first {
+            stub.buy(&allowlist, &other, &1);
+        }
+        e.host().switch_to_enforcing_storage().unwrap();
+        stub.buy(&allowlist, &racer, &1)
+    }
+}
+
+fn race(same_investor: bool, other_lands_first: bool) -> u32 {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.allow(&s.bob, 100);
+    let simulate = s.e.register(Simulate, ());
+    let race = s.e.register(Race, ());
+    let racer = if same_investor { &s.alice } else { &s.bob };
+    RaceClient::new(&s.e, &race).run(
+        &s.sale,
+        &s.id,
+        &simulate,
+        &s.alice,
+        racer,
+        &other_lands_first,
+    )
+}
+
+/// The regression for a per-sale counter: Bob's purchase, simulated before
+/// Alice's landed in the same offering, used to need a receipt key outside
+/// its footprint and fail with `Error(Storage, ExceededLimit)`. Receipt
+/// keys name only the purchase's own sale and investor, so it passes.
+#[test]
+fn purchases_by_different_investors_never_conflict() {
+    assert_eq!(race(false, false), 0);
+    assert_eq!(race(false, true), 0);
+}
+
+/// The same investor's two purchases share their receipts entry, so the
+/// footprint holds either way, and the second gets the next number.
+#[test]
+fn the_same_investors_second_purchase_keeps_its_footprint() {
+    assert_eq!(race(true, false), 1);
+    assert_eq!(race(true, true), 2);
+}
+
+/// But the shared entry grows by one receipt per purchase. A purchase
+/// simulated before the same investor's previous one lands declares the
+/// smaller entry's write bytes and, on the network, fails when it writes
+/// the bigger one. The backend re-simulates and resubmits; the documents
+/// describe it.
+#[test]
+fn the_same_investors_next_purchase_writes_one_receipt_more_than_simulated() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.consume(&s.alice, &1);
+    s.e.cost_estimate().budget().reset_unlimited();
+    s.consume(&s.alice, &1);
+    let simulated = s.e.cost_estimate().resources().write_bytes;
+    s.e.cost_estimate().budget().reset_unlimited();
+    s.consume(&s.alice, &1);
+    let landed = s.e.cost_estimate().resources().write_bytes;
+    std::println!("same investor: {simulated} B simulated, {landed} B landed");
+    assert!(landed > simulated);
+}
+
+/// The period Alice's receipt in the stub sale was charged to.
 fn charged_to(s: &super::Setup, receipt: u32) -> u32 {
-    s.client.receipt(&s.sale, &receipt).unwrap().period
+    s.receipt(&s.alice, receipt).unwrap().period
 }
 
 #[test]
@@ -231,7 +390,7 @@ fn a_refund_across_a_month_boundary_restores_each_month_in_one_call() {
     at(&s.e, 2026, 10, 15);
     let october = s.consume(&s.alice, &30);
     assert_eq!(s.client.remaining(&s.alice), 70);
-    s.restore(&[september, october]);
+    s.restore(&s.alice, &[september, october]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 9)), 0);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
     assert_eq!(s.client.remaining(&s.alice), 100);
@@ -245,7 +404,7 @@ fn restoring_last_months_money_never_frees_this_months_room() {
     let september = s.consume(&s.alice, &70);
     at(&s.e, 2026, 10, 15);
     s.consume(&s.alice, &100);
-    s.restore(&[september]);
+    s.restore(&s.alice, &[september]);
     assert_eq!(s.client.remaining(&s.alice), 0);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 100);
 }
@@ -257,7 +416,7 @@ fn a_restore_gives_back_exactly_each_receipts_amount() {
     let a = s.consume(&s.alice, &60);
     let b = s.consume(&s.alice, &15);
     s.consume(&s.alice, &25);
-    s.restore(&[a, b]);
+    s.restore(&s.alice, &[a, b]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 25);
     assert_eq!(s.client.remaining(&s.alice), 75);
 }

@@ -103,16 +103,19 @@ fn can_invest_is_false_for_a_non_positive_amount() {
 fn the_receipt_getter_follows_consume_and_restore() {
     let s = setup();
     s.allow(&s.alice, 100);
-    assert_eq!(s.client.receipt(&s.sale, &0), None);
+    assert_eq!(s.receipt(&s.alice, 0), None);
+    assert!(s.client.receipts(&s.sale, &s.alice).is_none());
     let n = s.consume(&s.alice, &35);
     let expected = Receipt {
         amount: 35,
-        investor: s.alice.clone(),
         period: period(2026, 10),
     };
-    assert_eq!(s.client.receipt(&s.sale, &n), Some(expected));
-    // Under its own sale only.
-    assert_eq!(s.client.receipt(&s.hot_key, &n), None);
-    s.restore(&[n]);
-    assert_eq!(s.client.receipt(&s.sale, &n), None);
+    assert_eq!(s.receipt(&s.alice, n), Some(expected));
+    // Under its own sale and investor only.
+    assert_eq!(s.client.receipt(&s.hot_key, &s.alice, &n), None);
+    assert_eq!(s.receipt(&s.bob, n), None);
+    let all = s.client.receipts(&s.sale, &s.alice).unwrap();
+    assert_eq!((all.next, all.items.len()), (1, 1));
+    s.restore(&s.alice, &[n]);
+    assert_eq!(s.receipt(&s.alice, n), None);
 }

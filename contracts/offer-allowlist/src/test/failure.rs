@@ -1,12 +1,11 @@
 //! Every documented rejection is reachable through the client and carries
 //! its code: each 61xx code at least once, plus OpenZeppelin's 2007.
 extern crate std;
-use soroban_sdk::{vec, Symbol};
+use soroban_sdk::{vec, Map, Symbol};
 
 use super::{code, entry, err, period, setup, ROLE_NOT_HELD};
 
-use crate::storage::DataKey;
-use crate::OfferAllowlistError;
+use crate::{OfferAllowlistError, Receipts, MAX_RECEIPTS};
 
 #[test]
 fn consume_for_a_disabled_investor_fails_with_investor_not_enabled() {
@@ -58,18 +57,23 @@ fn a_non_positive_consume_fails_with_invalid_amount() {
 #[test]
 fn an_empty_restore_list_fails_with_invalid_amount() {
     let s = setup();
-    let r = s.try_restore(&[]);
+    let r = s.try_restore(&s.alice, &[]);
     assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
+}
+
+#[test]
+fn an_investor_with_no_receipts_fails_with_receipt_not_found() {
+    let s = setup();
+    let r = s.try_restore(&s.alice, &[0]);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
 }
 
 #[test]
 fn an_unknown_receipt_fails_with_receipt_not_found() {
     let s = setup();
-    let r = s.try_restore(&[0]);
-    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     s.allow(&s.alice, 100);
     s.consume(&s.alice, &10);
-    let r = s.try_restore(&[1]);
+    let r = s.try_restore(&s.alice, &[1]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
 }
 
@@ -81,8 +85,8 @@ fn a_double_restore_fails_with_receipt_not_found() {
     // A later purchase in the same month leaves usage that the old check
     // would have let the second restore eat into.
     s.consume(&s.alice, &50);
-    s.restore(&[first]);
-    let r = s.try_restore(&[first]);
+    s.restore(&s.alice, &[first]);
+    let r = s.try_restore(&s.alice, &[first]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 50);
 }
@@ -92,15 +96,20 @@ fn another_sales_receipt_fails_with_receipt_not_found() {
     let s = setup();
     s.allow(&s.alice, 100);
     let other = s.another_sale();
-    // Both sales hold a receipt 0; each names only its own.
+    // Another offering sold to Alice; ours never did. Our lookup reads our
+    // own key for Alice, which does not exist.
     let theirs = other.buy(&s.id, &s.alice, &30);
+    let r = s.try_restore(&s.alice, &[theirs]);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
+    // Once we sold to her too, her number 0 in our entry is ours, not theirs.
     let ours = s.consume(&s.alice, &20);
     assert_eq!((theirs, ours), (0, 0));
-    s.restore(&[ours]);
-    let r = s.try_restore(&[theirs]);
-    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
+    s.restore(&s.alice, &[ours]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 30);
-    assert!(s.client.receipt(&other.address, &theirs).is_some());
+    assert!(s
+        .client
+        .receipt(&other.address, &s.alice, &theirs)
+        .is_some());
 }
 
 #[test]
@@ -109,11 +118,11 @@ fn a_number_repeated_in_one_list_fails_and_changes_nothing() {
     s.allow(&s.alice, 100);
     let a = s.consume(&s.alice, &10);
     let b = s.consume(&s.alice, &20);
-    let r = s.try_restore(&[a, b, a]);
+    let r = s.try_restore(&s.alice, &[a, b, a]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 30);
-    assert!(s.client.receipt(&s.sale, &a).is_some());
-    assert!(s.client.receipt(&s.sale, &b).is_some());
+    assert!(s.receipt(&s.alice, a).is_some());
+    assert!(s.receipt(&s.alice, b).is_some());
 }
 
 /// The audit's finding A, kept as a regression: sale A refunds its
@@ -130,15 +139,34 @@ fn one_sale_cannot_over_restore_into_another_sales_usage() {
     let from_b = b.buy(&s.id, &s.alice, &600);
     assert_eq!(s.client.remaining(&s.alice), 0);
 
-    s.restore(&[from_a]);
-    let r = s.try_restore(&[from_a]);
+    s.restore(&s.alice, &[from_a]);
+    let r = s.try_restore(&s.alice, &[from_a]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 600);
     assert_eq!(s.client.remaining(&s.alice), 400);
 
-    b.refund(&s.id, &vec![&s.e, from_b]);
+    b.refund(&s.id, &s.alice, &vec![&s.e, from_b]);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
     assert_eq!(s.client.remaining(&s.alice), 1_000);
+}
+
+#[test]
+fn the_hundred_and_first_live_receipt_fails_with_too_many_receipts() {
+    let s = setup();
+    s.allow(&s.alice, 1_000);
+    for n in 0..MAX_RECEIPTS {
+        assert_eq!(s.consume(&s.alice, &1), n);
+    }
+    let r = s.try_consume(&s.alice, &1);
+    assert_eq!(err(r), OfferAllowlistError::TooManyReceipts.into());
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 100);
+    // Another investor, or another sale contract, is not affected.
+    s.allow(&s.bob, 1_000);
+    s.consume(&s.bob, &1);
+    s.another_sale().buy(&s.id, &s.alice, &1);
+    // A restore frees a slot; the next purchase takes the next number.
+    s.restore(&s.alice, &[7]);
+    assert_eq!(s.consume(&s.alice, &1), MAX_RECEIPTS);
 }
 
 /// Usage is the sum of its live receipts, so a receipt is always covered.
@@ -152,21 +180,23 @@ fn a_receipt_its_usage_no_longer_covers_fails_with_invalid_amount() {
     s.e.as_contract(&s.id, || {
         crate::storage::set_usage(&s.e, &s.alice, period(2026, 10), 9)
     });
-    let r = s.try_restore(&[n]);
+    let r = s.try_restore(&s.alice, &[n]);
     assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
-    assert!(s.client.receipt(&s.sale, &n).is_some());
+    assert!(s.receipt(&s.alice, n).is_some());
 }
 
-/// A sale's receipt counter is a `u32`. Past the last number, `consume`
-/// fails with 6102 rather than wrapping onto receipt 0.
+/// An investor's receipt counter is a `u32`. Past the last number,
+/// `consume` fails with 6102 rather than wrapping onto a used number.
 #[test]
-fn a_sale_out_of_receipt_numbers_fails_with_invalid_amount() {
+fn an_investor_out_of_receipt_numbers_fails_with_invalid_amount() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.e.as_contract(&s.id, || {
-        s.e.storage()
-            .persistent()
-            .set(&DataKey::NextReceipt(s.sale.clone()), &u32::MAX)
+        let full = Receipts {
+            next: u32::MAX,
+            items: Map::new(&s.e),
+        };
+        crate::storage::set_receipts(&s.e, &s.sale, &s.alice, &full)
     });
     let r = s.try_consume(&s.alice, &1);
     assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
@@ -183,7 +213,7 @@ fn a_list_over_its_limit_fails_with_batch_too_large() {
     let r = s.client.try_set_allocations(&entries, &s.hot_key);
     assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
     let receipts: std::vec::Vec<u32> = (0..=crate::MAX_RESTORE).collect();
-    let r = s.try_restore(&receipts);
+    let r = s.try_restore(&s.alice, &receipts);
     assert_eq!(err(r), OfferAllowlistError::BatchTooLarge.into());
 }
 
@@ -227,10 +257,10 @@ fn a_failed_restore_reverts_every_receipt_in_the_call() {
     let september = s.consume(&s.alice, &50);
     super::at(&s.e, 2026, 10, 1);
     let october = s.consume(&s.alice, &50);
-    let r = s.try_restore(&[september, october, october + 1]);
+    let r = s.try_restore(&s.alice, &[september, october, october + 1]);
     assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 9)), 50);
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 50);
-    assert!(s.client.receipt(&s.sale, &september).is_some());
-    assert!(s.client.receipt(&s.sale, &october).is_some());
+    assert!(s.receipt(&s.alice, september).is_some());
+    assert!(s.receipt(&s.alice, october).is_some());
 }

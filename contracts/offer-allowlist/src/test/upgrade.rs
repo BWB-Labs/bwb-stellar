@@ -58,12 +58,10 @@ mod with_fixture {
         assert_eq!(v2.usage(&s.alice, &period(2026, 9)), 40);
         assert_eq!(v2.usage(&s.alice, &period(2026, 10)), 25);
         assert_eq!(v2.usage(&s.bob, &period(2026, 10)), 0);
-        let receipt = v2.receipt(&s.sale, &october);
-        assert_eq!(
-            (receipt.amount, receipt.investor, receipt.period),
-            (25, s.alice.clone(), period(2026, 10))
-        );
-        assert_eq!(v2.next_receipt(&s.sale), 2);
+        let receipts = v2.receipts(&s.sale, &s.alice);
+        assert_eq!(receipts.next, 2);
+        let receipt = receipts.items.get(october).unwrap();
+        assert_eq!((receipt.amount, receipt.period), (25, period(2026, 10)));
         assert!(v2.has_role(&s.hot_key, &allocator(&s.e)).is_some());
         assert!(v2.has_role(&s.sale, &sale_role(&s.e)).is_some());
         assert_eq!(v2.get_role_member_count(&allocator(&s.e)), 1);
@@ -124,6 +122,6 @@ mod with_fixture {
         // Still the v1 code: restore exists and works.
         s.allow(&s.alice, 10);
         let receipt = s.sale().buy(&s.id, &s.alice, &10);
-        s.sale().refund(&s.id, &vec![&s.e, receipt]);
+        s.sale().refund(&s.id, &s.alice, &vec![&s.e, receipt]);
     }
 }

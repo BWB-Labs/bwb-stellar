@@ -1,11 +1,11 @@
 //! The allowlist's own storage: one allocation per investor, one usage
-//! entry per `(investor, period)`, one receipt per purchase and one receipt
-//! counter per sale contract, plus the expiry policy. The admin, the roles
+//! entry per `(investor, period)` and one receipts entry per
+//! `(sale, investor)`, plus the expiry policy. The admin, the roles
 //! and the schema version live in OpenZeppelin's storage.
 use soroban_sdk::{contracttype, Address, Env, IntoVal, Symbol, Val};
 use stellar_access::access_control::AccessControlStorageKey;
 
-use crate::types::{Allocation, Receipt};
+use crate::types::{Allocation, Receipts};
 
 /// Version of the `Allocation` struct this code writes.
 pub const ALLOCATION_SCHEMA: u32 = 1;
@@ -22,13 +22,11 @@ pub enum DataKey {
     /// brings it to 0. Written after the period is over only by a refund,
     /// so it archives on its own.
     Usage(Address, u32),
-    /// The number the sale contract's next purchase gets, as a plain `u32`.
-    /// Absent means 0.
-    NextReceipt(Address),
-    /// One purchase by the sale contract, under the number `consume`
-    /// returned for it. Removed when restored; an unrefunded one archives
-    /// on its own, like an old month.
-    Receipt(Address, u32),
+    /// One investor's receipts in one sale contract, `(sale, investor)`.
+    /// Its key names only the purchase's own parties, never a shared
+    /// counter, so concurrent purchases by different investors never
+    /// touch the same entry. Kept once empty, for its `next`.
+    Receipts(Address, Address),
 }
 
 /// Ledgers in a day, at about 5 seconds per ledger (86,400 / 5). Storage
@@ -110,39 +108,18 @@ pub fn set_usage(e: &Env, investor: &Address, period: u32, amount: i128) {
     extend_persistent_ttl(e, &key);
 }
 
-/// The number the sale contract's next purchase gets. Absent means 0. A
-/// read extends nothing.
-pub fn next_receipt(e: &Env, sale: &Address) -> u32 {
+/// The investor's receipts in the sale contract, if it ever sold to them.
+/// A read extends nothing.
+pub fn receipts(e: &Env, sale: &Address, investor: &Address) -> Option<Receipts> {
     e.storage()
         .persistent()
-        .get(&DataKey::NextReceipt(sale.clone()))
-        .unwrap_or(0)
+        .get(&DataKey::Receipts(sale.clone(), investor.clone()))
 }
 
-pub fn set_next_receipt(e: &Env, sale: &Address, next: u32) {
-    let key = DataKey::NextReceipt(sale.clone());
-    e.storage().persistent().set(&key, &next);
+pub fn set_receipts(e: &Env, sale: &Address, investor: &Address, receipts: &Receipts) {
+    let key = DataKey::Receipts(sale.clone(), investor.clone());
+    e.storage().persistent().set(&key, receipts);
     extend_persistent_ttl(e, &key);
-}
-
-/// The sale contract's receipt `number`, if it exists. A read extends
-/// nothing.
-pub fn receipt(e: &Env, sale: &Address, number: u32) -> Option<Receipt> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::Receipt(sale.clone(), number))
-}
-
-pub fn set_receipt(e: &Env, sale: &Address, number: u32, receipt: &Receipt) {
-    let key = DataKey::Receipt(sale.clone(), number);
-    e.storage().persistent().set(&key, receipt);
-    extend_persistent_ttl(e, &key);
-}
-
-pub fn remove_receipt(e: &Env, sale: &Address, number: u32) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::Receipt(sale.clone(), number));
 }
 
 /// Extends an allocation entry a write has just touched, so it exists.

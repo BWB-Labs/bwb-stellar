@@ -8,7 +8,7 @@
 // `Symbol` and `Vec` are used by the trait's default methods.
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
-    Symbol, Vec,
+    Map, Symbol, Vec,
 };
 use stellar_access::access_control::{self, AccessControl, AccessControlError};
 use stellar_contract_utils::upgradeable;
@@ -18,8 +18,7 @@ use stellar_contract_utils::upgradeable;
 pub enum DataKey {
     Allocation(Address),
     Usage(Address, u32),
-    NextReceipt(Address),
-    Receipt(Address, u32),
+    Receipts(Address, Address),
 }
 
 /// Must match `offer-allowlist`'s `Allocation` field by field.
@@ -34,8 +33,14 @@ pub struct Allocation {
 #[contracttype]
 pub struct Receipt {
     pub amount: i128,
-    pub investor: Address,
     pub period: u32,
+}
+
+/// Must match `offer-allowlist`'s `Receipts` field by field.
+#[contracttype]
+pub struct Receipts {
+    pub next: u32,
+    pub items: Map<u32, Receipt>,
 }
 
 /// Same code as v1's `RenounceBlocked`.
@@ -79,19 +84,12 @@ impl OfferAllowlistV2Fixture {
             .unwrap_or(0)
     }
 
-    /// A stored v1 receipt. The test only reads receipts it left unrestored.
-    pub fn receipt(e: &Env, sale: Address, number: u32) -> Receipt {
+    /// A stored v1 receipts entry. The test only reads one it wrote.
+    pub fn receipts(e: &Env, sale: Address, investor: Address) -> Receipts {
         e.storage()
             .persistent()
-            .get(&DataKey::Receipt(sale, number))
+            .get(&DataKey::Receipts(sale, investor))
             .unwrap()
-    }
-
-    pub fn next_receipt(e: &Env, sale: Address) -> u32 {
-        e.storage()
-            .persistent()
-            .get(&DataKey::NextReceipt(sale))
-            .unwrap_or(0)
     }
 
     pub fn schema_version(e: &Env) -> u32 {

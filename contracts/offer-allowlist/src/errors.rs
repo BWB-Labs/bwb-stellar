@@ -15,13 +15,15 @@ pub enum OfferAllowlistError {
     /// rejection.
     AllocationExceeded = 6101,
     /// A negative cap, a non-positive amount or an empty restore list. Also
-    /// two states the contract never reaches: a sale contract out of
-    /// receipt numbers (`u32::MAX` purchases), and a receipt larger than its
-    /// period's usage, which is always the sum of its live receipts.
+    /// two states the contract never reaches: an investor out of receipt
+    /// numbers in one sale contract (`u32::MAX` purchases), and a receipt
+    /// larger than its period's usage, which is always the sum of its live
+    /// receipts.
     InvalidAmount = 6102,
-    /// `restore` names a receipt the calling sale contract does not hold:
-    /// never issued, already restored, another sale contract's, or repeated
-    /// in the same list.
+    /// `restore` names a receipt the calling sale contract does not hold
+    /// for that investor: never issued, already restored, or repeated in
+    /// the same list. Another sale contract's receipts live under another
+    /// key, so they are never found either.
     ReceiptNotFound = 6103,
     /// More than `MAX_BATCH` entries in `set_allocations`, or more than
     /// `MAX_RESTORE` receipts in `restore`.
@@ -32,4 +34,7 @@ pub enum OfferAllowlistError {
     /// A ledger timestamp whose period does not fit a `u32`, which no real
     /// ledger time reaches.
     InvalidPeriod = 6106,
+    /// `consume` for an investor who already has `MAX_RECEIPTS` live
+    /// receipts in the calling sale contract. A restore frees room.
+    TooManyReceipts = 6107,
 }

@@ -39,8 +39,12 @@ impl SaleStub {
         )
     }
 
-    pub fn refund(e: &Env, allowlist: Address, receipts: Vec<u32>) {
-        OfferAllowlistClient::new(e, &allowlist).restore(&receipts, &e.current_contract_address())
+    pub fn refund(e: &Env, allowlist: Address, investor: Address, receipts: Vec<u32>) {
+        OfferAllowlistClient::new(e, &allowlist).restore(
+            &investor,
+            &receipts,
+            &e.current_contract_address(),
+        )
     }
 }
 
@@ -116,13 +120,19 @@ impl Setup<'_> {
         self.sale().try_buy(&self.id, investor, amount)
     }
 
-    /// Restores receipts through the sale stub.
-    pub fn restore(&self, receipts: &[u32]) {
-        self.sale().refund(&self.id, &self.list(receipts))
+    /// Restores an investor's receipts through the sale stub.
+    pub fn restore(&self, investor: &Address, receipts: &[u32]) {
+        self.sale().refund(&self.id, investor, &self.list(receipts))
     }
 
-    pub fn try_restore(&self, receipts: &[u32]) -> TryResult<()> {
-        self.sale().try_refund(&self.id, &self.list(receipts))
+    pub fn try_restore(&self, investor: &Address, receipts: &[u32]) -> TryResult<()> {
+        self.sale()
+            .try_refund(&self.id, investor, &self.list(receipts))
+    }
+
+    /// The stub sale's receipt `receipt` for `investor`.
+    pub fn receipt(&self, investor: &Address, receipt: u32) -> Option<crate::Receipt> {
+        self.client.receipt(&self.sale, investor, &receipt)
     }
 
     /// Receipt numbers as the contract's `Vec`.

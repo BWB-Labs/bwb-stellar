@@ -137,21 +137,19 @@ fn consume_emits_allocation_consumed_with_the_usage_after_the_period_and_the_rec
 fn a_restore_emits_one_event_per_receipt_in_list_order() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.allow(&s.bob, 100);
     at(&s.e, 2026, 9, 20);
     let september = s.sale().buy(&s.id, &s.alice, &70);
     at(&s.e, 2026, 10, 15);
-    let alice = s.sale().buy(&s.id, &s.alice, &10);
+    let october = s.sale().buy(&s.id, &s.alice, &10);
     let more = s.sale().buy(&s.id, &s.alice, &5);
-    let bob = s.sale().buy(&s.id, &s.bob, &40);
     s.sale()
-        .refund(&s.id, &vec![&s.e, more, september, bob, alice]);
+        .refund(&s.id, &s.alice, &vec![&s.e, more, september, october]);
     // Each event carries its receipt, its period and that period's usage
     // after this receipt, so two receipts of one month show the usage fall
     // step by step.
-    let restored = |investor: &Address, amount, consumed, period, receipt| {
+    let restored = |amount, consumed, period, receipt| {
         AllocationRestored {
-            investor: investor.clone(),
+            investor: s.alice.clone(),
             caller: s.sale.clone(),
             amount,
             consumed,
@@ -163,10 +161,9 @@ fn a_restore_emits_one_event_per_receipt_in_list_order() {
     assert_eq!(
         emitted(&s.e, &s.id),
         [
-            restored(&s.alice, 5, 10, period(2026, 10), more),
-            restored(&s.alice, 70, 0, period(2026, 9), september),
-            restored(&s.bob, 40, 0, period(2026, 10), bob),
-            restored(&s.alice, 10, 0, period(2026, 10), alice),
+            restored(5, 10, period(2026, 10), more),
+            restored(70, 0, period(2026, 9), september),
+            restored(10, 0, period(2026, 10), october),
         ]
     );
 }
