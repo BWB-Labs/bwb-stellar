@@ -5,9 +5,13 @@
 //! numbers and never handles a period, and the backend reads periods from
 //! the allowlist's events and getters.
 //!
-//! The civil-date arithmetic is Howard Hinnant's `civil_from_days`, which is
-//! exact for every non-negative day count. A ledger timestamp is seconds
-//! since the Unix epoch, so day counts are never negative.
+//! The civil-date arithmetic is Howard Hinnant's `civil_from_days`
+//! (<https://howardhinnant.github.io/date_algorithms.html#civil_from_days>),
+//! the same algorithm behind the `chrono` and `time` crates and C++20's
+//! `std::chrono`. It is exact for every non-negative day count. A ledger
+//! timestamp is seconds since the Unix epoch, so day counts are never
+//! negative. Soroban has no calendar facility of its own, so this is the
+//! contract's only date code.
 
 const SECONDS_PER_DAY: u64 = 86_400;
 
@@ -22,6 +26,12 @@ pub fn from_timestamp(timestamp: u64) -> Option<u32> {
 }
 
 /// Year and month (1–12) of the day `days` after 1970-01-01.
+///
+/// A line-for-line port of Howard Hinnant's `civil_from_days`, with its
+/// variable names: <https://howardhinnant.github.io/date_algorithms.html#civil_from_days>.
+/// The constants are the calendar's cycle lengths: 146,097 days in a
+/// 400-year era, 36,524 in a century, 1,460 in four years, 153 days in
+/// five March-based months, and 719,468 days from 0000-03-01 to 1970-01-01.
 fn civil_from_days(days: u64) -> (u64, u32) {
     // Shift the epoch to 0000-03-01 so each 400-year era starts on March 1
     // and the leap day is the last day of the era's year.
