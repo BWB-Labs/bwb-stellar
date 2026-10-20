@@ -78,8 +78,8 @@ fn restore_takes_twenty_receipts_and_not_twenty_one() {
 
 /// The worst case `MAX_RESTORE` is sized for: 20 receipts in 20 different
 /// months, each emptying its month. The allowlist writes the investor's
-/// receipts entry once and one usage entry per month, 21 of the
-/// transaction's 50 write entries, and emits 20 × 292 B of events. The
+/// receipts entry once and one usage entry per month, 21 entries (of the
+/// 200 a transaction may write), and emits 20 × 292 B of events. The
 /// interface document quotes these numbers; `-- --nocapture` prints them.
 #[test]
 fn a_full_restore_writes_one_entry_per_month_plus_the_receipts() {
