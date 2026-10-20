@@ -264,21 +264,42 @@ impl Impostor {
     }
 }
 
+/// A contract, or an account, naming the honest sale as `restore`'s
+/// caller: only the sale itself, as the direct caller, satisfies its
+/// authorization. A direct call surfaces the host's auth error; a `try_`
+/// call would rewrap it as `Error(Context, InvalidAction)`.
 #[test]
-fn nobody_can_restore_in_a_sales_name() {
+#[should_panic(expected = "Error(Auth, InvalidAction)")]
+fn a_contract_cannot_restore_in_a_sales_name() {
     let s = setup();
     s.allow(&s.alice, 100);
     let n = s.consume(&s.alice, &10);
     s.e.set_auths(&[]);
-    // A contract, or an account, naming the honest sale as caller: only the
-    // sale itself, as the direct caller, satisfies its authorization.
+    let impostor = s.e.register(Impostor, ());
+    ImpostorClient::new(&s.e, &impostor).refund_as(&s.id, &s.alice, &s.sale, &n);
+}
+
+#[test]
+#[should_panic(expected = "Error(Auth, InvalidAction)")]
+fn an_account_cannot_restore_in_a_sales_name() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &10);
+    s.e.set_auths(&[]);
+    s.client.restore(&s.alice, &vec![&s.e, n], &s.sale);
+}
+
+#[test]
+fn a_restore_attempted_in_a_sales_name_changes_nothing() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &10);
+    s.e.set_auths(&[]);
     let impostor = s.e.register(Impostor, ());
     let r = ImpostorClient::new(&s.e, &impostor).try_refund_as(&s.id, &s.alice, &s.sale, &n);
     assert!(r.is_err());
-    assert!(s
-        .client
-        .try_restore(&s.alice, &vec![&s.e, n], &s.sale)
-        .is_err());
+    let r = s.client.try_restore(&s.alice, &vec![&s.e, n], &s.sale);
+    assert!(r.is_err());
     assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 10);
     assert!(s.receipt(&s.alice, n).is_some());
 }
