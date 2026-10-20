@@ -45,11 +45,11 @@
   "contracts": {
     "offer-allowlist": {
       "crate": "offer-allowlist",
-      "contract_id": "CDMGBEK5BOIP3E4QBR3WIEL2BL7GQENQ6RF557TSJ3EIZ7T2TJTH7JSD",
-      "wasm_hash": "4afd66fd2c2d390cdcf223c8938dad8cbd1650bb09a602677fd3e257394e933e",
-      "deploy_tx": "0af09f66f7a367bb7cb8bd3b40894185152fe53acceacfc4840e48d0f51eecea",
+      "contract_id": "CBQLP3DCAYZJREZD4AYRXY5XJK4WZ3DTSMCCHYYLPU4FDETLYTQQHJ26",
+      "wasm_hash": "9d95528b6a70d02d0b0eecbba4718730b7fbda68319a6fb9bd1ef6d8d4db6291",
+      "deploy_tx": "991be8fe91240dd3d02089e6ae5a28110bd64fb34357da28d8f4d192358da6db",
       "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-      "deployed_at": "2026-10-19T21:47:43Z",
+      "deployed_at": "2026-10-20T12:42:58Z",
       "constructor_args": [
         "--admin",
         "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
@@ -62,8 +62,8 @@
         "stellar_cli": "28.1.0"
       },
       "explorer": {
-        "contract": "https://stellar.expert/explorer/testnet/contract/CDMGBEK5BOIP3E4QBR3WIEL2BL7GQENQ6RF557TSJ3EIZ7T2TJTH7JSD",
-        "tx": "https://stellar.expert/explorer/testnet/tx/0af09f66f7a367bb7cb8bd3b40894185152fe53acceacfc4840e48d0f51eecea"
+        "contract": "https://stellar.expert/explorer/testnet/contract/CBQLP3DCAYZJREZD4AYRXY5XJK4WZ3DTSMCCHYYLPU4FDETLYTQQHJ26",
+        "tx": "https://stellar.expert/explorer/testnet/tx/991be8fe91240dd3d02089e6ae5a28110bd64fb34357da28d8f4d192358da6db"
       }
     }
   }

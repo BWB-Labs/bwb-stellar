@@ -43,11 +43,11 @@ From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is gl
 
 | Contract | Contract ID | WASM hash |
 |---|---|---|
-| `offer-allowlist` | [`CDMGBEK5BOIP3E4QBR3WIEL2BL7GQENQ6RF557TSJ3EIZ7T2TJTH7JSD`](https://stellar.expert/explorer/testnet/contract/CDMGBEK5BOIP3E4QBR3WIEL2BL7GQENQ6RF557TSJ3EIZ7T2TJTH7JSD) | `4afd66fd2c2d390cdcf223c8938dad8cbd1650bb09a602677fd3e257394e933e` |
+| `offer-allowlist` | [`CBQLP3DCAYZJREZD4AYRXY5XJK4WZ3DTSMCCHYYLPU4FDETLYTQQHJ26`](https://stellar.expert/explorer/testnet/contract/CBQLP3DCAYZJREZD4AYRXY5XJK4WZ3DTSMCCHYYLPU4FDETLYTQQHJ26) | `9d95528b6a70d02d0b0eecbba4718730b7fbda68319a6fb9bd1ef6d8d4db6291` |
 | `offer-token` | [`CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM`](https://stellar.expert/explorer/testnet/contract/CBX74ZZUBLYPBNMND7DWTU74I4QWUIQEJZNH2XJVBX3THZ2KDRRFMESM) | `40bf9cc67d2cf9e0d2b3c238f8e5b0f3ed3dfb016998453d4ddfc0069037f385` |
 | `offer-sale` | `CCL2OOMX4NYI4Y6RDYHFRJ6VKNKLVM7POOZIMKJUSJRUTETDKAIPK5IT` (precomputed, not deployed) | |
 
-The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator. Earlier instances are superseded and unused: `CBQCDFMM…656AT6LX` (receipts numbered per sale contract, which made concurrent purchases conflict), `CAWUBAUY…ESWRBKF` (restore by period and amount, before per-purchase receipts) and `CBTU5S5V…KC42XU` (the single-role code before the audit).
+The token's whole supply is minted to the sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy (L4), signed by the allocator. Earlier instances are superseded and unused: `CDMGBEK5…TJTH7JSD` (0.2.0, where `restore` still required the `sale` role), `CBQCDFMM…656AT6LX` (receipts numbered per sale contract, which made concurrent purchases conflict), `CAWUBAUY…ESWRBKF` (restore by period and amount, before per-purchase receipts) and `CBTU5S5V…KC42XU` (the single-role code before the audit).
 
 ## Build and test
 
