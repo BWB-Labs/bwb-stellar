@@ -6,7 +6,7 @@ use soroban_sdk::{
 };
 use stellar_access::access_control::{RoleAdminChanged, RoleGranted, RoleRevoked};
 
-use super::{allocator, at, entry, give_back, period, sale_role, setup};
+use super::{allocator, at, entry, period, sale_role, setup};
 use crate::events::{AllocationConsumed, AllocationRestored, AllocationSet, Initialized};
 use crate::OfferAllowlist;
 
@@ -116,58 +116,55 @@ fn set_allocations_emits_one_allocation_set_per_entry() {
 }
 
 #[test]
-fn consume_emits_allocation_consumed_with_the_usage_after_and_the_period() {
+fn consume_emits_allocation_consumed_with_the_usage_after_the_period_and_the_receipt() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.sale().buy(&s.id, &s.alice, &30);
-    let returned = s.sale().buy(&s.id, &s.alice, &25);
+    let receipt = s.sale().buy(&s.id, &s.alice, &25);
     let ev = AllocationConsumed {
         investor: s.alice.clone(),
         caller: s.sale.clone(),
         amount: 25,
         consumed: 55,
-        period: returned,
+        period: period(2026, 10),
+        receipt,
     };
-    assert_eq!(returned, period(2026, 10));
+    assert_eq!(receipt, 1);
     assert_eq!(emitted(&s.e, &s.id), [ev.to_xdr(&s.e, &s.id)]);
 }
 
 #[test]
-fn a_restore_spanning_two_months_emits_one_event_per_month() {
+fn a_restore_emits_one_event_per_receipt_in_list_order() {
     let s = setup();
     s.allow(&s.alice, 100);
     at(&s.e, 2026, 9, 20);
     let september = s.sale().buy(&s.id, &s.alice, &70);
     at(&s.e, 2026, 10, 15);
-    let october = s.sale().buy(&s.id, &s.alice, &30);
-    s.sale().refund(
-        &s.id,
-        &s.alice,
-        &vec![
-            &s.e,
-            give_back(october, 10),
-            give_back(september, 50),
-            give_back(october, 5),
-        ],
-    );
-    // One event per period, in first-seen order, each with the period's sum.
-    let oct = AllocationRestored {
-        investor: s.alice.clone(),
-        caller: s.sale.clone(),
-        amount: 15,
-        consumed: 15,
-        period: october,
-    };
-    let sep = AllocationRestored {
-        investor: s.alice.clone(),
-        caller: s.sale.clone(),
-        amount: 50,
-        consumed: 20,
-        period: september,
+    let october = s.sale().buy(&s.id, &s.alice, &10);
+    let more = s.sale().buy(&s.id, &s.alice, &5);
+    s.sale()
+        .refund(&s.id, &s.alice, &vec![&s.e, more, september, october]);
+    // Each event carries its receipt, its period and that period's usage
+    // after this receipt, so two receipts of one month show the usage fall
+    // step by step.
+    let restored = |amount, consumed, period, receipt| {
+        AllocationRestored {
+            investor: s.alice.clone(),
+            caller: s.sale.clone(),
+            amount,
+            consumed,
+            period,
+            receipt,
+        }
+        .to_xdr(&s.e, &s.id)
     };
     assert_eq!(
         emitted(&s.e, &s.id),
-        [oct.to_xdr(&s.e, &s.id), sep.to_xdr(&s.e, &s.id)]
+        [
+            restored(5, 10, period(2026, 10), more),
+            restored(70, 0, period(2026, 9), september),
+            restored(10, 0, period(2026, 10), october),
+        ]
     );
 }
 
@@ -238,6 +235,7 @@ fn event_sizes_match_the_interface_document() {
         amount: 1,
         consumed: 1,
         period: 1,
+        receipt: 1,
     };
     let restored = AllocationRestored {
         investor: s.alice.clone(),
@@ -245,6 +243,7 @@ fn event_sizes_match_the_interface_document() {
         amount: 1,
         consumed: 1,
         period: 1,
+        receipt: 1,
     };
     let sizes = (
         size(set.to_xdr(&s.e, &s.id)),
@@ -257,5 +256,5 @@ fn event_sizes_match_the_interface_document() {
         sizes.1,
         sizes.2
     );
-    assert_eq!(sizes, (240, 268, 268));
+    assert_eq!(sizes, (240, 292, 292));
 }

@@ -2,8 +2,8 @@ use soroban_sdk::contracterror;
 
 /// Contract errors of `offer-allowlist`, in BWB's 6100–6199 range.
 /// OpenZeppelin's access-control codes surface unchanged: 2000
-/// `Unauthorized` (a caller without the role, a non-admin operator on
-/// `upgrade`) and 2007 `RoleNotHeld` (revoking a role not held). The
+/// `Unauthorized` (a caller without the role on `set_allocations` or
+/// `consume`, a non-admin operator on `upgrade`) and 2007 `RoleNotHeld` (revoking a role not held). The
 /// allowlist document lists both.
 #[contracterror]
 #[repr(u32)]
@@ -14,17 +14,28 @@ pub enum OfferAllowlistError {
     /// `consume` beyond the investor's room this period. The allocation
     /// rejection.
     AllocationExceeded = 6101,
-    /// A negative cap, a non-positive amount, an empty restore list, or a
-    /// restore sum that overflows.
+    /// A negative cap, a non-positive amount or an empty restore list. Also
+    /// two states the contract never reaches: an investor out of receipt
+    /// numbers in one sale contract (`u32::MAX` purchases), and a receipt
+    /// larger than its period's usage, which is always the sum of its live
+    /// receipts.
     InvalidAmount = 6102,
-    /// A period cannot account for the sum restored to it.
-    RestoreExceedsUsage = 6103,
-    /// More than `MAX_BATCH` entries in `set_allocations` or `restore`.
+    /// `restore` names a receipt the caller does not hold for that
+    /// investor: never issued, already restored, or repeated in the same
+    /// list; or the caller never sold to the investor. Another sale
+    /// contract's receipts live under another key, so they are never found
+    /// either.
+    ReceiptNotFound = 6103,
+    /// More than `MAX_BATCH` entries in `set_allocations`, or more than
+    /// `MAX_RESTORE` receipts in `restore`.
     BatchTooLarge = 6104,
     /// `renounce_admin` always fails: an admin-less allowlist could never be
     /// upgraded.
     RenounceBlocked = 6105,
-    /// A restore period after the current one, or a ledger timestamp whose
-    /// period does not fit a `u32`.
+    /// A ledger timestamp whose period does not fit a `u32`, which no real
+    /// ledger time reaches.
     InvalidPeriod = 6106,
+    /// `consume` for an investor who already has `MAX_RECEIPTS` live
+    /// receipts in the calling sale contract. A restore frees a slot.
+    TooManyReceipts = 6107,
 }

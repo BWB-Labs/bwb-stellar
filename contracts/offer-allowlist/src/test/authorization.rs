@@ -1,17 +1,18 @@
 //! Who may do what: the admin over every role, an allocator over
-//! allocations and over `sale`, a sale over room only, the sale stub as a
-//! direct caller with no authorization entry, and the admin alone over
-//! upgrades. A caller without the role fails with OpenZeppelin's 2000; a
-//! missing signature fails at authorization.
+//! allocations and over `sale`, a sale over consuming room, any caller over
+//! its own receipts, the sale stub as a direct caller with no authorization
+//! entry, and the admin alone over upgrades. A caller without the role
+//! fails with OpenZeppelin's 2000; a missing signature fails at
+//! authorization.
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
-    vec, Address, BytesN, IntoVal, Symbol,
+    contract, contractimpl,
+    testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke},
+    vec, Address, BytesN, Env, Event as _, IntoVal, Symbol,
 };
 
-use super::{
-    allocator, code, entry, err, give_back, period, sale_role, setup, SaleStubClient, UNAUTHORIZED,
-};
-use crate::OfferAllowlistError;
+use super::{allocator, code, entry, err, period, sale_role, setup, SaleStubClient, UNAUTHORIZED};
+use crate::events::AllocationRestored;
+use crate::{OfferAllowlistClient, OfferAllowlistError};
 
 #[test]
 fn admin_grants_and_revokes_any_role() {
@@ -68,17 +69,17 @@ fn an_allocator_cannot_grant_allocator_or_any_other_role() {
 }
 
 #[test]
-fn an_allocator_cannot_consume_or_restore() {
+fn an_allocator_cannot_consume_and_holds_no_receipts_to_restore() {
     let s = setup();
     s.allow(&s.alice, 100);
+    s.consume(&s.alice, &1);
     let r = s.client.try_consume(&s.alice, &1, &s.hot_key);
     assert_eq!(err(r), code(UNAUTHORIZED));
-    let r = s.client.try_restore(
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 1)],
-        &s.hot_key,
-    );
-    assert_eq!(err(r), code(UNAUTHORIZED));
+    // `restore` checks no role: the hot key's own receipts for Alice don't
+    // exist, so it finds nothing, and the sale's receipt 0 is untouched.
+    let r = s.client.try_restore(&s.alice, &vec![&s.e, 0], &s.hot_key);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 1);
 }
 
 #[test]
@@ -112,12 +113,9 @@ fn a_stranger_cannot_write_consume_or_restore() {
         assert_eq!(err(r), code(UNAUTHORIZED));
         let r = s.client.try_consume(&s.alice, &1, caller);
         assert_eq!(err(r), code(UNAUTHORIZED));
-        let r = s.client.try_restore(
-            &s.alice,
-            &vec![&s.e, give_back(period(2026, 10), 1)],
-            caller,
-        );
-        assert_eq!(err(r), code(UNAUTHORIZED));
+        // Restoring as themselves, they find no receipts of their own.
+        let r = s.client.try_restore(&s.alice, &vec![&s.e, 0], caller);
+        assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     }
 }
 
@@ -145,8 +143,13 @@ needs_signature!(consume_needs_the_sales_authorization, |s| s
     .consume(&s.alice, &1, &s.sale));
 needs_signature!(restore_needs_the_sales_authorization, |s| s.client.restore(
     &s.alice,
-    &vec![&s.e, give_back(period(2026, 10), 1)],
+    &vec![&s.e, 0],
     &s.sale
+));
+needs_signature!(restore_needs_an_accounts_signature, |s| s.client.restore(
+    &s.alice,
+    &vec![&s.e, 0],
+    &s.hot_key
 ));
 needs_signature!(grant_role_needs_the_callers_signature, |s| s
     .client
@@ -184,13 +187,9 @@ fn the_sale_consumes_and_restores_as_the_direct_caller_with_no_auth_entry() {
     // the contract that invokes the allowlist.
     s.e.set_auths(&[]);
     let sale = s.sale();
-    assert_eq!(sale.buy(&s.id, &s.alice, &60), period(2026, 10));
+    let receipt = sale.buy(&s.id, &s.alice, &60);
     assert_eq!(s.client.remaining(&s.alice), 40);
-    sale.refund(
-        &s.id,
-        &s.alice,
-        &vec![&s.e, give_back(period(2026, 10), 60)],
-    );
+    sale.refund(&s.id, &s.alice, &vec![&s.e, receipt]);
     assert_eq!(s.client.remaining(&s.alice), 100);
 }
 
@@ -254,6 +253,87 @@ fn the_admin_moves_in_two_steps_and_the_new_admin_is_still_blocked() {
     );
 }
 
+/// A contract that names someone else as the allowlist's caller.
+#[contract]
+pub struct Impostor;
+
+#[contractimpl]
+impl Impostor {
+    pub fn refund_as(e: &Env, allowlist: Address, investor: Address, sale: Address, n: u32) {
+        OfferAllowlistClient::new(e, &allowlist).restore(&investor, &vec![e, n], &sale);
+    }
+}
+
+/// A contract, or an account, naming the honest sale as `restore`'s
+/// caller: only the sale itself, as the direct caller, satisfies its
+/// authorization. A direct call surfaces the host's auth error; a `try_`
+/// call would rewrap it as `Error(Context, InvalidAction)`.
+#[test]
+#[should_panic(expected = "Error(Auth, InvalidAction)")]
+fn a_contract_cannot_restore_in_a_sales_name() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &10);
+    s.e.set_auths(&[]);
+    let impostor = s.e.register(Impostor, ());
+    ImpostorClient::new(&s.e, &impostor).refund_as(&s.id, &s.alice, &s.sale, &n);
+}
+
+#[test]
+#[should_panic(expected = "Error(Auth, InvalidAction)")]
+fn an_account_cannot_restore_in_a_sales_name() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &10);
+    s.e.set_auths(&[]);
+    s.client.restore(&s.alice, &vec![&s.e, n], &s.sale);
+}
+
+#[test]
+fn a_restore_attempted_in_a_sales_name_changes_nothing() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &10);
+    s.e.set_auths(&[]);
+    let impostor = s.e.register(Impostor, ());
+    let r = ImpostorClient::new(&s.e, &impostor).try_refund_as(&s.id, &s.alice, &s.sale, &n);
+    assert!(r.is_err());
+    let r = s.client.try_restore(&s.alice, &vec![&s.e, n], &s.sale);
+    assert!(r.is_err());
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 10);
+    assert!(s.receipt(&s.alice, n).is_some());
+}
+
+/// Revoking `sale` stops a sale contract's purchases, never its refunds:
+/// the investor's exit must not depend on a key that may have leaked.
+#[test]
+fn a_revoked_sale_still_refunds_but_cannot_consume() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &30);
+    s.client.revoke_role(&s.sale, &sale_role(&s.e), &s.hot_key);
+    s.e.set_auths(&[]);
+    let r = s.try_consume(&s.alice, &1);
+    assert_eq!(err(r), code(UNAUTHORIZED));
+    s.restore(&s.alice, &[n]);
+    let ev = AllocationRestored {
+        investor: s.alice.clone(),
+        caller: s.sale.clone(),
+        amount: 30,
+        consumed: 0,
+        period: period(2026, 10),
+        receipt: n,
+    };
+    assert_eq!(
+        s.e.events().all().filter_by_contract(&s.id).events(),
+        [ev.to_xdr(&s.e, &s.id)]
+    );
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
+    assert_eq!(s.receipt(&s.alice, n), None);
+    // The restore did not hand the role back.
+    assert_eq!(s.client.has_role(&s.sale, &sale_role(&s.e)), None);
+}
+
 /// The runbook in the allowlist document, step by step, against what a
 /// leaked hot key can do before the multisig acts: write any allocation,
 /// revoke a sale, grant `sale` to an accomplice.
@@ -261,21 +341,26 @@ fn the_admin_moves_in_two_steps_and_the_new_admin_is_still_blocked() {
 fn the_admin_contains_a_leaked_hot_key() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let p = s.sale().buy(&s.id, &s.alice, &100);
+    let bought = s.sale().buy(&s.id, &s.alice, &60);
+    let kept = s.sale().buy(&s.id, &s.alice, &40);
 
     // What the leaked key does before anyone notices.
     let accomplice = s.e.register(super::SaleStub, ());
     s.client
         .grant_role(&accomplice, &sale_role(&s.e), &s.hot_key);
+    // An accomplice sale holds no receipts, so it cannot give back anyone's
+    // usage: it names its own receipt numbers, and it has none.
+    let r = SaleStubClient::new(&s.e, &accomplice).try_refund(&s.id, &s.alice, &vec![&s.e, bought]);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
     s.client.revoke_role(&s.sale, &sale_role(&s.e), &s.hot_key);
     let mallory = Address::generate(&s.e);
     s.client
         .set_allocations(&vec![&s.e, entry(&mallory, i128::MAX, true)], &s.hot_key);
-    // The legitimate sale's refunds fail until it is re-granted.
-    let r = s
-        .sale()
-        .try_refund(&s.id, &s.alice, &vec![&s.e, give_back(p, 100)]);
+    // The legitimate sale can no longer sell, but its refunds still work.
+    let r = s.sale().try_buy(&s.id, &s.alice, &1);
     assert_eq!(err(r), code(UNAUTHORIZED));
+    s.sale().refund(&s.id, &s.alice, &vec![&s.e, bought]);
+    assert_eq!(s.client.remaining(&s.alice), 60);
 
     // Optional first: freeze sale grants while cleaning up.
     s.client
@@ -308,9 +393,9 @@ fn the_admin_contains_a_leaked_hot_key() {
 
     // Back to normal: the new allocator wires sales again.
     s.client.set_role_admin(&sale_role(&s.e), &allocator(&s.e));
-    s.sale()
-        .refund(&s.id, &s.alice, &vec![&s.e, give_back(p, 100)]);
-    assert_eq!(s.client.remaining(&s.alice), 100);
+    s.sale().buy(&s.id, &s.alice, &1);
+    s.sale().refund(&s.id, &s.alice, &vec![&s.e, kept]);
+    assert_eq!(s.client.remaining(&s.alice), 99);
     let another = Address::generate(&s.e);
     s.client.grant_role(&another, &sale_role(&s.e), &fresh);
 }

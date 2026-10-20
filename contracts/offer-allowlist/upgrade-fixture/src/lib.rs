@@ -8,7 +8,7 @@
 // `Symbol` and `Vec` are used by the trait's default methods.
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
-    Symbol, Vec,
+    Map, Symbol, Vec,
 };
 use stellar_access::access_control::{self, AccessControl, AccessControlError};
 use stellar_contract_utils::upgradeable;
@@ -18,6 +18,7 @@ use stellar_contract_utils::upgradeable;
 pub enum DataKey {
     Allocation(Address),
     Usage(Address, u32),
+    Receipts(Address, Address),
 }
 
 /// Must match `offer-allowlist`'s `Allocation` field by field.
@@ -26,6 +27,20 @@ pub struct Allocation {
     pub schema: u32,
     pub max: i128,
     pub enabled: bool,
+}
+
+/// Must match `offer-allowlist`'s `Receipt` field by field.
+#[contracttype]
+pub struct Receipt {
+    pub amount: i128,
+    pub period: u32,
+}
+
+/// Must match `offer-allowlist`'s `Receipts` field by field.
+#[contracttype]
+pub struct Receipts {
+    pub next: u32,
+    pub items: Map<u32, Receipt>,
 }
 
 /// Same code as v1's `RenounceBlocked`.
@@ -67,6 +82,14 @@ impl OfferAllowlistV2Fixture {
             .persistent()
             .get(&DataKey::Usage(investor, period))
             .unwrap_or(0)
+    }
+
+    /// A stored v1 receipts entry. The test only reads one it wrote.
+    pub fn receipts(e: &Env, sale: Address, investor: Address) -> Receipts {
+        e.storage()
+            .persistent()
+            .get(&DataKey::Receipts(sale, investor))
+            .unwrap()
     }
 
     pub fn schema_version(e: &Env) -> u32 {

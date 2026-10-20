@@ -9,11 +9,11 @@ use soroban_sdk::{
         storage::{Instance as _, Persistent as _},
         Ledger as _,
     },
-    vec, Address, Env,
+    Address, Env,
 };
 use stellar_access::access_control::AccessControlStorageKey;
 
-use super::{allocator, at, give_back, period, sale_role, setup};
+use super::{allocator, at, period, sale_role, setup};
 use crate::storage::DataKey;
 use soroban_sdk::Symbol;
 
@@ -36,6 +36,14 @@ fn usage_ttl(e: &Env, id: &Address, who: &Address, period: u32) -> u32 {
         e.storage()
             .persistent()
             .get_ttl(&DataKey::Usage(who.clone(), period))
+    })
+}
+
+fn receipts_ttl(e: &Env, id: &Address, sale: &Address, who: &Address) -> u32 {
+    e.as_contract(id, || {
+        e.storage()
+            .persistent()
+            .get_ttl(&DataKey::Receipts(sale.clone(), who.clone()))
     })
 }
 
@@ -102,6 +110,19 @@ fn consume_extends_the_allocation_the_usage_and_the_sales_role() {
 }
 
 #[test]
+fn consume_gives_the_receipts_entry_the_maximum_ttl() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.consume(&s.alice, &1);
+    let max = max_ttl(&s.e, &s.id);
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    advance(&s.e, 40 * DAY);
+    assert!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice) < max);
+    s.consume(&s.alice, &1);
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+}
+
+#[test]
 fn set_allocations_extends_the_allocators_role() {
     let s = setup();
     advance(&s.e, 40 * DAY);
@@ -135,11 +156,11 @@ fn a_grant_tops_the_granted_entry_up_to_the_maximum() {
 fn the_sales_role_outlives_open_zeppelins_ninety_days() {
     let s = setup();
     s.allow(&s.alice, 100);
-    s.consume(&s.alice, &1);
+    let n = s.consume(&s.alice, &1);
     // A refund after a long silence still finds the role alive, and renews it.
     advance(&s.e, 200 * DAY);
     assert!(role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)) > 90 * DAY);
-    s.restore(&s.alice, &vec![&s.e, give_back(period(2026, 10), 1)]);
+    s.restore(&s.alice, &[n]);
     assert_eq!(
         role_ttl(&s.e, &s.id, &s.sale, sale_role(&s.e)),
         max_ttl(&s.e, &s.id)
@@ -147,13 +168,34 @@ fn the_sales_role_outlives_open_zeppelins_ninety_days() {
 }
 
 #[test]
-fn restore_extends_the_usage_entries_it_touches() {
+fn a_revoked_sales_restore_extends_no_role_entry() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let p = s.consume(&s.alice, &10);
+    let n = s.consume(&s.alice, &1);
+    s.client.revoke_role(&s.sale, &sale_role(&s.e), &s.hot_key);
     advance(&s.e, 40 * DAY);
-    s.restore(&s.alice, &vec![&s.e, give_back(p, 1)]);
-    assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, p), max_ttl(&s.e, &s.id));
+    s.restore(&s.alice, &[n]);
+    // Revoking removed the role entry; the restore neither panics on the
+    // missing key nor writes it back. The instance is still topped up.
+    let key = AccessControlStorageKey::HasRole(s.sale.clone(), sale_role(&s.e));
+    assert!(!s
+        .e
+        .as_contract(&s.id, || s.e.storage().persistent().has(&key)));
+    assert_eq!(instance_ttl(&s.e, &s.id), max_ttl(&s.e, &s.id));
+}
+
+#[test]
+fn restore_extends_the_entries_it_writes() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &1);
+    s.consume(&s.alice, &9);
+    advance(&s.e, 40 * DAY);
+    s.restore(&s.alice, &[n]);
+    let p = period(2026, 10);
+    let max = max_ttl(&s.e, &s.id);
+    assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, p), max);
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
 }
 
 #[test]
@@ -165,40 +207,51 @@ fn reads_extend_nothing() {
     let allocation = allocation_ttl(&s.e, &s.id, &s.alice);
     let usage = usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10));
     let instance = instance_ttl(&s.e, &s.id);
+    let receipts = receipts_ttl(&s.e, &s.id, &s.sale, &s.alice);
     s.client.allocation(&s.alice);
     s.client.remaining(&s.alice);
     s.client.can_invest(&s.alice, &1);
     s.client.usage(&s.alice, &period(2026, 10));
+    s.client.receipt(&s.sale, &s.alice, &0);
+    s.client.receipts(&s.sale, &s.alice);
     assert_eq!(allocation_ttl(&s.e, &s.id, &s.alice), allocation);
     assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10)), usage);
     assert_eq!(instance_ttl(&s.e, &s.id), instance);
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), receipts);
 }
 
 #[test]
 fn an_untouched_old_month_is_left_to_expire() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let september = s.consume(&s.alice, &10);
+    s.consume(&s.alice, &10);
     advance(&s.e, 40 * DAY);
     at(&s.e, 2026, 11, 24);
     s.consume(&s.alice, &10);
-    // November's write touched nothing of October's.
+    // November's write touched nothing of October's usage. The receipts
+    // entry is shared by every purchase of the investor, so it was topped
+    // up; an investor who stops buying leaves it to expire.
+    let max = max_ttl(&s.e, &s.id);
     assert_eq!(
-        usage_ttl(&s.e, &s.id, &s.alice, september),
-        max_ttl(&s.e, &s.id) - 40 * DAY
+        usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10)),
+        max - 40 * DAY
     );
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
 }
 
-/// An archived usage entry is not gone. Since protocol 23 (CAP-0066) the
-/// call that touches it restores it: simulation lists the key in the
-/// read-write footprint and the transaction pays the restoration. The test
-/// environment runs in that recording mode, so a late refund of an archived
-/// month passes, and the allowlist then tops the entry up to the maximum.
+/// An archived usage or receipts entry is not gone. Since protocol 23
+/// (CAP-0066) the call that touches it restores it: simulation lists the
+/// key in the read-write footprint and the transaction pays the
+/// restoration. The test environment runs in that recording mode, so a
+/// late refund of an archived receipt and month passes, and the allowlist
+/// then tops both entries up to the maximum.
 #[test]
-fn a_late_refund_of_an_archived_month_restores_the_entry_and_tops_it_up() {
+fn a_late_refund_of_an_archived_receipt_restores_and_tops_up_both_entries() {
     let s = setup();
     s.allow(&s.alice, 100);
-    let october = s.consume(&s.alice, &10);
+    let late = s.consume(&s.alice, &4);
+    s.consume(&s.alice, &6);
+    let october = period(2026, 10);
     let max = max_ttl(&s.e, &s.id);
     // A later write keeps the instance, the allocation and the hot key's
     // role alive without touching October's usage.
@@ -207,8 +260,10 @@ fn a_late_refund_of_an_archived_month_restores_the_entry_and_tops_it_up() {
     // Past October's lifetime, before the instance's.
     advance(&s.e, max - 40 * DAY + 1);
     assert!(instance_ttl(&s.e, &s.id) > 0);
-    s.restore(&s.alice, &vec![&s.e, give_back(october, 4)]);
+    s.restore(&s.alice, &[late]);
     assert_eq!(s.client.usage(&s.alice, &october), 6);
+    assert_eq!(s.receipt(&s.alice, late), None);
+    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
     assert_eq!(
         usage_ttl(&s.e, &s.id, &s.alice, october),
         max_ttl(&s.e, &s.id)

@@ -1,10 +1,11 @@
-//! The allowlist's own storage: one allocation per investor and one usage
-//! entry per `(investor, period)`, plus the expiry policy. The admin, the
-//! roles and the schema version live in OpenZeppelin's storage.
+//! The allowlist's own storage: one allocation per investor, one usage
+//! entry per `(investor, period)` and one receipts entry per
+//! `(sale, investor)`, plus the expiry policy. The admin, the roles
+//! and the schema version live in OpenZeppelin's storage.
 use soroban_sdk::{contracttype, Address, Env, IntoVal, Symbol, Val};
 use stellar_access::access_control::AccessControlStorageKey;
 
-use crate::types::Allocation;
+use crate::types::{Allocation, Receipts};
 
 /// Version of the `Allocation` struct this code writes.
 pub const ALLOCATION_SCHEMA: u32 = 1;
@@ -16,10 +17,16 @@ pub const ALLOCATION_SCHEMA: u32 = 1;
 pub enum DataKey {
     /// The investor's cap and enabled flag.
     Allocation(Address),
-    /// The investor's usage in one period, as a plain `i128`. Absent means
-    /// 0. Never written again once the period is over, so it archives on
-    /// its own.
+    /// The investor's usage in one period, as a plain `i128`: the sum of
+    /// the period's live receipts. Absent means 0; removed when a restore
+    /// brings it to 0. Written after the period is over only by a refund,
+    /// so it archives on its own.
     Usage(Address, u32),
+    /// One investor's receipts in one sale contract, `(sale, investor)`.
+    /// Its key names only the purchase's own parties, never a shared
+    /// counter, so concurrent purchases by different investors never
+    /// touch the same entry. Kept once empty, for its `next`.
+    Receipts(Address, Address),
 }
 
 /// Ledgers in a day, at about 5 seconds per ledger (86,400 / 5). Storage
@@ -62,6 +69,19 @@ pub fn extend_role_ttl(e: &Env, account: &Address, role: &Symbol) {
     );
 }
 
+/// Like `extend_role_ttl`, for a role the account may no longer hold:
+/// `restore` takes no role, and a sale contract whose `sale` was revoked
+/// still refunds. Revoking removes the entry, and extending a missing key
+/// fails, so the entry is extended only while it exists. `has` reads the
+/// same key `extend_role_ttl` would, so the footprint is unchanged, and
+/// extends nothing, unlike OpenZeppelin's `has_role`.
+pub fn extend_role_ttl_if_held(e: &Env, account: &Address, role: &Symbol) {
+    let key = AccessControlStorageKey::HasRole(account.clone(), role.clone());
+    if e.storage().persistent().has(&key) {
+        extend_persistent_ttl(e, &key);
+    }
+}
+
 /// The investor's allocation, or the zero allocation when there is none.
 /// A read extends nothing: simulation must not pay rent.
 pub fn allocation(e: &Env, investor: &Address) -> Allocation {
@@ -89,9 +109,29 @@ pub fn usage(e: &Env, investor: &Address, period: u32) -> i128 {
         .unwrap_or(0)
 }
 
+/// Writes the investor's usage in `period`, or removes the entry at 0 so a
+/// fully refunded month leaves nothing behind to pay rent on.
 pub fn set_usage(e: &Env, investor: &Address, period: u32, amount: i128) {
     let key = DataKey::Usage(investor.clone(), period);
+    if amount == 0 {
+        e.storage().persistent().remove(&key);
+        return;
+    }
     e.storage().persistent().set(&key, &amount);
+    extend_persistent_ttl(e, &key);
+}
+
+/// The investor's receipts in the sale contract, if it ever sold to them.
+/// A read extends nothing.
+pub fn receipts(e: &Env, sale: &Address, investor: &Address) -> Option<Receipts> {
+    e.storage()
+        .persistent()
+        .get(&DataKey::Receipts(sale.clone(), investor.clone()))
+}
+
+pub fn set_receipts(e: &Env, sale: &Address, investor: &Address, receipts: &Receipts) {
+    let key = DataKey::Receipts(sale.clone(), investor.clone());
+    e.storage().persistent().set(&key, receipts);
     extend_persistent_ttl(e, &key);
 }
 

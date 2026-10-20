@@ -3,6 +3,7 @@
 use soroban_sdk::{testutils::Events as _, vec};
 
 use super::{allocator, entry, period, setup};
+use crate::Receipt;
 
 #[test]
 fn writing_the_same_allocations_twice_keeps_the_usage() {
@@ -84,7 +85,8 @@ fn remaining_and_can_invest_agree_with_consume() {
     assert!(s.client.can_invest(&s.alice, &room));
     assert!(!s.client.can_invest(&s.alice, &(room + 1)));
     assert!(s.try_consume(&s.alice, &(room + 1)).is_err());
-    assert_eq!(s.consume(&s.alice, &room), period(2026, 10));
+    s.consume(&s.alice, &room);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 100);
     assert_eq!(s.client.remaining(&s.alice), 0);
     assert!(!s.client.can_invest(&s.alice, &1));
 }
@@ -95,4 +97,37 @@ fn can_invest_is_false_for_a_non_positive_amount() {
     s.allow(&s.alice, 100);
     assert!(!s.client.can_invest(&s.alice, &0));
     assert!(!s.client.can_invest(&s.alice, &-1));
+}
+
+#[test]
+fn the_receipt_getter_follows_consume_and_restore() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    assert_eq!(s.receipt(&s.alice, 0), None);
+    assert!(s.client.receipts(&s.sale, &s.alice).is_none());
+    let n = s.consume(&s.alice, &35);
+    let expected = Receipt {
+        amount: 35,
+        period: period(2026, 10),
+    };
+    assert_eq!(s.receipt(&s.alice, n), Some(expected));
+    // Under its own sale and investor only.
+    assert_eq!(s.client.receipt(&s.hot_key, &s.alice, &n), None);
+    assert_eq!(s.receipt(&s.bob, n), None);
+    let all = s.client.receipts(&s.sale, &s.alice).unwrap();
+    assert_eq!((all.next, all.items.len()), (1, 1));
+    s.restore(&s.alice, &[n]);
+    assert_eq!(s.receipt(&s.alice, n), None);
+}
+
+#[test]
+fn a_disabled_investor_can_still_be_refunded() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &40);
+    s.client
+        .set_allocations(&vec![&s.e, entry(&s.alice, 100, false)], &s.hot_key);
+    s.restore(&s.alice, &[n]);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
+    assert_eq!(s.receipt(&s.alice, n), None);
 }

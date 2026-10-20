@@ -24,7 +24,8 @@ pub struct AllocationSet {
 }
 
 /// A purchase used `amount` of the investor's room in `period`; `consumed`
-/// is that period's usage after the call. `caller` identifies the offering.
+/// is that period's usage after the call and `receipt` the number `consume`
+/// returned. `caller` identifies the offering.
 #[contractevent]
 pub struct AllocationConsumed {
     #[topic]
@@ -34,10 +35,12 @@ pub struct AllocationConsumed {
     pub amount: i128,
     pub consumed: i128,
     pub period: u32,
+    pub receipt: u32,
 }
 
-/// A refund gave `amount` back to `period`; `consumed` is that period's
-/// usage after the call. One per period a `restore` call touches.
+/// A refund gave receipt `receipt`'s `amount` back to its `period`;
+/// `consumed` is that period's usage right after. One per receipt a
+/// `restore` call names, in list order.
 #[contractevent]
 pub struct AllocationRestored {
     #[topic]
@@ -47,6 +50,7 @@ pub struct AllocationRestored {
     pub amount: i128,
     pub consumed: i128,
     pub period: u32,
+    pub receipt: u32,
 }
 
 /// Emitted by the old code just before it is replaced.
