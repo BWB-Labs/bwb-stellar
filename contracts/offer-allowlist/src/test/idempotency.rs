@@ -104,7 +104,7 @@ fn the_receipt_getter_follows_consume_and_restore() {
     let s = setup();
     s.allow(&s.alice, 100);
     assert_eq!(s.receipt(&s.alice, 0), None);
-    assert!(s.client.receipts(&s.sale, &s.alice).is_none());
+    assert!(s.client.receipt_book(&s.sale, &s.alice).is_none());
     let n = s.consume(&s.alice, &35);
     let expected = Receipt {
         amount: 35,
@@ -114,8 +114,8 @@ fn the_receipt_getter_follows_consume_and_restore() {
     // Under its own sale and investor only.
     assert_eq!(s.client.receipt(&s.hot_key, &s.alice, &n), None);
     assert_eq!(s.receipt(&s.bob, n), None);
-    let all = s.client.receipts(&s.sale, &s.alice).unwrap();
-    assert_eq!((all.next, all.items.len()), (1, 1));
+    let all = s.client.receipt_book(&s.sale, &s.alice).unwrap();
+    assert_eq!((all.next, all.receipts.len()), (1, 1));
     s.restore(&s.alice, &[n]);
     assert_eq!(s.receipt(&s.alice, n), None);
 }

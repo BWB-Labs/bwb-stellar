@@ -39,11 +39,11 @@ fn usage_ttl(e: &Env, id: &Address, who: &Address, period: u32) -> u32 {
     })
 }
 
-fn receipts_ttl(e: &Env, id: &Address, sale: &Address, who: &Address) -> u32 {
+fn receipt_book_ttl(e: &Env, id: &Address, sale: &Address, who: &Address) -> u32 {
     e.as_contract(id, || {
         e.storage()
             .persistent()
-            .get_ttl(&DataKey::Receipts(sale.clone(), who.clone()))
+            .get_ttl(&DataKey::ReceiptBook(sale.clone(), who.clone()))
     })
 }
 
@@ -110,16 +110,16 @@ fn consume_extends_the_allocation_the_usage_and_the_sales_role() {
 }
 
 #[test]
-fn consume_gives_the_receipts_entry_the_maximum_ttl() {
+fn consume_gives_the_receipt_book_the_maximum_ttl() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.consume(&s.alice, &1);
     let max = max_ttl(&s.e, &s.id);
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
     advance(&s.e, 40 * DAY);
-    assert!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice) < max);
+    assert!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice) < max);
     s.consume(&s.alice, &1);
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn restore_extends_the_entries_it_writes() {
     let p = period(2026, 10);
     let max = max_ttl(&s.e, &s.id);
     assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, p), max);
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
 }
 
 #[test]
@@ -207,17 +207,17 @@ fn reads_extend_nothing() {
     let allocation = allocation_ttl(&s.e, &s.id, &s.alice);
     let usage = usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10));
     let instance = instance_ttl(&s.e, &s.id);
-    let receipts = receipts_ttl(&s.e, &s.id, &s.sale, &s.alice);
+    let receipts = receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice);
     s.client.allocation(&s.alice);
     s.client.remaining(&s.alice);
     s.client.can_invest(&s.alice, &1);
     s.client.usage(&s.alice, &period(2026, 10));
     s.client.receipt(&s.sale, &s.alice, &0);
-    s.client.receipts(&s.sale, &s.alice);
+    s.client.receipt_book(&s.sale, &s.alice);
     assert_eq!(allocation_ttl(&s.e, &s.id, &s.alice), allocation);
     assert_eq!(usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10)), usage);
     assert_eq!(instance_ttl(&s.e, &s.id), instance);
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), receipts);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), receipts);
 }
 
 #[test]
@@ -236,10 +236,10 @@ fn an_untouched_old_month_is_left_to_expire() {
         usage_ttl(&s.e, &s.id, &s.alice, period(2026, 10)),
         max - 40 * DAY
     );
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
 }
 
-/// An archived usage or receipts entry is not gone. Since protocol 23
+/// An archived usage entry or receipt book is not gone. Since protocol 23
 /// (CAP-0066) the call that touches it restores it: simulation lists the
 /// key in the read-write footprint and the transaction pays the
 /// restoration. The test environment runs in that recording mode, so a
@@ -263,7 +263,7 @@ fn a_late_refund_of_an_archived_receipt_restores_and_tops_up_both_entries() {
     s.restore(&s.alice, &[late]);
     assert_eq!(s.client.usage(&s.alice, &october), 6);
     assert_eq!(s.receipt(&s.alice, late), None);
-    assert_eq!(receipts_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
     assert_eq!(
         usage_ttl(&s.e, &s.id, &s.alice, october),
         max_ttl(&s.e, &s.id)

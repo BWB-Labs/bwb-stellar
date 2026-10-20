@@ -1,11 +1,11 @@
 //! The allowlist's own storage: one allocation per investor, one usage
-//! entry per `(investor, period)` and one receipts entry per
+//! entry per `(investor, period)` and one receipt book per
 //! `(sale, investor)`, plus the expiry policy. The admin, the roles
 //! and the schema version live in OpenZeppelin's storage.
 use soroban_sdk::{contracttype, Address, Env, IntoVal, Symbol, Val};
 use stellar_access::access_control::AccessControlStorageKey;
 
-use crate::types::{Allocation, Receipts};
+use crate::types::{Allocation, ReceiptBook};
 
 /// Version of the `Allocation` struct this code writes.
 pub const ALLOCATION_SCHEMA: u32 = 1;
@@ -22,11 +22,11 @@ pub enum DataKey {
     /// brings it to 0. Written after the period is over only by a refund,
     /// so it archives on its own.
     Usage(Address, u32),
-    /// One investor's receipts in one sale contract, `(sale, investor)`.
+    /// One investor's receipt book in one sale contract, `(sale, investor)`.
     /// Its key names only the purchase's own parties, never a shared
     /// counter, so concurrent purchases by different investors never
     /// touch the same entry. Kept once empty, for its `next`.
-    Receipts(Address, Address),
+    ReceiptBook(Address, Address),
 }
 
 /// Ledgers in a day, at about 5 seconds per ledger (86,400 / 5). Storage
@@ -121,17 +121,18 @@ pub fn set_usage(e: &Env, investor: &Address, period: u32, amount: i128) {
     extend_persistent_ttl(e, &key);
 }
 
-/// The investor's receipts in the sale contract, if it ever sold to them.
+/// The investor's receipt book in the sale contract, if it ever sold to
+/// them.
 /// A read extends nothing.
-pub fn receipts(e: &Env, sale: &Address, investor: &Address) -> Option<Receipts> {
+pub fn receipt_book(e: &Env, sale: &Address, investor: &Address) -> Option<ReceiptBook> {
     e.storage()
         .persistent()
-        .get(&DataKey::Receipts(sale.clone(), investor.clone()))
+        .get(&DataKey::ReceiptBook(sale.clone(), investor.clone()))
 }
 
-pub fn set_receipts(e: &Env, sale: &Address, investor: &Address, receipts: &Receipts) {
-    let key = DataKey::Receipts(sale.clone(), investor.clone());
-    e.storage().persistent().set(&key, receipts);
+pub fn set_receipt_book(e: &Env, sale: &Address, investor: &Address, book: &ReceiptBook) {
+    let key = DataKey::ReceiptBook(sale.clone(), investor.clone());
+    e.storage().persistent().set(&key, book);
     extend_persistent_ttl(e, &key);
 }
 
