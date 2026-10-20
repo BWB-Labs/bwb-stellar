@@ -78,7 +78,7 @@ fn restore_takes_twenty_receipts_and_not_twenty_one() {
 
 /// The worst case `MAX_RESTORE` is sized for: 20 receipts in 20 different
 /// months, each emptying its month. The allowlist writes the investor's
-/// receipts entry once and one usage entry per month, 21 entries (of the
+/// receipt book once and one usage entry per month, 21 entries (of the
 /// 200 a transaction may write), and emits 20 × 292 B of events. The
 /// interface document quotes these numbers; `-- --nocapture` prints them.
 #[test]
@@ -110,11 +110,11 @@ fn a_full_restore_writes_one_entry_per_month_plus_the_receipts() {
     assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
 }
 
-/// `MAX_RECEIPTS` bounds the one entry every purchase and refund of an
+/// `MAX_RECEIPTS` bounds the receipt book every purchase and refund of an
 /// investor rewrites whole. At 100 live receipts its value encodes to the
 /// size pinned here, far under the 65,536-byte ledger entry limit.
 #[test]
-fn a_full_receipts_entry_stays_far_under_the_ledger_entry_limit() {
+fn a_full_receipt_book_stays_far_under_the_ledger_entry_limit() {
     use soroban_sdk::{
         xdr::{Limits, ScVal, WriteXdr},
         IntoVal, TryFromVal, Val,
@@ -127,8 +127,8 @@ fn a_full_receipts_entry_stays_far_under_the_ledger_entry_limit() {
     s.e.cost_estimate().budget().reset_unlimited();
     s.consume(&s.alice, &1_000_000_000_000);
     let written = s.e.cost_estimate().resources().write_bytes;
-    let entry = s.client.receipts(&s.sale, &s.alice).unwrap();
-    assert_eq!(entry.items.len(), MAX_RECEIPTS);
+    let entry = s.client.receipt_book(&s.sale, &s.alice).unwrap();
+    assert_eq!(entry.receipts.len(), MAX_RECEIPTS);
     let value: Val = entry.into_val(&s.e);
     let size = ScVal::try_from_val(&s.e, &value)
         .unwrap()
@@ -136,7 +136,7 @@ fn a_full_receipts_entry_stays_far_under_the_ledger_entry_limit() {
         .unwrap()
         .len();
     std::println!(
-        "receipts entry at {MAX_RECEIPTS}: value {size} B; the 100th purchase writes {written} B"
+        "receipt book at {MAX_RECEIPTS}: value {size} B; the 100th purchase writes {written} B"
     );
     assert_eq!(size, 8_060);
 }
@@ -161,14 +161,14 @@ fn receipt_numbers_start_at_zero_per_sale_and_investor() {
 }
 
 #[test]
-fn a_fully_refunded_investor_keeps_the_entry_and_its_next_number() {
+fn a_fully_refunded_investor_keeps_the_book_and_its_next_number() {
     let s = setup();
     s.allow(&s.alice, 100);
     let a = s.consume(&s.alice, &10);
     let b = s.consume(&s.alice, &20);
     s.restore(&s.alice, &[a, b]);
-    let left = s.client.receipts(&s.sale, &s.alice).unwrap();
-    assert_eq!((left.next, left.items.len()), (2, 0));
+    let left = s.client.receipt_book(&s.sale, &s.alice).unwrap();
+    assert_eq!((left.next, left.receipts.len()), (2, 0));
     assert_eq!(s.consume(&s.alice, &5), 2);
 }
 
@@ -330,8 +330,8 @@ fn the_same_investors_second_purchase_keeps_its_footprint() {
     assert_eq!(race(true, true), 2);
 }
 
-/// But the shared entry grows by one receipt per purchase, which is what
-/// breaks the same investor's racing purchases on the network. No
+/// But the shared receipt book grows by one receipt per purchase, which
+/// is what breaks the same investor's racing purchases on the network. No
 /// simulation runs here: purchases A and B by the same investor are both
 /// simulated against the same state, so B's simulation equals A's own run
 /// and declares A's write bytes; B then runs after A, against an entry

@@ -5,7 +5,7 @@ use soroban_sdk::{vec, Map, Symbol};
 
 use super::{code, entry, err, period, setup, ROLE_NOT_HELD};
 
-use crate::{OfferAllowlistError, Receipts, MAX_RECEIPTS};
+use crate::{OfferAllowlistError, ReceiptBook, MAX_RECEIPTS};
 
 #[test]
 fn consume_for_a_disabled_investor_fails_with_investor_not_enabled() {
@@ -193,11 +193,11 @@ fn an_investor_out_of_receipt_numbers_fails_with_invalid_amount() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.e.as_contract(&s.id, || {
-        let full = Receipts {
+        let full = ReceiptBook {
             next: u32::MAX,
-            items: Map::new(&s.e),
+            receipts: Map::new(&s.e),
         };
-        crate::storage::set_receipts(&s.e, &s.sale, &s.alice, &full)
+        crate::storage::set_receipt_book(&s.e, &s.sale, &s.alice, &full)
     });
     let r = s.try_consume(&s.alice, &1);
     assert_eq!(err(r), OfferAllowlistError::InvalidAmount.into());
