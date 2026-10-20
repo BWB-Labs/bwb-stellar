@@ -69,6 +69,19 @@ pub fn extend_role_ttl(e: &Env, account: &Address, role: &Symbol) {
     );
 }
 
+/// Like `extend_role_ttl`, for a role the account may no longer hold:
+/// `restore` takes no role, and a sale contract whose `sale` was revoked
+/// still refunds. Revoking removes the entry, and extending a missing key
+/// fails, so the entry is extended only while it exists. `has` reads the
+/// same key `extend_role_ttl` would, so the footprint is unchanged, and
+/// extends nothing, unlike OpenZeppelin's `has_role`.
+pub fn extend_role_ttl_if_held(e: &Env, account: &Address, role: &Symbol) {
+    let key = AccessControlStorageKey::HasRole(account.clone(), role.clone());
+    if e.storage().persistent().has(&key) {
+        extend_persistent_ttl(e, &key);
+    }
+}
+
 /// The investor's allocation, or the zero allocation when there is none.
 /// A read extends nothing: simulation must not pay rent.
 pub fn allocation(e: &Env, investor: &Address) -> Allocation {

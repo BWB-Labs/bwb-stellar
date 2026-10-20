@@ -152,6 +152,7 @@ fn one_sale_cannot_over_restore_into_another_sales_usage() {
 
 #[test]
 fn the_hundred_and_first_live_receipt_fails_with_too_many_receipts() {
+    assert_eq!(MAX_RECEIPTS, 100);
     let s = setup();
     s.allow(&s.alice, 1_000);
     for n in 0..MAX_RECEIPTS {

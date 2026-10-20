@@ -54,6 +54,7 @@ fn investors(s: &super::Setup, n: u32) -> Vec<AllocationEntry> {
 
 #[test]
 fn set_allocations_takes_thirty_entries_and_not_thirty_one() {
+    assert_eq!(MAX_BATCH, 30);
     let s = setup();
     s.client
         .set_allocations(&investors(&s, MAX_BATCH), &s.hot_key);
@@ -65,6 +66,7 @@ fn set_allocations_takes_thirty_entries_and_not_thirty_one() {
 
 #[test]
 fn restore_takes_twenty_receipts_and_not_twenty_one() {
+    assert_eq!(MAX_RESTORE, 20);
     let s = setup();
     s.allow(&s.alice, 100);
     let receipts: std::vec::Vec<u32> = (0..=MAX_RESTORE).map(|_| s.consume(&s.alice, &1)).collect();
@@ -328,15 +330,17 @@ fn the_same_investors_second_purchase_keeps_its_footprint() {
     assert_eq!(race(true, true), 2);
 }
 
-/// But the shared entry grows by one receipt per purchase. Purchases A and
-/// B by the same investor are both simulated against the same state; A
-/// lands first. B's simulation ran against the state A ran against, with
-/// the same arguments, so it is A's own run: it declared A's write bytes.
-/// B then runs after A and writes the entry with one receipt more. On the
-/// network that exceeds B's declared write bytes unless the submitter left
-/// a margin; the backend re-simulates and resubmits, as the documents say.
+/// But the shared entry grows by one receipt per purchase, which is what
+/// breaks the same investor's racing purchases on the network. No
+/// simulation runs here: purchases A and B by the same investor are both
+/// simulated against the same state, so B's simulation equals A's own run
+/// and declares A's write bytes; B then runs after A, against an entry
+/// one receipt bigger. This test measures that difference between two
+/// consecutive purchases. On the network it exceeds B's declared write
+/// bytes unless the submitter left a margin; the backend re-simulates and
+/// resubmits, as the documents say.
 #[test]
-fn the_same_investors_next_purchase_writes_one_receipt_more_than_simulated() {
+fn each_purchase_by_the_same_investor_writes_one_receipt_more() {
     let s = setup();
     s.allow(&s.alice, 100);
     s.consume(&s.alice, &1);

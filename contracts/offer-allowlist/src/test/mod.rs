@@ -1,7 +1,10 @@
-//! Tests drive the allowlist only through its generated client, as the
-//! backend and the sale contract would, with the ledger time pinned per
-//! test. Modules follow the D2 vocabulary so the evidence index can cite
-//! them directly.
+//! Tests drive the allowlist through its generated client, as the backend
+//! and the sale contract would, with the ledger time pinned per test. The
+//! exceptions reach storage through `as_contract`: the `ttl` module reads
+//! entry lifetimes, `boundary` checks a usage entry is gone, and `failure`
+//! writes two states the contract never produces (a usage below its
+//! receipt, a receipt counter at `u32::MAX`). Modules follow the D2
+//! vocabulary so the evidence index can cite them directly.
 #![cfg(test)]
 extern crate std;
 

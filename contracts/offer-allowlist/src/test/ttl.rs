@@ -168,6 +168,23 @@ fn the_sales_role_outlives_open_zeppelins_ninety_days() {
 }
 
 #[test]
+fn a_revoked_sales_restore_extends_no_role_entry() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &1);
+    s.client.revoke_role(&s.sale, &sale_role(&s.e), &s.hot_key);
+    advance(&s.e, 40 * DAY);
+    s.restore(&s.alice, &[n]);
+    // Revoking removed the role entry; the restore neither panics on the
+    // missing key nor writes it back. The instance is still topped up.
+    let key = AccessControlStorageKey::HasRole(s.sale.clone(), sale_role(&s.e));
+    assert!(!s
+        .e
+        .as_contract(&s.id, || s.e.storage().persistent().has(&key)));
+    assert_eq!(instance_ttl(&s.e, &s.id), max_ttl(&s.e, &s.id));
+}
+
+#[test]
 fn restore_extends_the_entries_it_writes() {
     let s = setup();
     s.allow(&s.alice, 100);

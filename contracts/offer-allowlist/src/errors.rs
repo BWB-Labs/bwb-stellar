@@ -2,8 +2,8 @@ use soroban_sdk::contracterror;
 
 /// Contract errors of `offer-allowlist`, in BWB's 6100–6199 range.
 /// OpenZeppelin's access-control codes surface unchanged: 2000
-/// `Unauthorized` (a caller without the role, a non-admin operator on
-/// `upgrade`) and 2007 `RoleNotHeld` (revoking a role not held). The
+/// `Unauthorized` (a caller without the role on `set_allocations` or
+/// `consume`, a non-admin operator on `upgrade`) and 2007 `RoleNotHeld` (revoking a role not held). The
 /// allowlist document lists both.
 #[contracterror]
 #[repr(u32)]
@@ -20,10 +20,11 @@ pub enum OfferAllowlistError {
     /// larger than its period's usage, which is always the sum of its live
     /// receipts.
     InvalidAmount = 6102,
-    /// `restore` names a receipt the calling sale contract does not hold
-    /// for that investor: never issued, already restored, or repeated in
-    /// the same list. Another sale contract's receipts live under another
-    /// key, so they are never found either.
+    /// `restore` names a receipt the caller does not hold for that
+    /// investor: never issued, already restored, or repeated in the same
+    /// list; or the caller never sold to the investor. Another sale
+    /// contract's receipts live under another key, so they are never found
+    /// either.
     ReceiptNotFound = 6103,
     /// More than `MAX_BATCH` entries in `set_allocations`, or more than
     /// `MAX_RESTORE` receipts in `restore`.
@@ -35,6 +36,6 @@ pub enum OfferAllowlistError {
     /// ledger time reaches.
     InvalidPeriod = 6106,
     /// `consume` for an investor who already has `MAX_RECEIPTS` live
-    /// receipts in the calling sale contract. A restore frees room.
+    /// receipts in the calling sale contract. A restore frees a slot.
     TooManyReceipts = 6107,
 }

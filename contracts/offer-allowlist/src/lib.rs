@@ -13,7 +13,9 @@
 //! Access control is OpenZeppelin's (ADR 0008), with two roles: `allocator`
 //! (the platform hot key) writes allocations and is the role-admin of
 //! `sale`, so the backend wires each new sale contract itself; `sale` (each
-//! offering's sale contract) consumes and restores room and grants nothing.
+//! offering's sale contract) consumes room and grants nothing. Restoring
+//! needs no role: a caller can only ever give back receipts it created, so
+//! a sale contract whose `sale` was revoked still refunds its investors.
 //! Only the admin grants `allocator`. The admin alone upgrades, and
 //! `renounce_admin` always fails, so the allowlist can never become
 //! un-upgradeable.
@@ -48,21 +50,22 @@ const SCHEMA_VERSION: u32 = 1;
 /// one; the constants are for everything else.
 pub const ALLOCATOR: &str = "allocator";
 
-/// The role that consumes and restores room. Held by each offering's sale
-/// contract; granted and revoked by an allocator or the admin. Grants
-/// nothing.
+/// The role that consumes room. Held by each offering's sale contract;
+/// granted and revoked by an allocator or the admin. Grants nothing.
+/// Revoking it stops the sale contract's purchases, not its refunds:
+/// `restore` takes no role.
 pub const SALE: &str = "sale";
 
-/// Most entries in one `set_allocations` call. At 30 the binding limits are
-/// the transaction's write entries (31 of 50: the entries plus the
-/// instance) and its footprint (about 35 of 100), not the event bytes (7 to
-/// 8 KB of 16 KB).
+/// Most entries in one `set_allocations` call. At 30 it writes 31 entries
+/// (the entries plus the instance) and emits about 7.2 KB of events, well
+/// inside the network's per-transaction limits (200 write entries, 400
+/// footprint entries and 16 KB of events on testnet, 2026-10-20).
 pub const MAX_BATCH: u32 = 30;
 
 /// Most receipts in one `restore` call. A restore writes the investor's
 /// receipts entry once and one usage entry per month it touches, so 20
-/// receipts in 20 different months use 21 of the transaction's 50 write
-/// entries.
+/// receipts in 20 different months write 21 entries and emit 5,840 B of
+/// events, leaving most of the transaction to the calling sale contract.
 pub const MAX_RESTORE: u32 = 20;
 
 /// Most live receipts one investor may hold in one sale contract. Bounds
@@ -191,8 +194,13 @@ impl OfferAllowlist {
     /// never sold to. The receipts entry is kept once empty: it holds
     /// `next`. No `enabled` check: a disabled investor can still be
     /// refunded. One `allocation_restored` per receipt, in list order.
-    #[only_role(caller, "sale")]
+    ///
+    /// `caller` must authorize but needs no role. The lookup is keyed by
+    /// `caller`, so it only ever finds receipts `caller` created while
+    /// holding `sale`; a sale contract whose role was revoked still
+    /// refunds, and anyone else finds nothing (6103).
     pub fn restore(e: &Env, investor: Address, receipts: Vec<u32>, caller: Address) {
+        caller.require_auth();
         if receipts.is_empty() {
             panic_with_error!(e, OfferAllowlistError::InvalidAmount);
         }
@@ -227,7 +235,8 @@ impl OfferAllowlist {
             .publish(e);
         }
         storage::set_receipts(e, &caller, &investor, &held);
-        extend_caller_role_ttl(e, &caller, SALE);
+        storage::extend_role_ttl_if_held(e, &caller, &role(e, SALE));
+        storage::extend_instance_ttl(e);
     }
 
     /// The investor's cap and flag with the current period and its usage.

@@ -119,3 +119,15 @@ fn the_receipt_getter_follows_consume_and_restore() {
     s.restore(&s.alice, &[n]);
     assert_eq!(s.receipt(&s.alice, n), None);
 }
+
+#[test]
+fn a_disabled_investor_can_still_be_refunded() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let n = s.consume(&s.alice, &40);
+    s.client
+        .set_allocations(&vec![&s.e, entry(&s.alice, 100, false)], &s.hot_key);
+    s.restore(&s.alice, &[n]);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
+    assert_eq!(s.receipt(&s.alice, n), None);
+}
