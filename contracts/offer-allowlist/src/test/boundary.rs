@@ -110,6 +110,29 @@ fn a_full_restore_writes_one_entry_per_month_plus_the_receipts() {
     assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
 }
 
+/// `restore_all` costs one 292 B event per live receipt and writes one usage
+/// entry per month touched plus the book, exactly like a `restore` of the
+/// same receipts; it just takes no list and no limit. So the 16,384 B of
+/// events a transaction may carry hold at most 56 receipts of one investor,
+/// and a full book of 100 does not fit in one transaction: the sale
+/// contract caps live purchases per investor well under that. Pinned at 20
+/// so the numbers match `restore`'s.
+#[test]
+fn a_restore_all_costs_the_same_as_a_restore_of_the_same_receipts() {
+    let s = setup();
+    s.allow(&s.alice, 1_000);
+    for i in 0..u64::from(MAX_RESTORE) {
+        at(&s.e, 2024 + i / 12, 1 + i % 12, 15);
+        s.consume(&s.alice, &10);
+    }
+    s.e.set_auths(&[]);
+    s.e.cost_estimate().budget().reset_unlimited();
+    assert_eq!(s.restore_all(&s.alice), MAX_RESTORE);
+    let used = s.e.cost_estimate().resources();
+    assert_eq!(used.write_entries, MAX_RESTORE + 1);
+    assert_eq!(used.contract_events_size_bytes, 292 * MAX_RESTORE);
+}
+
 /// `MAX_RECEIPTS` bounds the receipt book every purchase and refund of an
 /// investor rewrites whole. At 100 live receipts its value encodes to the
 /// size pinned here, far under the 65,536-byte ledger entry limit.

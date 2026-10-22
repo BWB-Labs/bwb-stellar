@@ -120,6 +120,26 @@ fn the_receipt_getter_follows_consume_and_restore() {
     assert_eq!(s.receipt(&s.alice, n), None);
 }
 
+/// A failed offering refunds the whole investor: every receipt back to its
+/// own month in one call, the book kept with its next number.
+#[test]
+fn restore_all_gives_back_every_live_receipt_across_months() {
+    let s = setup();
+    s.allow(&s.alice, 1_000);
+    super::at(&s.e, 2026, 9, 20);
+    s.consume(&s.alice, &70);
+    super::at(&s.e, 2026, 10, 15);
+    s.consume(&s.alice, &10);
+    let already = s.consume(&s.alice, &5);
+    s.restore(&s.alice, &[already]);
+    assert_eq!(s.restore_all(&s.alice), 2);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 9)), 0);
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
+    let book = s.client.receipt_book(&s.sale, &s.alice).unwrap();
+    assert_eq!((book.next, book.receipts.len()), (3, 0));
+    assert_eq!(s.client.remaining(&s.alice), 1_000);
+}
+
 #[test]
 fn a_disabled_investor_can_still_be_refunded() {
     let s = setup();

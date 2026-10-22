@@ -169,6 +169,37 @@ fn a_restore_emits_one_event_per_receipt_in_list_order() {
 }
 
 #[test]
+fn a_restore_all_emits_one_event_per_receipt_in_number_order() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    at(&s.e, 2026, 9, 20);
+    let september = s.sale().buy(&s.id, &s.alice, &70);
+    at(&s.e, 2026, 10, 15);
+    let october = s.sale().buy(&s.id, &s.alice, &10);
+    let more = s.sale().buy(&s.id, &s.alice, &5);
+    assert_eq!(s.sale().refund_all(&s.id, &s.alice), 3);
+    let restored = |amount, consumed, period, receipt| {
+        AllocationRestored {
+            investor: s.alice.clone(),
+            caller: s.sale.clone(),
+            amount,
+            consumed,
+            period,
+            receipt,
+        }
+        .to_xdr(&s.e, &s.id)
+    };
+    assert_eq!(
+        emitted(&s.e, &s.id),
+        [
+            restored(70, 0, period(2026, 9), september),
+            restored(10, 5, period(2026, 10), october),
+            restored(5, 0, period(2026, 10), more),
+        ]
+    );
+}
+
+#[test]
 fn role_changes_emit_open_zeppelins_events() {
     let s = setup();
     let next_sale = s.e.register(super::SaleStub, ());

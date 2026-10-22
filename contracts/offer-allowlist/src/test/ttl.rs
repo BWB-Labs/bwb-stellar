@@ -199,6 +199,23 @@ fn restore_extends_the_entries_it_writes() {
 }
 
 #[test]
+fn restore_all_extends_the_entries_it_writes_and_the_sales_role() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.consume(&s.alice, &1);
+    s.consume(&s.alice, &9);
+    advance(&s.e, 40 * DAY);
+    s.restore_all(&s.alice);
+    let max = max_ttl(&s.e, &s.id);
+    assert_eq!(receipt_book_ttl(&s.e, &s.id, &s.sale, &s.alice), max);
+    assert_eq!(instance_ttl(&s.e, &s.id), max);
+    let role = AccessControlStorageKey::HasRole(s.sale.clone(), sale_role(&s.e));
+    let held =
+        s.e.as_contract(&s.id, || s.e.storage().persistent().get_ttl(&role));
+    assert_eq!(held, max);
+}
+
+#[test]
 fn reads_extend_nothing() {
     let s = setup();
     s.allow(&s.alice, 100);
