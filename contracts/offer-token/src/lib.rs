@@ -16,8 +16,10 @@
 //! code swap can do anything, so it must be the strongest key. Which account
 //! holds each is decided per deployment.
 //!
-//! There is no burn and no later mint: `burn` and `burn_from` exist for the
-//! SEP-41 shape and always fail.
+//! There is no later mint, and only the initial holder burns, and only its
+//! own balance: the sale contract destroys the unsold quotas when the
+//! offering succeeds. For everyone else `burn` fails, and `burn_from` always
+//! does; both exist for the SEP-41 shape.
 #![no_std]
 
 mod errors;
@@ -35,7 +37,9 @@ use stellar_contract_utils::{
     upgradeable::{self, Upgradeable},
 };
 use stellar_macros::when_not_paused;
-use stellar_tokens::fungible::{emit_transfer, Base, ContractOverrides, FungibleToken};
+use stellar_tokens::fungible::{
+    burnable::emit_burn, emit_transfer, Base, ContractOverrides, FungibleToken,
+};
 
 pub use crate::errors::OfferTokenError;
 use crate::events::{
@@ -59,8 +63,9 @@ pub struct OfferToken;
 
 #[contractimpl]
 impl OfferToken {
-    /// Sets the four powers, mints the whole supply to `initial_holder` and
-    /// whitelists it together with `whitelist` (duplicates ignored).
+    /// Sets the four powers, mints the whole supply to `initial_holder`,
+    /// remembers it as the only account that may burn, and whitelists it
+    /// together with `whitelist` (duplicates ignored).
     pub fn __constructor(
         e: &Env,
         power_holders: PowerHolders,
@@ -78,6 +83,7 @@ impl OfferToken {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }
         storage::set_powers(e, &power_holders);
+        storage::set_initial_holder(e, &initial_holder);
         set_uri_checked(e, &offer_uri);
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         Base::set_metadata(e, 0, name, symbol);
@@ -150,12 +156,25 @@ impl OfferToken {
         AdminTransfer { from, to, amount }.publish(e);
     }
 
-    /// SEP-41 shape only: the supply is fixed.
-    pub fn burn(e: &Env, _from: Address, _amount: i128) {
-        panic_with_error!(e, OfferTokenError::BurnDisabled);
+    /// Destroys `amount` of `from`'s own balance, lowering the supply. Only
+    /// the initial holder (the sale contract) may, so the unsold quotas of a
+    /// successful offering cease to exist while no investor can burn a
+    /// security; everyone else fails with `BurnDisabled`. `from` authorizes,
+    /// which the sale contract does as the direct caller. Blocked by pause
+    /// like a transfer. Emits OpenZeppelin's `burn`.
+    #[when_not_paused]
+    pub fn burn(e: &Env, from: Address, amount: i128) {
+        from.require_auth();
+        if from != storage::initial_holder(e) {
+            panic_with_error!(e, OfferTokenError::BurnDisabled);
+        }
+        Base::update(e, Some(&from), None, amount);
+        storage::extend_balance_ttl(e, &from);
+        storage::extend_instance_ttl(e);
+        emit_burn(e, &from, amount);
     }
 
-    /// SEP-41 shape only: the supply is fixed.
+    /// SEP-41 shape only: nobody burns on another's behalf.
     pub fn burn_from(e: &Env, _spender: Address, _from: Address, _amount: i128) {
         panic_with_error!(e, OfferTokenError::BurnDisabled);
     }
@@ -185,6 +204,11 @@ impl OfferToken {
 
     pub fn upgrader(e: &Env) -> Address {
         storage::upgrader(e)
+    }
+
+    /// The account the supply was minted to, the only one that may burn.
+    pub fn initial_holder(e: &Env) -> Address {
+        storage::initial_holder(e)
     }
 
     pub fn schema_version(e: &Env) -> u32 {

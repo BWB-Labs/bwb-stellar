@@ -21,6 +21,8 @@ pub enum DataKey {
     OfferUri,
     /// Present (and `true`) only for whitelisted accounts.
     Whitelisted(Address),
+    /// The account the supply was minted to: the only one that may burn.
+    InitialHolder,
 }
 
 /// Ledgers in a day, at about 5 seconds per ledger (86,400 / 5). Storage
@@ -89,6 +91,15 @@ pub fn pauser(e: &Env) -> Address {
 
 pub fn upgrader(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Upgrader).unwrap()
+}
+
+/// Stored once, at construction, next to the powers.
+pub fn set_initial_holder(e: &Env, holder: &Address) {
+    e.storage().instance().set(&DataKey::InitialHolder, holder);
+}
+
+pub fn initial_holder(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::InitialHolder).unwrap()
 }
 
 /// Requires `caller`'s signature and that it is one of the stored holders

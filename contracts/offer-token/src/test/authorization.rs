@@ -3,12 +3,13 @@
 //! authorization. Positive cases use exact auths, proving which account
 //! must sign.
 use soroban_sdk::{
+    contract, contractimpl,
     testutils::{Address as _, MockAuth, MockAuthInvoke},
-    Address, BytesN, IntoVal, String,
+    vec, Address, BytesN, Env, IntoVal, String,
 };
 
-use super::{err, setup};
-use crate::OfferTokenError;
+use super::{ctor_args, err, parties, setup, SUPPLY};
+use crate::{OfferToken, OfferTokenClient, OfferTokenError};
 
 #[test]
 fn only_admin_manages_the_whitelist() {
@@ -103,6 +104,53 @@ needs_signature!(upgrade_needs_upgraders_signature, |s| s
 needs_signature!(investor_transfer_needs_the_investors_signature, |s| s
     .client
     .transfer(&s.alice, &s.listed, &1));
+needs_signature!(burn_needs_the_holders_signature, |s| s
+    .client
+    .burn(&s.sale, &1));
+
+#[test]
+fn the_holders_signature_alone_burns() {
+    let s = setup();
+    let args = (&s.sale, 1i128).into_val(&s.e);
+    s.e.mock_auths(&[MockAuth {
+        address: &s.sale,
+        invoke: &MockAuthInvoke {
+            contract: &s.id,
+            fn_name: "burn",
+            args,
+            sub_invokes: &[],
+        },
+    }]);
+    s.client.burn(&s.sale, &1);
+    assert_eq!(s.client.total_supply(), SUPPLY - 1);
+}
+
+/// What the sale contract does at finalize: a burn of its own balance, as
+/// the direct caller, through the standard SEP-41 client.
+#[contract]
+pub struct BurnerStub;
+
+#[contractimpl]
+impl BurnerStub {
+    pub fn burn(e: &Env, token: Address, amount: i128) {
+        soroban_sdk::token::TokenClient::new(e, &token)
+            .burn(&e.current_contract_address(), &amount);
+    }
+}
+
+#[test]
+fn the_initial_holder_burns_as_the_direct_caller_with_no_auth_entry() {
+    let e = Env::default();
+    let mut p = parties(&e);
+    p.sale = e.register(BurnerStub, ());
+    let id = e.register(OfferToken, ctor_args(&e, &p, SUPPLY, vec![&e]));
+    e.set_auths(&[]);
+    BurnerStubClient::new(&e, &p.sale).burn(&id, &250);
+    let client = OfferTokenClient::new(&e, &id);
+    assert_eq!(client.total_supply(), SUPPLY - 250);
+    assert_eq!(client.balance(&p.sale), SUPPLY - 250);
+    assert_eq!(client.initial_holder(), p.sale);
+}
 
 #[test]
 fn admin_signature_alone_manages_the_whitelist() {

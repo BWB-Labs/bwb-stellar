@@ -5,17 +5,38 @@ use soroban_sdk::{testutils::Address as _, Address, String};
 use super::{code, err, setup};
 use crate::{OfferTokenError, MAX_URI_LEN};
 
+const INSUFFICIENT_BALANCE: u32 = 100;
 const INSUFFICIENT_ALLOWANCE: u32 = 101;
 const LESS_THAN_ZERO: u32 = 103;
 
 #[test]
-fn burn_is_disabled() {
+fn burn_by_anyone_but_the_initial_holder_is_disabled() {
     let s = setup();
-    assert_eq!(
-        err(s.client.try_burn(&s.alice, &1)),
-        OfferTokenError::BurnDisabled.into()
-    );
+    for who in [&s.alice, &s.listed, &s.admin, &s.xfer_admin] {
+        assert_eq!(
+            err(s.client.try_burn(who, &1)),
+            OfferTokenError::BurnDisabled.into()
+        );
+    }
     assert_eq!(s.client.balance(&s.alice), 100);
+    assert_eq!(s.client.total_supply(), super::SUPPLY);
+}
+
+#[test]
+fn burn_beyond_the_holders_balance_fails() {
+    let s = setup();
+    let held = s.client.balance(&s.sale);
+    let r = s.client.try_burn(&s.sale, &(held + 1));
+    assert_eq!(err(r), code(INSUFFICIENT_BALANCE));
+    assert_eq!(err(s.client.try_burn(&s.sale, &-1)), code(LESS_THAN_ZERO));
+    assert_eq!(s.client.balance(&s.sale), held);
+}
+
+#[test]
+fn burn_from_by_the_initial_holder_is_disabled_too() {
+    let s = setup();
+    let r = s.client.try_burn_from(&s.sale, &s.sale, &1);
+    assert_eq!(err(r), OfferTokenError::BurnDisabled.into());
 }
 
 #[test]

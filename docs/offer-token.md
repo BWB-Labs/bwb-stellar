@@ -4,7 +4,7 @@
 - **Who uses it.** The offering's sale contract receives the whole supply at construction and releases tokens to investors. Investors hold them and may send them only to whitelisted accounts. The tokenizer's treasury manages the whitelist and the offering URI, pauses and unpauses, and moves tokens by force when it must. The platform multisig replaces the code and can pause (recommended, pending the team).
 - **Where it comes from.** A port of Base's `OfferERC20`: a SEP-41 token with 0 decimals, a transfer whitelist, pause, forced transfer and offering metadata. It is built on OpenZeppelin Stellar 0.7.2's fungible `Base`.
 
-**Delivered in L2 (interface v0.6).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `l2-demo-3`. The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L2 (interface v0.6); `burn` by the initial holder added in L4 (0.2.0).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `l2-demo-3`. The cross-cutting rules are in [interface.md](interface.md).
 
 ## The whitelist
 
@@ -72,7 +72,8 @@ Every privileged call takes the signing account as its last argument (`caller` o
 | `transfer(from, to, amount)` | `from` | Moves tokens if `from` **or** `to` is whitelisted. For a muxed `to` (an address carrying a sub-account ID), the underlying account is checked. Blocked while paused. |
 | `transfer_from(spender, from, to, amount)` | `spender` | Same rule, within the allowance. Blocked while paused. |
 | `approve(owner, spender, amount, live_until_ledger)` | `owner` | Sets an allowance (SEP-41). Works while paused, as on Base. |
-| `burn(from, amount)`, `burn_from(spender, from, amount)` | anyone | Always fail with `BurnDisabled`. They exist so standard SEP-41 clients get a contract error instead of a missing function. |
+| `burn(from, amount)` | `from`, and only the initial holder | Destroys `amount` of the holder's own balance and lowers the supply: how the sale contract retires the unsold quotas of a successful offering. Anyone else fails with 6002, so no investor can burn a security. Blocked by pause (1000). Emits OpenZeppelin's `burn`. |
+| `burn_from(spender, from, amount)` | nobody | Always fails with 6002. It exists so standard SEP-41 clients get a contract error instead of a missing function. |
 | `admin_transfer(from, to, amount, caller)` | `caller` = `xfer_admin` | Moves tokens between any two accounts, **ignoring pause and the whitelist**, as Base's `adminTransfer` (audit SCAN-04): court orders, lost keys, estates, manual returns. Rejects `from == to` and amounts that aren't positive. It can move the sale contract's balance too, including sold-but-unreleased tokens, which then breaks `release` ([interface 5.5](interface.md#55-after-success)). |
 | `set_transfer_whitelist(account, allowed, caller)` | `caller` = `admin` | Adds or removes an account. Emits every time, even when nothing changes, as Base does. |
 | `set_offer_uri(uri, caller)` | `caller` = `admin` | Replaces the offering URI (at most 256 bytes). |
@@ -84,7 +85,7 @@ Read functions:
 
 - SEP-41: `balance`, `allowance`, `decimals` (always 0), `name`, `symbol`, `total_supply`;
 - whitelist and metadata: `is_transfer_whitelisted(account)` (when submitted rather than simulated, it also extends the entry's lifetime), `offer_uri`;
-- state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `schema_version` (1).
+- state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `initial_holder`, `schema_version` (1).
 
 The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
 
@@ -128,7 +129,7 @@ Specific to this contract:
 |---|---|---|
 | 6000 | `TransferNotWhitelisted` | Neither `from` nor `to` is whitelisted |
 | 6001 | `InvalidAdminTransfer` | `from` equals `to`, or the amount isn't positive |
-| 6002 | `BurnDisabled` | `burn` or `burn_from` |
+| 6002 | `BurnDisabled` | `burn` by anyone but the initial holder; `burn_from` always |
 | 6003 | `NotAdmin` | The caller signed but isn't `admin` (`set_transfer_whitelist`, `set_offer_uri`, `unpause`) |
 | 6004 | `NotXferAdmin` | The caller signed but isn't `xfer_admin` |
 | 6005 | `NotPauser` | The caller signed but is neither `pauser` nor `admin` |
@@ -161,12 +162,12 @@ Every state-changing call tops the instance, and every whitelist entry and balan
 
 | Module | Covers |
 |---|---|
-| `authorization` | A signed wrong caller per privileged call gets the power's code; an unsigned call fails at authorization; the pauser can't unpause; exact-signer positives |
+| `authorization` | A signed wrong caller per privileged call gets the power's code; an unsigned call fails at authorization; the pauser can't unpause; exact-signer positives; a burn needs the holder's signature, and a holder contract burns as the direct caller with no authorization entry, through the standard SEP-41 client |
 | `boundary` | Supply 0, −1 and 1; whole balance and one more; forced-transfer edge amounts; duplicate whitelist inputs |
-| `pause` | Paused blocks `transfer` and `transfer_from`, not `approve`, forced transfer or admin calls; pause twice, unpause a live token |
+| `pause` | Paused blocks `transfer` and `transfer_from`, not `approve`, forced transfer or admin calls; paused blocks `burn` until the admin unpauses; pause twice, unpause a live token |
 | `idempotency` | Repeated whitelist changes and URI updates converge |
-| `failure` | The burn stubs, allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001 and 6007, transfers for 6000) |
+| `failure` | `burn` by anyone but the holder and `burn_from` by anyone (6002), a burn beyond the balance (100) or negative (103), allowance and negative-amount rejections, the URI cap. Every other code is reached by the module that owns the rule (authorization for 6003–6006, boundary for 6001 and 6007, transfers for 6000) |
 | `upgrade` | Swap to `offer-token-upgrade-fixture`, a test-only second binary, and read every value back; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader can't swap |
-| `events` | Each call's exact events |
-| `ttl` | The expiry policy on the instance, balances (transfer, transfer_from, forced transfer) and whitelist entries |
-| `transfers` | The whitelist rule (muxed recipients included), whitelist and URI management, forced transfer, fixed supply |
+| `events` | Each call's exact events; a burn emits only the standard `burn` |
+| `ttl` | The expiry policy on the instance, balances (transfer, transfer_from, forced transfer, burn) and whitelist entries |
+| `transfers` | The whitelist rule (muxed recipients included), whitelist and URI management, forced transfer, the supply that only a burn changes |
