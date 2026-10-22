@@ -101,7 +101,7 @@ pub struct Totals {
 
 /// One leg of a payout.
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Payout {
     pub recipient: Address,
     pub amount: i128,

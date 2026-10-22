@@ -29,6 +29,7 @@ set -euo pipefail
 
 STAGE="${STAGE:-1}"
 DEMOS="${DEMOS:-1 2}"
+case "$STAGE" in 1|2) ;; *) echo "STAGE must be 1 or 2" >&2; exit 1 ;; esac
 NETWORK=testnet
 EXPLORER="https://stellar.expert/explorer/testnet"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -112,10 +113,11 @@ balances() {
   done
 }
 
+# wire <first step number>: the grant and the activation, two steps.
 wire() {
   step "$1. The allocator grants the sale contract the allowlist's sale role"
   ok bwb-testnet-deployer "$ALLOWLIST" grant_role --account "$SALE" --role "$SALE_ROLE" --caller "$DEPLOYER"
-  step "$2. Anyone activates: the sale holds the whole supply and the role"
+  step "$(($1 + 1)). Anyone activates: the sale holds the whole supply and the role"
   if [[ "$(read_fn "$SALE" state)" == '"Preparing"' ]]; then
     ok bwb-testnet-deployer "$SALE" activate
   else
@@ -125,7 +127,7 @@ wire() {
 
 if [[ "$STAGE" == 1 && " $DEMOS " == *" 1 "* ]]; then
   offering l4-demo-1
-  wire 1 2
+  wire 1
 
   step "3. The allocator allows investor A up to 3,000 USDC this month"
   ok bwb-testnet-deployer "$ALLOWLIST" set_allocations --entries "$(allocation "$INV_A" 30000000000)" --caller "$DEPLOYER"
@@ -190,7 +192,7 @@ fi
 
 if [[ "$STAGE" == 1 && " $DEMOS " == *" 2 "* ]]; then
   offering l4-demo-2
-  wire 16 17
+  wire 16
 
   # The allowlist's cap is per investor per month across offerings, and A
   # used 3,000 USDC of room in l4-demo-1: the cap goes to 4,000 so that
@@ -242,5 +244,3 @@ if [[ "$STAGE" == 2 ]]; then
   step "l4-demo-1 after stage 2"
   balances
 fi
-
-case "$STAGE" in 1|2) ;; *) echo "STAGE must be 1 or 2" >&2; exit 1 ;; esac

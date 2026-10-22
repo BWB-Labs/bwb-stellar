@@ -1,7 +1,7 @@
 //! Every transition of the lifecycle, and every call that a state refuses.
 use soroban_sdk::{testutils::Address as _, Address};
 
-use super::{code, err, setup, setup_preparing, PRICE, SUPPLY};
+use super::{err, sale_role, setup, setup_preparing, PRICE, SUPPLY};
 use crate::{OfferSaleError, SaleState};
 
 #[test]
@@ -33,8 +33,7 @@ fn activate_without_the_whole_supply_fails_with_inventory_missing() {
 #[test]
 fn activate_without_the_sale_role_fails_with_not_sale() {
     let s = setup_preparing();
-    s.allowlist
-        .revoke_role(&s.id, &soroban_sdk::Symbol::new(&s.e, "sale"), &s.hot_key);
+    s.allowlist.revoke_role(&s.id, &sale_role(&s.e), &s.hot_key);
     assert_eq!(err(s.client.try_activate()), OfferSaleError::NotSale.into());
 }
 
@@ -369,5 +368,4 @@ fn a_refund_below_the_minimum_leaves_closing_and_the_owner_decides() {
     s.past_cooling_off();
     s.client.finalize();
     assert_eq!(s.client.state(), SaleState::Successful);
-    assert_eq!(code(6225), OfferSaleError::NotOpen.into());
 }

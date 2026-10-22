@@ -85,7 +85,7 @@ Read functions:
 
 - SEP-41: `balance`, `allowance`, `decimals` (always 0), `name`, `symbol`, `total_supply`;
 - whitelist and metadata: `is_transfer_whitelisted(account)` (when submitted rather than simulated, it also extends the entry's lifetime), `offer_uri`;
-- state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `initial_holder`, `schema_version` (1).
+- state and powers: `paused`, `admin`, `xfer_admin`, `pauser`, `upgrader`, `initial_holder` (void on a token constructed before 0.2.0, where nobody may burn), `schema_version` (1).
 
 The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
 

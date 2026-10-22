@@ -27,8 +27,7 @@ pub enum OfferSaleError {
     ExceedsSupply = 6207,
     /// No payment arrived for a purchase.
     NothingReceived = 6209,
-    /// `cooling_off_refund` with no purchase still inside its window, or
-    /// outside Active and Closing.
+    /// `cooling_off_refund` with no purchase still inside its window.
     CoolingOffClosed = 6212,
     /// `cooling_off_refund` by an investor with nothing reserved.
     NothingReserved = 6213,

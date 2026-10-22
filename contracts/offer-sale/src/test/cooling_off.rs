@@ -1,5 +1,7 @@
 //! The investor's right to undo a purchase: per purchase, whole purchases,
 //! while the offering is Active or Closing, never after it is decided.
+use soroban_sdk::testutils::Ledger as _;
+
 use super::{err, setup, COOLING_OFF, PRICE, SUPPLY};
 use crate::{OfferSaleError, SaleState};
 
@@ -34,6 +36,25 @@ fn only_purchases_still_in_their_window_come_back() {
     assert!(s.allowlist.receipt(&s.id, &s.alice, &second).is_none());
     assert_eq!(s.client.totals().sold_tokens, 10);
     assert_eq!(s.usdc.balance(&s.alice), (SUPPLY - 10) * PRICE);
+}
+
+/// Story 7: a purchase charged to September, undone in October, gives
+/// September's room back and leaves October's alone.
+#[test]
+fn a_refund_across_a_month_boundary_restores_the_month_charged() {
+    let s = setup();
+    // T0 is 2026-10-15; go back to 2026-09-28 for the purchase.
+    s.e.ledger().set_timestamp(super::T0 - 17 * 86_400);
+    s.buy(&s.alice, 10);
+    let september = s.allowlist.current_period();
+    s.advance(4 * 86_400);
+    let october = s.allowlist.current_period();
+    assert_eq!(october, september + 1);
+    s.buy(&s.alice, 5);
+    s.client.cooling_off_refund(&s.alice);
+    assert_eq!(s.allowlist.usage(&s.alice, &september), 0);
+    assert_eq!(s.allowlist.usage(&s.alice, &october), 0);
+    assert!(s.client.reservation(&s.alice).is_none());
 }
 
 #[test]

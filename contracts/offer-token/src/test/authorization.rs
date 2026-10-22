@@ -149,7 +149,7 @@ fn the_initial_holder_burns_as_the_direct_caller_with_no_auth_entry() {
     let client = OfferTokenClient::new(&e, &id);
     assert_eq!(client.total_supply(), SUPPLY - 250);
     assert_eq!(client.balance(&p.sale), SUPPLY - 250);
-    assert_eq!(client.initial_holder(), p.sale);
+    assert_eq!(client.initial_holder(), Some(p.sale));
 }
 
 #[test]

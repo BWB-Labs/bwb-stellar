@@ -22,9 +22,10 @@ pub enum OfferAllowlistError {
     InvalidAmount = 6102,
     /// `restore` names a receipt the caller does not hold for that
     /// investor: never issued, already restored, or repeated in the same
-    /// list; or the caller never sold to the investor. Another sale
-    /// contract's receipts live under another key, so they are never found
-    /// either.
+    /// list; or the caller never sold to the investor. `restore_all` for an
+    /// investor the caller never sold to, or whose book is already empty (a
+    /// double refund). Another sale contract's receipts live under another
+    /// key, so they are never found either.
     ReceiptNotFound = 6103,
     /// More than `MAX_BATCH` entries in `set_allocations`, or more than
     /// `MAX_RESTORE` receipts in `restore`.

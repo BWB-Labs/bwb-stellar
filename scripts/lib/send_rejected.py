@@ -11,7 +11,7 @@ it fails with the contract's error, and the fee is still charged.
 
     stellar contract invoke --build-only ... | \\
       scripts/lib/send_rejected.py --network testnet --source <identity> \\
-        --wasm-hash <hex> --expect <code> [--key '<ScVal json>' ...]
+        --wasm-hash <hex> --expect <code> [--key '<ScVal json>' ...] \\
         [--template-file <simulated envelope>] [--swap G...:G...] \\
         [--payment-sub <asset contract>]
 

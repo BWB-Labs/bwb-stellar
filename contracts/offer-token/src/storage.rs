@@ -98,8 +98,10 @@ pub fn set_initial_holder(e: &Env, holder: &Address) {
     e.storage().instance().set(&DataKey::InitialHolder, holder);
 }
 
-pub fn initial_holder(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::InitialHolder).unwrap()
+/// None on a token constructed before 0.2.0 and upgraded in place: it
+/// stored no holder, so nobody may burn until a migration sets one.
+pub fn initial_holder(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::InitialHolder)
 }
 
 /// Requires `caller`'s signature and that it is one of the stored holders

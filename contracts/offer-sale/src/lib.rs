@@ -45,10 +45,10 @@ use stellar_macros::when_not_paused;
 
 use crate::allowlist::AllowlistClient;
 pub use crate::errors::OfferSaleError;
-use crate::events::PaymentWithdrawn;
 use crate::events::{
-    Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged, Purchased,
-    Refunded, Released, Reopened, StateChanged, TokensWithdrawn, Upgraded,
+    Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged,
+    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, StateChanged, TokensWithdrawn,
+    Upgraded,
 };
 use crate::offer_token::OfferTokenSupplyClient;
 pub use crate::types::{
@@ -84,7 +84,7 @@ pub const MAX_REFUND: u32 = 16;
 
 /// The event budget of one `refund`, in units of one `allocation_restored`
 /// (292 B, the largest event in the call): an investor costs 2 (payment
-/// `transfer` 244 B + `refunded` ≈ 300 B ≤ 2 × 292) and each live purchase
+/// `transfer` 244 B + `refunded` 296 B ≤ 2 × 292) and each live purchase
 /// 1. At 48 units the call emits at most 14,016 B, 86% of the limit.
 pub const REFUND_UNITS: u32 = 48;
 const UNITS_PER_INVESTOR: u32 = 2;
@@ -147,8 +147,8 @@ impl OfferSale {
     /// Opens buying. Anyone may call it: it only checks facts. The sale
     /// contract must hold the token's whole supply (6204) and `sale` on the
     /// allowlist (6219), so it runs after the token's deploy and the role
-    /// grant. The supply is kept as the tokens for sale. Emits `activated`
-    /// and `state_changed`.
+    /// grant. The supply is kept as the tokens for sale. Emits
+    /// `state_changed`, then `activated`.
     pub fn activate(e: &Env) {
         assert_state(e, SaleState::Preparing, OfferSaleError::NotPreparing);
         let contracts = storage::contracts(e);
@@ -186,8 +186,8 @@ impl OfferSale {
     /// allowlist's `allocation_consumed` and the payment's `transfer`.
     #[when_not_paused]
     pub fn buy(e: &Env, investor: Address, amount: i128) {
-        assert_state(e, SaleState::Active, OfferSaleError::NotActive);
         investor.require_auth();
+        assert_state(e, SaleState::Active, OfferSaleError::NotActive);
         let config = storage::config(e);
         if amount <= 0 {
             panic_with_error!(e, OfferSaleError::NonPositiveAmount);
@@ -266,7 +266,7 @@ impl OfferSale {
 
     /// Opens buying again from Closing, so a refund that dropped the
     /// offering below its minimum need not fail it. Owner only. Emits
-    /// `reopened` and `state_changed`.
+    /// `state_changed`, then `reopened`.
     pub fn reopen(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
@@ -280,8 +280,8 @@ impl OfferSale {
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
-    /// (6225 once decided): everyone is then refunded. Emits `cancelled`
-    /// and `state_changed`.
+    /// (6225 once decided): everyone is then refunded. Emits
+    /// `state_changed`, then `cancelled`.
     pub fn cancel(e: &Env, caller: Address) {
         require_owner(e, &caller);
         let from = require_open(e);
@@ -348,8 +348,7 @@ impl OfferSale {
     /// `cooling_off`, after the allowlist's `allocation_restored` events
     /// and the payment's `transfer`.
     pub fn cooling_off_refund(e: &Env, investor: Address) {
-        let state = require_open(e);
-        let _ = state;
+        require_open(e);
         investor.require_auth();
         let Some(mut reservation) = storage::reservation(e, &investor) else {
             panic_with_error!(e, OfferSaleError::NothingReserved);
@@ -451,6 +450,7 @@ impl OfferSale {
         let me = e.current_contract_address();
         let allowlist = AllowlistClient::new(e, &contracts.allowlist);
         let payment = token::TokenClient::new(e, &contracts.payment_asset);
+        let mut totals = storage::totals(e);
         for investor in investors.iter() {
             let Some(reservation) = storage::reservation(e, &investor) else {
                 continue;
@@ -458,7 +458,8 @@ impl OfferSale {
             allowlist.restore_all(&investor, &me);
             payment.transfer(&me, &investor, &reservation.paid);
             storage::remove_reservation(e, &investor);
-            let totals = lower_totals(e, reservation.tokens, reservation.paid);
+            totals.sold_tokens -= reservation.tokens;
+            totals.raised -= reservation.paid;
             Refunded {
                 investor,
                 paid: reservation.paid,
@@ -469,6 +470,7 @@ impl OfferSale {
             }
             .publish(e);
         }
+        storage::set_totals(e, &totals);
         storage::extend_instance_ttl(e);
     }
 

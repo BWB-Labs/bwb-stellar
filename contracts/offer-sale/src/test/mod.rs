@@ -20,7 +20,7 @@ mod upgrade;
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    testutils::{Address as _, Ledger as _},
+    testutils::{Address as _, IssuerFlags, Ledger as _},
     token::{StellarAssetClient, TokenClient},
     vec, Address, Env, InvokeError, String, Symbol, Vec,
 };
@@ -79,7 +79,10 @@ pub fn setup_preparing<'a>() -> Setup<'a> {
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
 
-    let usdc_id = e.register_stellar_asset_contract_v2(issuer).address();
+    // Revocable, like Circle's USDC: the issuer can freeze a balance.
+    let usdc = e.register_stellar_asset_contract_v2(issuer);
+    usdc.issuer().set_flag(IssuerFlags::RevocableFlag);
+    let usdc_id = usdc.address();
     let allowlist_id = e.register(
         OfferAllowlist,
         (platform.clone(), vec![&e, hot_key.clone()]),
@@ -122,7 +125,7 @@ pub fn setup_preparing<'a>() -> Setup<'a> {
         ),
     );
     let allowlist = OfferAllowlistClient::new(&e, &allowlist_id);
-    allowlist.grant_role(&sale_id, &Symbol::new(&e, "sale"), &hot_key);
+    allowlist.grant_role(&sale_id, &sale_role(&e), &hot_key);
     Setup {
         client: OfferSaleClient::new(&e, &sale_id),
         token: OfferTokenClient::new(&e, &token_id),
@@ -149,6 +152,11 @@ pub fn setup<'a>() -> Setup<'a> {
         s.fund(who, SUPPLY * PRICE);
     }
     s
+}
+
+/// The allowlist's `sale` role, as the allowlist names it.
+pub fn sale_role(e: &Env) -> Symbol {
+    Symbol::new(e, offer_allowlist::SALE)
 }
 
 pub fn config() -> SaleConfig {

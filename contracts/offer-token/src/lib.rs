@@ -159,13 +159,14 @@ impl OfferToken {
     /// Destroys `amount` of `from`'s own balance, lowering the supply. Only
     /// the initial holder (the sale contract) may, so the unsold quotas of a
     /// successful offering cease to exist while no investor can burn a
-    /// security; everyone else fails with `BurnDisabled`. `from` authorizes,
-    /// which the sale contract does as the direct caller. Blocked by pause
-    /// like a transfer. Emits OpenZeppelin's `burn`.
+    /// security; everyone else fails with `BurnDisabled`, as does everyone
+    /// on a token constructed before 0.2.0, which stored no holder. `from`
+    /// authorizes, which the sale contract does as the direct caller.
+    /// Blocked by pause like a transfer. Emits OpenZeppelin's `burn`.
     #[when_not_paused]
     pub fn burn(e: &Env, from: Address, amount: i128) {
         from.require_auth();
-        if from != storage::initial_holder(e) {
+        if storage::initial_holder(e).as_ref() != Some(&from) {
             panic_with_error!(e, OfferTokenError::BurnDisabled);
         }
         Base::update(e, Some(&from), None, amount);
@@ -207,7 +208,8 @@ impl OfferToken {
     }
 
     /// The account the supply was minted to, the only one that may burn.
-    pub fn initial_holder(e: &Env) -> Address {
+    /// Void on a token constructed before 0.2.0.
+    pub fn initial_holder(e: &Env) -> Option<Address> {
         storage::initial_holder(e)
     }
 

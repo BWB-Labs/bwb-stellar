@@ -2,7 +2,7 @@
 //! its code: the constructor's limits, the codes the allowlist and the
 //! payment asset surface through `buy`, and the payout checks. The other
 //! 62xx codes are reached by the module that owns the rule.
-use soroban_sdk::{testutils::Address as _, Address, Env};
+use soroban_sdk::{testutils::Address as _, Address};
 
 use super::{config, err, setup, setup_preparing, Setup, PRICE, SUPPLY};
 use crate::{Contracts, OfferSale, OfferSaleError, PowerHolders, SaleConfig};
@@ -97,7 +97,6 @@ fn the_limits_themselves_are_accepted() {
             ..config()
         },
     );
-    let _: &Env = &s.e;
 }
 
 #[test]
@@ -157,6 +156,28 @@ fn a_token_withdrawal_must_be_positive_and_within_the_balance() {
             .try_withdraw_tokens(&s.owner, &(SUPPLY + 1), &s.owner)),
         super::code(100)
     );
+}
+
+/// Story 35: an investor whose payment-asset balance the issuer froze
+/// fails the whole batch, so nobody in it is half served; the backend
+/// leaves them out and retries the rest.
+#[test]
+fn a_frozen_balance_in_a_refund_batch_reverts_the_batch() {
+    let s = setup();
+    s.buy(&s.alice, 10);
+    s.buy(&s.bob, 10);
+    s.client.cancel(&s.owner);
+    s.usdc_admin.set_authorized(&s.alice, &false);
+    assert!(s
+        .client
+        .try_refund(&s.investors(&[&s.bob, &s.alice]))
+        .is_err());
+    assert_eq!(s.usdc.balance(&s.bob), (SUPPLY - 10) * PRICE);
+    assert!(s.client.reservation(&s.bob).is_some());
+    s.usdc_admin.set_authorized(&s.alice, &true);
+    s.client.refund(&s.investors(&[&s.bob, &s.alice]));
+    assert_eq!(s.usdc.balance(&s.bob), SUPPLY * PRICE);
+    assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
 }
 
 /// A refund batch moves money and receipts together for every investor
