@@ -29,13 +29,12 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 |---|---|---|---|
 | `offer-token` | `OfferERC20` | Investor position in one offering; transfer whitelist, pause, admin transfer, metadata ([docs](docs/offer-token.md)) | 1 |
 | `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much, per UTC month; one global instance ([docs](docs/offer-allowlist.md)) | 1 |
-| `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, finalize, cancel, cooling-off, refund, release | 1 |
+| `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, close, finalize, cancel, cooling-off, refund, release ([docs](docs/offer-sale.md)) | 1 |
 
-`offer-token-upgrade-fixture` and `offer-allowlist-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are
-test-only second versions of the token and the allowlist, used by their upgrade tests. They are never deployed.
+`offer-token-upgrade-fixture`, `offer-allowlist-upgrade-fixture` and `offer-sale-upgrade-fixture` (each under its crate's
+`upgrade-fixture/`) are test-only second versions of the contracts, used by their upgrade tests. They are never deployed.
 
-Distributors and factories follow in Tranche 2. Each contract has a document in
-`docs/` once it lands.
+Distributors and factories follow in Tranche 2.
 
 ### Testnet
 
@@ -65,9 +64,9 @@ stellar contract build          # WASM to target/wasm32v1-none/release/
 ```
 
 CI runs exactly these four commands on every pull request. Run the tests through
-`scripts/test.sh`: the upgrade tests of `offer-token` and `offer-allowlist` swap
-to second WASMs that only the Stellar CLI builds. A plain `cargo test` before
-that fails one test per crate with a hint saying so.
+`scripts/test.sh`: the upgrade tests of the three contracts swap to second
+WASMs that only the Stellar CLI builds. A plain `cargo test` before that fails
+one test per crate with a hint saying so.
 
 ## Deploy
 
@@ -78,7 +77,14 @@ NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer
   --power_holders '{"admin":"G...","xfer_admin":"G...","pauser":"G...","upgrader":"G..."}' \
   --metadata '{"name":"...","symbol":"...","offer_uri":"ipfs://..."}' \
   --supply 1000 --initial_holder <sale address> --whitelist '[]'
+NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-sale -- \
+  --power_holders '{"owner":"G...","pauser":"G...","upgrader":"G..."}' \
+  --contracts '{"token":"<token address>","payment_asset":"<USDC contract>","allowlist":"<allowlist>"}' \
+  --config '{"price":"100000000","cooling_off_secs":432000,"min_success_percent":75}'
 ```
+
+The sale contract is then granted `sale` on the allowlist by an allocator and
+activated by anyone (both in `scripts/demo-offer-sale.sh`).
 
 The global allowlist takes no `OFFERING`; its admin and initial allocators are
 constructor arguments:

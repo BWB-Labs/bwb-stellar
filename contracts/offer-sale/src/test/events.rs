@@ -348,18 +348,28 @@ fn event_sizes_match_the_interface_document() {
         raised: 1,
         sold_tokens: 1,
     };
+    let failed = Refunded {
+        investor: s.alice.clone(),
+        paid: 1,
+        tokens: 1,
+        reason: sym(&s.e, "failed"),
+        raised: 1,
+        sold_tokens: 1,
+    };
     let sizes = (
         size(released.to_xdr(&s.e, &s.id)),
         size(refunded.to_xdr(&s.e, &s.id)),
+        size(failed.to_xdr(&s.e, &s.id)),
         size(leg.to_xdr(&s.e, &s.id)),
         size(purchased.to_xdr(&s.e, &s.id)),
     );
     std::println!(
-        "released {} B, refunded {} B, payment_withdrawn {} B, purchased {} B",
+        "released {} B, refunded {} B (cooling_off) / {} B (failed), payment_withdrawn {} B, purchased {} B",
         sizes.0,
         sizes.1,
         sizes.2,
-        sizes.3
+        sizes.3,
+        sizes.4
     );
-    assert_eq!(sizes, (188, 300, 168, 404));
+    assert_eq!(sizes, (188, 300, 296, 168, 404));
 }
