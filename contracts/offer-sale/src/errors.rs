@@ -60,4 +60,11 @@ pub enum OfferSaleError {
     /// `cancel` or `cooling_off_refund` once the offering is decided
     /// (Successful or Failed), or before it is activated.
     NotOpen = 6225,
+    /// A `withdraw_payment` leg paid to the sale contract itself: it would
+    /// move nothing but count as withdrawn.
+    InvalidRecipient = 6226,
+    /// `activate` against a token whose initial holder is not this sale
+    /// contract, or that stores none (a token older than 0.2.0): it could
+    /// never burn the unsold tokens at finalize.
+    NotInitialHolder = 6227,
 }

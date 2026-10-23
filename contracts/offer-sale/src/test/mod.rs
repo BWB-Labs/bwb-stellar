@@ -39,6 +39,10 @@ pub const MIN_PERCENT: u32 = 75;
 /// 2026-10-15 00:00 UTC: mid-month, so a purchase and its refund fall in
 /// the same allowlist period unless a test moves the clock on purpose.
 pub const T0: u64 = 1_792_108_800;
+/// What `successful()` has alice buy: exactly the minimum.
+pub const SUCCESS_TOKENS: i128 = 750;
+/// What `failed()` has alice buy before the owner cancels.
+pub const FAILED_TOKENS: i128 = 100;
 
 /// One deployed offering: the sale beside the real allowlist and token and
 /// a SAC as the payment asset, every party a distinct account. Auths are
@@ -213,7 +217,7 @@ impl Setup<'_> {
     /// Alice buys the minimum, the owner closes, the windows run out and
     /// the offering is finalized Successful.
     pub fn successful(&self) {
-        self.buy(&self.alice, 750);
+        self.buy(&self.alice, SUCCESS_TOKENS);
         self.client.close(&self.owner);
         self.past_cooling_off();
         self.client.finalize();
@@ -222,7 +226,7 @@ impl Setup<'_> {
 
     /// Alice buys, the owner cancels: Failed with one reservation open.
     pub fn failed(&self) {
-        self.buy(&self.alice, 100);
+        self.buy(&self.alice, FAILED_TOKENS);
         self.client.cancel(&self.owner);
         assert_eq!(self.client.state(), SaleState::Failed);
     }
@@ -289,12 +293,10 @@ impl FeeToken {
 }
 
 /// An offering paid in `FeeToken`, activated, alice allowed and funded.
-pub fn setup_with_fee_token<'a>() -> (Setup<'a>, FeeTokenClient<'a>) {
-    let s = setup_preparing();
-    let fee_id = s.e.register(FeeToken, ());
-    let fee = FeeTokenClient::new(&s.e, &fee_id);
-    // The sale's payment asset is fixed at construction, so the sale is
-    // re-registered at the same address with the fee token in its place.
+/// The sale's payment asset is fixed at construction, so the sale is
+/// re-registered at the same address with `payment_asset` in its place,
+/// then activated, with alice allowed twice the supply's worth.
+fn sale_paid_in(s: &Setup, payment_asset: &Address) {
     let contracts = s.client.contracts();
     s.e.register_at(
         &s.id,
@@ -303,16 +305,56 @@ pub fn setup_with_fee_token<'a>() -> (Setup<'a>, FeeTokenClient<'a>) {
             s.client.powers(),
             Contracts {
                 token: contracts.token,
-                payment_asset: fee_id.clone(),
+                payment_asset: payment_asset.clone(),
                 allowlist: contracts.allowlist,
             },
             config(),
         ),
     );
     s.client.activate();
-    s.allow(&s.alice, SUPPLY * PRICE);
+    s.allow(&s.alice, 2 * SUPPLY * PRICE);
+}
+
+/// An offering paid in `FeeToken`, activated, alice allowed and funded.
+pub fn setup_with_fee_token<'a>() -> (Setup<'a>, FeeTokenClient<'a>) {
+    let s = setup_preparing();
+    let fee_id = s.e.register(FeeToken, ());
+    let fee = FeeTokenClient::new(&s.e, &fee_id);
+    sale_paid_in(&s, &fee_id);
     fee.mint(&s.alice, &(SUPPLY * PRICE));
     (s, fee)
+}
+
+/// A payment asset that credits the recipient twice what the sender
+/// paid: the case the sale's supply check must hold against.
+#[contract]
+pub struct BonusToken;
+
+#[contractimpl]
+impl BonusToken {
+    pub fn mint(e: &Env, to: Address, amount: i128) {
+        set_fee_balance(e, &to, fee_balance(e, &to) + amount);
+    }
+
+    pub fn balance(e: &Env, id: Address) -> i128 {
+        fee_balance(e, &id)
+    }
+
+    pub fn transfer(e: &Env, from: Address, to: Address, amount: i128) {
+        from.require_auth();
+        set_fee_balance(e, &from, fee_balance(e, &from) - amount);
+        set_fee_balance(e, &to, fee_balance(e, &to) + 2 * amount);
+    }
+}
+
+/// An offering paid in `BonusToken`, activated, alice allowed and funded.
+pub fn setup_with_bonus_token<'a>() -> (Setup<'a>, BonusTokenClient<'a>) {
+    let s = setup_preparing();
+    let id = s.e.register(BonusToken, ());
+    let bonus = BonusTokenClient::new(&s.e, &id);
+    sale_paid_in(&s, &id);
+    bonus.mint(&s.alice, &(SUPPLY * PRICE));
+    (s, bonus)
 }
 
 /// What a client's `try_` call returns.

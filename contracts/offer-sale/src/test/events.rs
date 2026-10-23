@@ -8,7 +8,8 @@ use soroban_sdk::{
 use super::{setup, setup_preparing, PRICE, SUPPLY, T0};
 use crate::events::{
     Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged,
-    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, StateChanged, TokensWithdrawn,
+    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, RestoreSkipped, StateChanged,
+    TokensWithdrawn,
 };
 
 extern crate std;
@@ -403,4 +404,32 @@ fn event_sizes_match_the_interface_document() {
         sizes.4
     );
     assert_eq!(sizes, (188, 300, 296, 168, 404));
+}
+
+/// When the allowlist refuses the restore, the refund still pays, and
+/// `restore_skipped` tells the backend which room to repair.
+#[test]
+fn a_refused_restore_emits_restore_skipped_before_refunded() {
+    let s = setup();
+    s.buy(&s.alice, 10);
+    s.buy(&s.alice, 5);
+    s.client.cancel(&s.owner);
+    s.allowlist.restore_all(&s.alice, &s.id);
+    s.client.refund(&s.investors(&[&s.alice]));
+    let skipped = RestoreSkipped {
+        investor: s.alice.clone(),
+        purchases: 2,
+    };
+    let refunded = Refunded {
+        investor: s.alice.clone(),
+        paid: 15 * PRICE,
+        tokens: 15,
+        reason: sym(&s.e, "failed"),
+        raised: 0,
+        sold_tokens: 0,
+    };
+    assert_eq!(
+        emitted(&s.e, &s.id),
+        [skipped.to_xdr(&s.e, &s.id), refunded.to_xdr(&s.e, &s.id)]
+    );
 }

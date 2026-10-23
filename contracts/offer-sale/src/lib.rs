@@ -48,8 +48,9 @@ use crate::allowlist::AllowlistClient;
 pub use crate::errors::OfferSaleError;
 use crate::events::{
     Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged,
-    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, StateChanged, TokensWithdrawn,
-    Upgraded,
+    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, RestoreSkipped, StateChanged,
+    TokensWithdrawn, Upgraded, REASON_BELOW_MINIMUM, REASON_COOLING_OFF, REASON_FAILED,
+    REASON_OWNER, REASON_SOLD_OUT,
 };
 use crate::offer_token::OfferTokenSupplyClient;
 pub use crate::types::{
@@ -68,6 +69,12 @@ const SALE_ROLE: &str = "sale";
 /// Shortest cooling-off window the constructor accepts: one day. Base's
 /// factory enforced the same; its offerings use 5 days.
 pub const MIN_COOLING_OFF_SECS: u64 = 86_400;
+
+/// Longest cooling-off window the constructor accepts: one year. Only a
+/// guard against a wrong unit or an extra digit at deploy (5 days written
+/// in milliseconds is about 13.7 years); window arithmetic also saturates,
+/// so no value can make a call trap.
+pub const MAX_COOLING_OFF_SECS: u64 = 365 * 86_400;
 
 /// Most live purchases one investor may hold in one offering. A failed
 /// offering refunds the investor whole, one `allocation_restored` (292 B)
@@ -100,7 +107,7 @@ pub struct OfferSale;
 #[contractimpl]
 impl OfferSale {
     /// Sets the three powers, the contracts and the terms. `price` must be
-    /// positive, `cooling_off_secs` at least one day and
+    /// positive, `cooling_off_secs` between one day and one year and
     /// `min_success_percent` between 10 and 100 (6216). Starts in
     /// Preparing. Emits `configured`.
     pub fn __constructor(
@@ -110,7 +117,7 @@ impl OfferSale {
         config: SaleConfig,
     ) {
         if config.price <= 0
-            || config.cooling_off_secs < MIN_COOLING_OFF_SECS
+            || !(MIN_COOLING_OFF_SECS..=MAX_COOLING_OFF_SECS).contains(&config.cooling_off_secs)
             || !(10..=100).contains(&config.min_success_percent)
         {
             panic_with_error!(e, OfferSaleError::InvalidConfig);
@@ -146,7 +153,8 @@ impl OfferSale {
     }
 
     /// Opens buying. Anyone may call it: it only checks facts. The sale
-    /// contract must hold the token's whole supply (6204) and `sale` on the
+    /// contract must be the token's initial holder (6227), so it can burn
+    /// at finalize, hold the token's whole supply (6204) and `sale` on the
     /// allowlist (6219), so it runs after the token's deploy and the role
     /// grant. The supply is kept as the tokens for sale. Emits
     /// `state_changed`, then `activated`.
@@ -155,7 +163,13 @@ impl OfferSale {
         let contracts = storage::contracts(e);
         let me = e.current_contract_address();
         let token = token::TokenClient::new(e, &contracts.token);
-        let supply = OfferTokenSupplyClient::new(e, &contracts.token).total_supply();
+        let offer_token = OfferTokenSupplyClient::new(e, &contracts.token);
+        // A token older than 0.2.0 fails the call or returns void: either
+        // way it could never burn for this sale.
+        if !matches!(offer_token.try_initial_holder(), Ok(Ok(Some(holder))) if holder == me) {
+            panic_with_error!(e, OfferSaleError::NotInitialHolder);
+        }
+        let supply = offer_token.total_supply();
         if supply <= 0 || token.balance(&me) != supply {
             panic_with_error!(e, OfferSaleError::InventoryMissing);
         }
@@ -220,6 +234,11 @@ impl OfferSale {
             panic_with_error!(e, OfferSaleError::NotWholeTokens);
         }
         let tokens = received / config.price;
+        // Checked again on what arrived: an asset that credits more than it
+        // took must not reserve tokens that don't exist.
+        if tokens > totals.supply - totals.sold_tokens {
+            panic_with_error!(e, OfferSaleError::ExceedsSupply);
+        }
 
         let receipt =
             AllowlistClient::new(e, &contracts.allowlist).consume(&investor, &received, &me);
@@ -253,7 +272,7 @@ impl OfferSale {
         }
         .publish(e);
         if totals.sold_tokens == totals.supply {
-            close_with(e, &totals, "sold_out");
+            close_with(e, &totals, REASON_SOLD_OUT);
         }
     }
 
@@ -262,7 +281,7 @@ impl OfferSale {
     pub fn close(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Active, OfferSaleError::NotActive);
-        close_with(e, &storage::totals(e), "owner");
+        close_with(e, &storage::totals(e), REASON_OWNER);
     }
 
     /// Opens buying again from Closing, so a refund that dropped the
@@ -271,11 +290,13 @@ impl OfferSale {
     pub fn reopen(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
-        reopen_with(e, &storage::totals(e), "owner");
+        reopen_with(e, &storage::totals(e), REASON_OWNER);
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
-    /// (6225 once decided): everyone is then refunded. Emits
+    /// (6225 once decided): everyone is then refunded. It stays possible
+    /// until `finalize` lands, even once the minimum held, so the backend
+    /// submits `finalize` at `finalizable_at`. Emits
     /// `state_changed`, then `cancelled`.
     pub fn cancel(e: &Env, caller: Address) {
         require_owner(e, &caller);
@@ -299,7 +320,7 @@ impl OfferSale {
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
         let config = storage::config(e);
         let last = storage::last_purchase_at(e);
-        if e.ledger().timestamp() <= last + config.cooling_off_secs {
+        if e.ledger().timestamp() <= last.saturating_add(config.cooling_off_secs) {
             panic_with_error!(e, OfferSaleError::CoolingOffOpen);
         }
         let totals = storage::totals(e);
@@ -336,7 +357,9 @@ impl OfferSale {
     /// window, whole purchases only, while Active or Closing (6225). No
     /// reservation (6213) or no purchase still open (6212) fails. The
     /// receipts go back to the allowlist in one call, the payment goes
-    /// back, and the totals fall; the reservation ends when nothing is
+    /// back, and the totals fall; if the allowlist refuses the restore, the
+    /// money still goes back and `restore_skipped` records the receipts
+    /// left charged; the reservation ends when nothing is
     /// left. The investor authorizes. In Closing, a refund that leaves the
     /// offering below its minimum moves it back to Active, so buying resumes
     /// while there is still time to sell. Emits `refunded` with reason
@@ -354,9 +377,8 @@ impl OfferSale {
         let now = e.ledger().timestamp();
         let mut receipts: Vec<u32> = Vec::new(e);
         let (mut tokens, mut paid) = (0i128, 0i128);
-        for number in reservation.purchases.keys().iter() {
-            let purchase = reservation.purchases.get_unchecked(number);
-            if now <= purchase.at + window {
+        for (number, purchase) in reservation.purchases.iter() {
+            if now <= purchase.at.saturating_add(window) {
                 receipts.push_back(number);
                 tokens += purchase.tokens;
                 paid += purchase.paid;
@@ -372,7 +394,16 @@ impl OfferSale {
         reservation.paid -= paid;
         let contracts = storage::contracts(e);
         let me = e.current_contract_address();
-        AllowlistClient::new(e, &contracts.allowlist).restore(&investor, &receipts, &me);
+        let restored = AllowlistClient::new(e, &contracts.allowlist)
+            .try_restore(&investor, &receipts, &me)
+            .is_ok_and(|r| r.is_ok());
+        if !restored {
+            RestoreSkipped {
+                investor: investor.clone(),
+                purchases: receipts.len(),
+            }
+            .publish(e);
+        }
         token::TokenClient::new(e, &contracts.payment_asset).transfer(&me, &investor, &paid);
         storage::set_reservation(e, &investor, &reservation);
         let totals = lower_totals(e, tokens, paid);
@@ -381,13 +412,13 @@ impl OfferSale {
             investor,
             paid,
             tokens,
-            reason: Symbol::new(e, "cooling_off"),
+            reason: Symbol::new(e, REASON_COOLING_OFF),
             raised: totals.raised,
             sold_tokens: totals.sold_tokens,
         }
         .publish(e);
         if state == SaleState::Closing && !meets_minimum(&totals, &config) {
-            reopen_with(e, &totals, "below_minimum");
+            reopen_with(e, &totals, REASON_BELOW_MINIMUM);
         }
     }
 
@@ -427,9 +458,11 @@ impl OfferSale {
     /// receipts back to the allowlist, in Failed (6203). Anyone may call
     /// it. At most `MAX_REFUND` investors and `REFUND_UNITS` event units
     /// (2 per investor served plus 1 per live purchase), both checked
-    /// before any transfer (6215). An investor with nothing reserved is
-    /// skipped. A payment transfer that fails (a frozen balance, a dropped
-    /// trustline) fails the whole call. Emits `refunded` with reason
+    /// before any transfer (6215). An investor with nothing reserved, or
+    /// listed twice, is skipped and costs nothing. A payment transfer that
+    /// fails (a frozen balance, a dropped trustline) fails the whole call;
+    /// an allowlist that refuses the restore does not: the money still goes
+    /// back and `restore_skipped` records the receipts left charged. Emits `refunded` with reason
     /// `failed` per investor served, after the allowlist's
     /// `allocation_restored` events and the payment's `transfer`.
     pub fn refund(e: &Env, investors: Vec<Address>) {
@@ -437,10 +470,19 @@ impl OfferSale {
         if investors.len() > MAX_REFUND {
             panic_with_error!(e, OfferSaleError::BatchTooLarge);
         }
+        // Each reservation is read once, and a repeated investor is served
+        // and counted once.
+        let mut served: Vec<(Address, Reservation)> = Vec::new(e);
+        let mut seen: Vec<Address> = Vec::new(e);
         let mut units = 0u32;
         for investor in investors.iter() {
+            if seen.contains(&investor) {
+                continue;
+            }
+            seen.push_back(investor.clone());
             if let Some(reservation) = storage::reservation(e, &investor) {
                 units += UNITS_PER_INVESTOR + reservation.purchases.len();
+                served.push_back((investor, reservation));
             }
         }
         if units > REFUND_UNITS {
@@ -451,11 +493,17 @@ impl OfferSale {
         let allowlist = AllowlistClient::new(e, &contracts.allowlist);
         let payment = token::TokenClient::new(e, &contracts.payment_asset);
         let mut totals = storage::totals(e);
-        for investor in investors.iter() {
-            let Some(reservation) = storage::reservation(e, &investor) else {
-                continue;
-            };
-            allowlist.restore_all(&investor, &me);
+        for (investor, reservation) in served.iter() {
+            if !allowlist
+                .try_restore_all(&investor, &me)
+                .is_ok_and(|r| r.is_ok())
+            {
+                RestoreSkipped {
+                    investor: investor.clone(),
+                    purchases: reservation.purchases.len(),
+                }
+                .publish(e);
+            }
             payment.transfer(&me, &investor, &reservation.paid);
             storage::remove_reservation(e, &investor);
             totals.sold_tokens -= reservation.tokens;
@@ -464,7 +512,7 @@ impl OfferSale {
                 investor,
                 paid: reservation.paid,
                 tokens: reservation.tokens,
-                reason: Symbol::new(e, "failed"),
+                reason: Symbol::new(e, REASON_FAILED),
                 raised: totals.raised,
                 sold_tokens: totals.sold_tokens,
             }
@@ -476,7 +524,8 @@ impl OfferSale {
 
     /// Pays every `{recipient, amount}` listed, at most `MAX_PAYOUTS`
     /// (6215), in Successful (6202). Owner only. Each amount must be
-    /// positive (6205) and the total at most `raised − withdrawn` (6218).
+    /// positive (6205), no leg may pay the sale contract itself (6226), and
+    /// the total must be at most `raised − withdrawn` (6218).
     /// Emits `payment_withdrawn` per leg, after each payment `transfer`.
     #[when_not_paused]
     pub fn withdraw_payment(e: &Env, payouts: Vec<Payout>, caller: Address) {
@@ -485,19 +534,25 @@ impl OfferSale {
         if payouts.len() > MAX_PAYOUTS {
             panic_with_error!(e, OfferSaleError::BatchTooLarge);
         }
+        let me = e.current_contract_address();
         let mut total = 0i128;
         for payout in payouts.iter() {
             if payout.amount <= 0 {
                 panic_with_error!(e, OfferSaleError::NonPositiveAmount);
             }
-            total += payout.amount;
+            if payout.recipient == me {
+                panic_with_error!(e, OfferSaleError::InvalidRecipient);
+            }
+            total = match total.checked_add(payout.amount) {
+                Some(sum) => sum,
+                None => panic_with_error!(e, OfferSaleError::ExceedsWithdrawable),
+            };
         }
         let mut totals = storage::totals(e);
         if total > totals.raised - totals.withdrawn {
             panic_with_error!(e, OfferSaleError::ExceedsWithdrawable);
         }
         let payment = token::TokenClient::new(e, &storage::contracts(e).payment_asset);
-        let me = e.current_contract_address();
         for payout in payouts.iter() {
             payment.transfer(&me, &payout.recipient, &payout.amount);
             PaymentWithdrawn {
@@ -554,12 +609,15 @@ impl OfferSale {
 
     /// The ledger time from which `finalize` passes its window check: one
     /// second after the latest purchase's window. 0 before any purchase.
+    /// It counts from the latest purchase even if that purchase was later
+    /// undone by cooling-off, so it can wait longer than needed, never less.
     pub fn finalizable_at(e: &Env) -> u64 {
         let last = storage::last_purchase_at(e);
         if last == 0 {
             return 0;
         }
-        last + storage::config(e).cooling_off_secs + 1
+        last.saturating_add(storage::config(e).cooling_off_secs)
+            .saturating_add(1)
     }
 
     /// `raised − withdrawn` in Successful, else 0.
@@ -571,9 +629,13 @@ impl OfferSale {
         totals.raised - totals.withdrawn
     }
 
-    /// Tokens `amount` of the payment asset buys; fails (6206) when it is
-    /// not an exact multiple of the price.
+    /// Tokens `amount` of the payment asset buys; fails when it is not
+    /// positive (6205) or not an exact multiple of the price (6206), as
+    /// `buy` would.
     pub fn preview_tokens(e: &Env, amount: i128) -> i128 {
+        if amount <= 0 {
+            panic_with_error!(e, OfferSaleError::NonPositiveAmount);
+        }
         let price = storage::config(e).price;
         if amount % price != 0 {
             panic_with_error!(e, OfferSaleError::NotWholeTokens);

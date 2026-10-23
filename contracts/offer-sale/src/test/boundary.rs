@@ -4,7 +4,7 @@
 extern crate std;
 use soroban_sdk::{testutils::Address as _, Address, Vec};
 
-use super::{err, setup, setup_with_fee_token, Setup, PRICE, SUPPLY};
+use super::{err, setup, setup_with_bonus_token, setup_with_fee_token, Setup, PRICE, SUPPLY};
 use crate::{
     OfferSaleError, SaleState, MAX_PAYOUTS, MAX_PURCHASES, MAX_REFUND, MAX_RELEASE, REFUND_UNITS,
 };
@@ -277,4 +277,55 @@ fn a_transfer_that_delivers_nothing_fails_with_nothing_received() {
         err(s.client.try_buy(&s.alice, &1)),
         OfferSaleError::NothingReceived.into()
     );
+}
+
+/// The supply is checked against what arrived, not what was asked: an
+/// asset that credits more than it took can't reserve tokens that don't
+/// exist.
+#[test]
+fn an_asset_that_over_credits_cannot_reserve_past_the_supply() {
+    let (s, _bonus) = setup_with_bonus_token();
+    // 600 tokens asked, 1,200 tokens' worth arrives: over the 1,000 left.
+    assert_eq!(
+        err(s.client.try_buy(&s.alice, &(600 * PRICE))),
+        OfferSaleError::ExceedsSupply.into()
+    );
+    assert_eq!(s.client.totals().sold_tokens, 0);
+    // 400 asked, 800 arrive: fits, and is what gets reserved.
+    s.client.buy(&s.alice, &(400 * PRICE));
+    assert_eq!(s.client.totals().sold_tokens, 800);
+}
+
+/// A cooling-off refund restores all of an investor's live receipts in
+/// one allowlist call, so the sale's cap must fit the allowlist's limit.
+#[test]
+fn the_purchase_cap_fits_one_allowlist_restore() {
+    const { assert!(MAX_PURCHASES <= offer_allowlist::MAX_RESTORE) };
+}
+
+/// An investor listed twice is served once, so they are counted once
+/// against the event budget too.
+#[test]
+fn a_duplicate_in_a_refund_list_is_not_charged_twice() {
+    let s = setup();
+    for _ in 0..20 {
+        s.buy(&s.alice, 1);
+        s.buy(&s.bob, 1);
+    }
+    s.client.cancel(&s.owner);
+    // 22 + 22 = 44 units; counting alice twice would make it 66.
+    s.client.refund(&s.investors(&[&s.alice, &s.bob, &s.alice]));
+    assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
+    assert_eq!(s.usdc.balance(&s.bob), SUPPLY * PRICE);
+}
+
+#[test]
+fn preview_tokens_refuses_a_non_positive_amount() {
+    let s = setup();
+    for amount in [0, -PRICE] {
+        assert_eq!(
+            err(s.client.try_preview_tokens(&amount)),
+            OfferSaleError::NonPositiveAmount.into()
+        );
+    }
 }

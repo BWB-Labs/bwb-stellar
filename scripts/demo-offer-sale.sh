@@ -64,9 +64,14 @@ ok() {
 }
 
 # read <contract> <fn> [args...]: a simulated read, printed.
+# A failed read stops the script with the CLI's error instead of printing
+# an empty value. The value is the CLI's last line of output.
 read_fn() {
   local id="$1"; shift
-  stellar contract invoke --network "$NETWORK" --source bwb-testnet-deployer --id "$id" --send=no -- "$@" 2>/dev/null
+  local out
+  out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-deployer --id "$id" --send=no -- "$@" 2>&1)" \
+    || { echo "read failed: $*" >&2; echo "$out" >&2; exit 1; }
+  printf '%s\n' "$out" | tail -n1
 }
 
 # twin <file> <source> <contract> <fn> [args...]: simulates a passing call
@@ -211,7 +216,8 @@ if [[ "$STAGE" == 1 && " $DEMOS " == *" 2 "* ]]; then
   ok bwb-testnet-deployer "$SALE" refund --investors "[\"$INV_A\"]"
 
   step "22. The owner withdraws the tokens of the failed offering"
-  ok bwb-testnet-treasury "$SALE" withdraw_tokens --to "$TREASURY" --amount 1000 --caller "$TREASURY"
+  held="$(read_fn "$TOKEN" balance --account "$SALE" | tr -d '"')"
+  ok bwb-testnet-treasury "$SALE" withdraw_tokens --to "$TREASURY" --amount "$held" --caller "$TREASURY"
 
   step "l4-demo-2 after stage 1"
   balances

@@ -2,7 +2,7 @@
 //! with the writes.
 use soroban_sdk::testutils::Events as _;
 
-use super::{setup, COOLING_OFF, PRICE, SUPPLY, T0};
+use super::{setup, COOLING_OFF, PRICE, SUCCESS_TOKENS, SUPPLY, T0};
 use crate::SaleState;
 
 #[test]
@@ -10,11 +10,11 @@ fn release_twice_and_with_duplicates_delivers_once() {
     let s = setup();
     s.successful();
     s.client.release(&s.investors(&[&s.alice, &s.alice]));
-    assert_eq!(s.token.balance(&s.alice), 750);
-    assert_eq!(s.client.totals().released_tokens, 750);
+    assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
+    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
     s.client.release(&s.investors(&[&s.alice]));
-    assert_eq!(s.token.balance(&s.alice), 750);
-    assert_eq!(s.client.totals().released_tokens, 750);
+    assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
+    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
     assert!(s
         .e
         .events()
@@ -41,7 +41,7 @@ fn a_never_buyer_is_skipped_by_release_and_refund() {
     s.successful();
     s.client.release(&s.investors(&[&s.bob, &s.alice]));
     assert_eq!(s.token.balance(&s.bob), 0);
-    assert_eq!(s.token.balance(&s.alice), 750);
+    assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
     let s = setup();
     s.failed();
     s.client.refund(&s.investors(&[&s.bob]));

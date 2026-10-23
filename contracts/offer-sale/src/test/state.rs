@@ -1,7 +1,7 @@
 //! Every transition of the lifecycle, and every call that a state refuses.
 use soroban_sdk::{testutils::Address as _, Address};
 
-use super::{err, sale_role, setup, setup_preparing, PRICE, SUPPLY};
+use super::{err, sale_role, setup, setup_preparing, PRICE, SUCCESS_TOKENS, SUPPLY};
 use crate::{OfferSaleError, SaleState};
 
 #[test]
@@ -173,8 +173,8 @@ fn finalize_below_the_minimum_fails_the_offering() {
 fn finalize_burns_the_unsold_tokens() {
     let s = setup();
     s.successful();
-    assert_eq!(s.token.total_supply(), 750);
-    assert_eq!(s.token.balance(&s.id), 750);
+    assert_eq!(s.token.total_supply(), SUCCESS_TOKENS);
+    assert_eq!(s.token.balance(&s.id), SUCCESS_TOKENS);
 }
 
 #[test]
@@ -226,10 +226,10 @@ fn release_delivers_the_tokens_and_ends_the_reservation() {
     let s = setup();
     s.successful();
     s.client.release(&s.investors(&[&s.alice]));
-    assert_eq!(s.token.balance(&s.alice), 750);
+    assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
     assert_eq!(s.token.balance(&s.id), 0);
     assert!(s.client.reservation(&s.alice).is_none());
-    assert_eq!(s.client.totals().released_tokens, 750);
+    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
 }
 
 #[test]
@@ -286,7 +286,7 @@ fn refund_outside_failed_fails_with_not_failed() {
 fn withdraw_payment_pays_each_leg_up_to_the_money_raised() {
     let s = setup();
     s.successful();
-    let raised = 750 * PRICE;
+    let raised = SUCCESS_TOKENS * PRICE;
     assert_eq!(s.client.withdrawable(), raised);
     let issuer = Address::generate(&s.e);
     s.client.withdraw_payment(
@@ -424,4 +424,26 @@ fn a_refund_in_active_never_changes_the_state() {
     s.buy(&s.alice, 760);
     s.client.cooling_off_refund(&s.alice);
     assert_eq!(s.client.state(), SaleState::Active);
+}
+
+/// A token that names another account as its initial holder could never
+/// burn for this sale, so `finalize` would fail with unsold tokens left:
+/// the pairing is refused at activation, before anyone pays.
+#[test]
+fn activate_against_a_token_that_names_another_holder_fails_with_not_initial_holder() {
+    let s = setup_preparing();
+    let other = Address::generate(&s.e);
+    s.e.register_at(
+        &other,
+        crate::OfferSale,
+        (s.client.powers(), s.client.contracts(), super::config()),
+    );
+    s.token
+        .admin_transfer(&s.id, &other, &SUPPLY, &s.token_admin);
+    s.allowlist.grant_role(&other, &sale_role(&s.e), &s.hot_key);
+    let client = crate::OfferSaleClient::new(&s.e, &other);
+    assert_eq!(
+        err(client.try_activate()),
+        OfferSaleError::NotInitialHolder.into()
+    );
 }

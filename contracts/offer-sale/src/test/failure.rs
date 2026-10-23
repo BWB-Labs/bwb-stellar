@@ -4,7 +4,7 @@
 //! 62xx codes are reached by the module that owns the rule.
 use soroban_sdk::{testutils::Address as _, Address};
 
-use super::{config, err, setup, setup_preparing, Setup, PRICE, SUPPLY};
+use super::{config, err, setup, setup_preparing, Setup, PRICE, SUCCESS_TOKENS, SUPPLY};
 use crate::{Contracts, OfferSale, OfferSaleError, PowerHolders, SaleConfig};
 
 fn register_with(s: &Setup, config: SaleConfig) {
@@ -94,6 +94,22 @@ fn the_limits_themselves_are_accepted() {
         &s,
         SaleConfig {
             min_success_percent: 100,
+            cooling_off_secs: crate::MAX_COOLING_OFF_SECS,
+            ..config()
+        },
+    );
+}
+
+/// The cap catches a window given in the wrong unit: 5 days written in
+/// milliseconds is about 13.7 years.
+#[test]
+#[should_panic(expected = "Error(Contract, #6216)")]
+fn a_cooling_off_over_a_year_is_rejected_at_construction() {
+    let s = setup_preparing();
+    register_with(
+        &s,
+        SaleConfig {
+            cooling_off_secs: crate::MAX_COOLING_OFF_SECS + 1,
             ..config()
         },
     );
@@ -138,7 +154,7 @@ fn a_payout_leg_must_be_positive() {
             OfferSaleError::NonPositiveAmount.into()
         );
     }
-    assert_eq!(s.client.withdrawable(), 750 * PRICE);
+    assert_eq!(s.client.withdrawable(), SUCCESS_TOKENS * PRICE);
 }
 
 #[test]
@@ -204,4 +220,47 @@ fn a_refund_batch_pays_every_investor_whole() {
         .unwrap()
         .receipts
         .is_empty());
+}
+
+/// A leg paid to the sale contract itself moves nothing but would count as
+/// withdrawn, leaving money in escrow that no call could ever move.
+#[test]
+fn a_payout_leg_to_the_sale_itself_is_refused() {
+    let s = setup();
+    s.successful();
+    let before = s.client.withdrawable();
+    let legs = s.payouts(&[(&s.owner, 1), (&s.id, 1)]);
+    assert_eq!(
+        err(s.client.try_withdraw_payment(&legs, &s.owner)),
+        OfferSaleError::InvalidRecipient.into()
+    );
+    assert_eq!(s.client.withdrawable(), before);
+}
+
+#[test]
+fn a_payout_total_that_overflows_fails_with_exceeds_withdrawable() {
+    let s = setup();
+    s.successful();
+    let half = i128::MAX / 2 + 1;
+    let legs = s.payouts(&[(&s.owner, half), (&s.owner, half)]);
+    assert_eq!(
+        err(s.client.try_withdraw_payment(&legs, &s.owner)),
+        OfferSaleError::ExceedsWithdrawable.into()
+    );
+}
+
+/// The money never waits on the allowlist: if it refuses to restore the
+/// investor's receipts (its book and the sale's reservation disagree),
+/// the refund still pays and the backend repairs the room afterwards.
+#[test]
+fn a_refund_still_pays_when_the_allowlist_refuses_the_restore() {
+    let s = setup();
+    s.buy(&s.alice, 10);
+    s.client.cancel(&s.owner);
+    // Empty the allowlist's book for alice behind the sale's back.
+    s.allowlist.restore_all(&s.alice, &s.id);
+    s.client.refund(&s.investors(&[&s.alice]));
+    assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
+    assert!(s.client.reservation(&s.alice).is_none());
+    assert_eq!(s.client.totals().raised, 0);
 }

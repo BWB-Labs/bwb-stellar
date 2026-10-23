@@ -147,3 +147,16 @@ fn a_second_request_with_nothing_left_in_a_window_fails() {
     );
     assert_eq!(s.client.reservation(&s.alice).unwrap().tokens, 10);
 }
+
+/// Same rule as a failed offering's refund: the investor's money comes
+/// back even when the allowlist refuses to restore the receipts.
+#[test]
+fn a_cooling_off_refund_still_pays_when_the_allowlist_refuses_the_restore() {
+    let s = setup();
+    let receipt = s.buy(&s.alice, 10);
+    s.allowlist
+        .restore(&s.alice, &soroban_sdk::vec![&s.e, receipt], &s.id);
+    s.client.cooling_off_refund(&s.alice);
+    assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
+    assert!(s.client.reservation(&s.alice).is_none());
+}

@@ -7,6 +7,18 @@
 //! `transfer` are emitted alongside.
 use soroban_sdk::{contractevent, Address, BytesN, Symbol};
 
+/// `reason` on `closed` and `reopened`: the owner's call.
+pub const REASON_OWNER: &str = "owner";
+/// `reason` on `closed`: the purchase that sold the last token.
+pub const REASON_SOLD_OUT: &str = "sold_out";
+/// `reason` on `reopened`: a cooling-off refund left the offering below its
+/// minimum.
+pub const REASON_BELOW_MINIMUM: &str = "below_minimum";
+/// `reason` on `refunded`: the purchases still inside their window.
+pub const REASON_COOLING_OFF: &str = "cooling_off";
+/// `reason` on `refunded`: the offering failed.
+pub const REASON_FAILED: &str = "failed";
+
 /// The sale's whole configuration, once, at construction.
 #[contractevent]
 pub struct Configured {
@@ -99,6 +111,17 @@ pub struct Released {
     pub investor: Address,
     pub paid: i128,
     pub tokens: i128,
+}
+
+/// The allowlist refused to restore an investor's receipts during a
+/// refund, so the money went back without the room: `purchases` is how
+/// many receipts stayed charged. The backend repairs the allowlist from
+/// it. Emitted only on that failure, before the investor's `refunded`.
+#[contractevent]
+pub struct RestoreSkipped {
+    #[topic]
+    pub investor: Address,
+    pub purchases: u32,
 }
 
 /// Money back to one investor: `reason` is `cooling_off` (the purchases

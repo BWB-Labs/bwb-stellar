@@ -240,8 +240,7 @@ impl OfferAllowlist {
         if book.receipts.is_empty() {
             panic_with_error!(e, OfferAllowlistError::ReceiptNotFound);
         }
-        for number in book.receipts.keys().iter() {
-            let receipt = book.receipts.get_unchecked(number);
+        for (number, receipt) in book.receipts.iter() {
             give_back(e, &investor, &caller, number, &receipt);
         }
         let emptied = ReceiptBook {
