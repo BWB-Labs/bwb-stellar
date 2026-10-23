@@ -6,6 +6,7 @@ members = [
     "contracts/offer-allowlist",
     "contracts/offer-allowlist/upgrade-fixture",
     "contracts/offer-sale",
+    "contracts/offer-sale/upgrade-fixture",
 ]
 
 [workspace.package]

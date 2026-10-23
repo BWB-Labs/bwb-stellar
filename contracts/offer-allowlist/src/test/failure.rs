@@ -92,6 +92,28 @@ fn a_double_restore_fails_with_receipt_not_found() {
 }
 
 #[test]
+fn restore_all_for_an_investor_never_sold_to_fails_with_receipt_not_found() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    let r = s.try_restore_all(&s.alice);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
+}
+
+/// The second full refund finds an empty book, so a double refund of a
+/// failed offering's investor fails the same way a double restore does.
+#[test]
+fn a_second_restore_all_fails_with_receipt_not_found() {
+    let s = setup();
+    s.allow(&s.alice, 100);
+    s.consume(&s.alice, &10);
+    s.consume(&s.alice, &20);
+    assert_eq!(s.restore_all(&s.alice), 2);
+    let r = s.try_restore_all(&s.alice);
+    assert_eq!(err(r), OfferAllowlistError::ReceiptNotFound.into());
+    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 0);
+}
+
+#[test]
 fn another_sales_receipt_fails_with_receipt_not_found() {
     let s = setup();
     s.allow(&s.alice, 100);

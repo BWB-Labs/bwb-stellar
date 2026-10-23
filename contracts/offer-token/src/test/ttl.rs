@@ -99,6 +99,16 @@ fn a_transfer_extends_the_whitelist_entry_it_checked() {
 }
 
 #[test]
+fn a_burn_extends_the_holders_balance_and_the_instance() {
+    let s = setup();
+    advance(&s.e, 40);
+    assert!(balance_ttl(&s.e, &s.id, &s.sale) < max_ttl(&s.e, &s.id));
+    s.client.burn(&s.sale, &1);
+    assert_eq!(balance_ttl(&s.e, &s.id, &s.sale), max_ttl(&s.e, &s.id));
+    assert_eq!(instance_ttl(&s.e, &s.id), max_ttl(&s.e, &s.id));
+}
+
+#[test]
 fn whitelisting_writes_the_entry_with_the_maximum_ttl() {
     let s = setup();
     advance(&s.e, 40);

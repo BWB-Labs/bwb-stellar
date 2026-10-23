@@ -10,7 +10,8 @@ pub enum OfferTokenError {
     TransferNotWhitelisted = 6000,
     /// A forced transfer with `from == to` or a non-positive amount.
     InvalidAdminTransfer = 6001,
-    /// `burn` and `burn_from` exist for SEP-41 shape only; supply is fixed.
+    /// `burn` by anyone but the initial holder; `burn_from` always. Both
+    /// exist for the SEP-41 shape.
     BurnDisabled = 6002,
     /// The caller signed but is not the stored `admin`.
     NotAdmin = 6003,

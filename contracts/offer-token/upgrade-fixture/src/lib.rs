@@ -21,6 +21,7 @@ pub enum DataKey {
     Upgrader,
     OfferUri,
     Whitelisted(Address),
+    InitialHolder,
 }
 
 /// Same code as v1's `NotUpgrader`.
@@ -67,6 +68,10 @@ impl OfferTokenV2Fixture {
 
     pub fn upgrader(e: &Env) -> Address {
         get(e, &DataKey::Upgrader)
+    }
+
+    pub fn initial_holder(e: &Env) -> Address {
+        get(e, &DataKey::InitialHolder)
     }
 
     pub fn offer_uri(e: &Env) -> String {

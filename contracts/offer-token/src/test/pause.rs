@@ -22,6 +22,17 @@ fn paused_token_blocks_transfer_and_transfer_from() {
     assert_eq!(err(r), code(ENFORCED_PAUSE));
 }
 
+/// A burn moves a balance, so pause blocks it like a transfer; the admin
+/// unpauses, so the sale's finalize simply waits.
+#[test]
+fn paused_token_blocks_burn() {
+    let s = setup();
+    s.client.pause(&s.pauser);
+    assert_eq!(err(s.client.try_burn(&s.sale, &1)), code(ENFORCED_PAUSE));
+    s.client.unpause(&s.admin);
+    s.client.burn(&s.sale, &1);
+}
+
 #[test]
 fn approve_works_while_paused() {
     let s = setup();

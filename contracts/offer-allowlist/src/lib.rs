@@ -215,29 +215,40 @@ impl OfferAllowlist {
             let Some(receipt) = book.receipts.get(number) else {
                 panic_with_error!(e, OfferAllowlistError::ReceiptNotFound);
             };
-            let used = storage::usage(e, &investor, receipt.period);
-            // Usage is the sum of its period's live receipts, so it always
-            // covers one of them; fail rather than write a negative usage
-            // if that ever stops holding.
-            if receipt.amount > used {
-                panic_with_error!(e, OfferAllowlistError::InvalidAmount);
-            }
-            let consumed = used - receipt.amount;
-            storage::set_usage(e, &investor, receipt.period, consumed);
+            give_back(e, &investor, &caller, number, &receipt);
             book.receipts.remove(number);
-            AllocationRestored {
-                investor: investor.clone(),
-                caller: caller.clone(),
-                amount: receipt.amount,
-                consumed,
-                period: receipt.period,
-                receipt: number,
-            }
-            .publish(e);
         }
-        storage::set_receipt_book(e, &caller, &investor, &book);
-        storage::extend_role_ttl_if_held(e, &caller, &role(e, SALE));
-        storage::extend_instance_ttl(e);
+        finish_restore(e, &investor, &caller, &book);
+    }
+
+    /// Gives back every live purchase of one investor under the calling
+    /// sale contract: the whole receipt book in one call, each receipt's
+    /// amount back to its own period, as `restore` does for named numbers.
+    /// For a failed offering, where the sale contract refunds everyone, it
+    /// replaces up to five `restore` calls per investor with one; the
+    /// caller bounds the live receipts, since each one costs an event. An
+    /// investor the sale contract never sold to, or already gave everything
+    /// back to, fails with 6103, so a double refund stays visible. Returns
+    /// how many receipts were restored. One `allocation_restored` per
+    /// receipt, in number order. Same gate as `restore`: `caller`
+    /// authorizes, no role.
+    pub fn restore_all(e: &Env, investor: Address, caller: Address) -> u32 {
+        caller.require_auth();
+        let Some(book) = storage::receipt_book(e, &caller, &investor) else {
+            panic_with_error!(e, OfferAllowlistError::ReceiptNotFound);
+        };
+        if book.receipts.is_empty() {
+            panic_with_error!(e, OfferAllowlistError::ReceiptNotFound);
+        }
+        for (number, receipt) in book.receipts.iter() {
+            give_back(e, &investor, &caller, number, &receipt);
+        }
+        let emptied = ReceiptBook {
+            next: book.next,
+            receipts: Map::new(e),
+        };
+        finish_restore(e, &investor, &caller, &emptied);
+        book.receipts.len()
     }
 
     /// The investor's cap and flag with the current period and its usage.
@@ -334,6 +345,38 @@ fn room(allocation: &Allocation, used: i128) -> i128 {
 
 fn role(e: &Env, name: &str) -> Symbol {
     Symbol::new(e, name)
+}
+
+/// One receipt back to its period: subtracts its amount from the investor's
+/// usage there and emits `allocation_restored`. The caller removes the
+/// receipt from the book.
+fn give_back(e: &Env, investor: &Address, caller: &Address, number: u32, receipt: &Receipt) {
+    let used = storage::usage(e, investor, receipt.period);
+    // Usage is the sum of its period's live receipts, so it always covers
+    // one of them; fail rather than write a negative usage if that ever
+    // stops holding.
+    if receipt.amount > used {
+        panic_with_error!(e, OfferAllowlistError::InvalidAmount);
+    }
+    let consumed = used - receipt.amount;
+    storage::set_usage(e, investor, receipt.period, consumed);
+    AllocationRestored {
+        investor: investor.clone(),
+        caller: caller.clone(),
+        amount: receipt.amount,
+        consumed,
+        period: receipt.period,
+        receipt: number,
+    }
+    .publish(e);
+}
+
+/// After a restore: writes the book once and keeps the caller's role entry
+/// (while held) and the instance alive.
+fn finish_restore(e: &Env, investor: &Address, caller: &Address, book: &ReceiptBook) {
+    storage::set_receipt_book(e, caller, investor, book);
+    storage::extend_role_ttl_if_held(e, caller, &role(e, SALE));
+    storage::extend_instance_ttl(e);
 }
 
 /// After a role-gated write: keeps the instance and the caller's own entry

@@ -46,7 +46,7 @@ pub struct AllocationEntry {
 /// the number `consume` returned. Who bought and through which sale contract
 /// are in the entry's key.
 #[contracttype]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Receipt {
     /// What the purchase used, in USDC stroops. Positive.
     pub amount: i128,

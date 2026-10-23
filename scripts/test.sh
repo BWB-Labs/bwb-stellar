@@ -3,7 +3,7 @@
 #
 #   scripts/test.sh [cargo test args...]
 #
-# The upgrade tests of offer-token and offer-allowlist each swap to a second
+# The upgrade tests of offer-token, offer-allowlist and offer-sale each swap to a second
 # binary, the crate's upgrade-fixture. Those WASMs have to exist before the
 # tests compile, and only the Stellar CLI builds them (OpenZeppelin 0.7.2
 # enables soroban-sdk's spec-shaking feature). So: build the fixtures, then
@@ -21,7 +21,7 @@ command -v stellar >/dev/null || {
 # Copied to a fixed folder so the tests find them wherever cargo builds
 # (CARGO_TARGET_DIR included).
 echo ">> building the upgrade fixtures"
-for fixture in offer-token-upgrade-fixture offer-allowlist-upgrade-fixture; do
+for fixture in offer-token-upgrade-fixture offer-allowlist-upgrade-fixture offer-sale-upgrade-fixture; do
   stellar contract build --package "$fixture" --out-dir target/fixtures >/dev/null
 done
 

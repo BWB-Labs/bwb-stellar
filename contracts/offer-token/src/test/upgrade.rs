@@ -59,6 +59,7 @@ mod with_fixture {
         assert_eq!(v2.xfer_admin(), s.xfer_admin);
         assert_eq!(v2.pauser(), s.pauser);
         assert_eq!(v2.upgrader(), s.upgrader);
+        assert_eq!(v2.initial_holder(), s.sale);
         assert!(v2.paused());
         assert_eq!(v2.schema_version(), 1);
     }

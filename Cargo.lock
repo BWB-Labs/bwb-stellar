@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "offer-allowlist"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "soroban-sdk",
  "stellar-access",
@@ -1168,16 +1168,24 @@ dependencies = [
 name = "offer-sale"
 version = "0.1.0"
 dependencies = [
+ "offer-allowlist",
+ "offer-token",
  "soroban-sdk",
- "stellar-access",
  "stellar-contract-utils",
  "stellar-macros",
- "stellar-tokens",
+]
+
+[[package]]
+name = "offer-sale-upgrade-fixture"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-contract-utils",
 ]
 
 [[package]]
 name = "offer-token"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "soroban-sdk",
  "stellar-contract-utils",
