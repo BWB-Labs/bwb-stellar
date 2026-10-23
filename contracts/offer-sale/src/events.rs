@@ -59,9 +59,12 @@ pub struct Closed {
     pub sold_tokens: i128,
 }
 
-/// The owner reopened buying from Closing.
+/// Buying reopened from Closing: `reason` is `owner` (the owner's
+/// `reopen`) or `below_minimum` (a cooling-off refund left the offering
+/// below its minimum).
 #[contractevent]
 pub struct Reopened {
+    pub reason: Symbol,
     pub raised: i128,
     pub sold_tokens: i128,
 }

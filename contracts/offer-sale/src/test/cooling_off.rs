@@ -69,13 +69,16 @@ fn after_the_window_fails_with_cooling_off_closed() {
     assert_eq!(s.client.reservation(&s.alice).unwrap().tokens, 10);
 }
 
+/// Above the minimum the offering stays in Closing; below it, the refund
+/// reopens buying (the `state` module covers that case).
 #[test]
 fn works_in_closing() {
     let s = setup();
-    s.buy(&s.alice, 10);
+    s.buy(&s.alice, 760);
+    s.buy(&s.bob, 10);
     s.client.close(&s.owner);
-    s.client.cooling_off_refund(&s.alice);
-    assert!(s.client.reservation(&s.alice).is_none());
+    s.client.cooling_off_refund(&s.bob);
+    assert!(s.client.reservation(&s.bob).is_none());
     assert_eq!(s.client.state(), SaleState::Closing);
 }
 

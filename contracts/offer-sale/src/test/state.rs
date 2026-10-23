@@ -354,18 +354,74 @@ fn finalizable_at_reports_the_end_of_the_latest_window() {
     );
 }
 
+/// Agreed with the team on 2026-10-22: a cooling-off refund during Closing
+/// that drops the offering below its minimum puts it back to Active, since
+/// there is still time to sell; nobody can fail it in the meantime.
 #[test]
-fn a_refund_below_the_minimum_leaves_closing_and_the_owner_decides() {
+fn a_refund_below_the_minimum_during_closing_reopens_buying() {
     let s = setup();
-    s.buy(&s.alice, 760);
+    s.buy(&s.alice, 700);
+    s.buy(&s.bob, 60);
     s.client.close(&s.owner);
-    s.client.cooling_off_refund(&s.alice);
-    assert_eq!(s.client.state(), SaleState::Closing);
-    assert_eq!(s.client.totals().sold_tokens, 0);
-    s.client.reopen(&s.owner);
-    s.buy(&s.bob, 750);
+    s.client.cooling_off_refund(&s.bob);
+    assert_eq!(s.client.state(), SaleState::Active);
+    assert_eq!(s.client.totals().sold_tokens, 700);
+    // Buying is open again, and a later close starts a new wait.
+    s.buy(&s.bob, 50);
     s.client.close(&s.owner);
     s.past_cooling_off();
     s.client.finalize();
     assert_eq!(s.client.state(), SaleState::Successful);
+}
+
+/// The window's last second is the case the audit raised: before, the next
+/// ledger's `finalize` by anyone would fail the offering.
+#[test]
+fn a_refund_below_the_minimum_at_the_last_second_cannot_be_raced_into_failed() {
+    let s = setup();
+    s.buy(&s.alice, 700);
+    s.buy(&s.bob, 60);
+    s.client.close(&s.owner);
+    s.advance(super::COOLING_OFF);
+    s.client.cooling_off_refund(&s.bob);
+    assert_eq!(s.client.state(), SaleState::Active);
+    s.advance(1);
+    assert_eq!(
+        err(s.client.try_finalize()),
+        OfferSaleError::NotClosing.into()
+    );
+}
+
+#[test]
+fn a_refund_that_keeps_the_minimum_stays_closing() {
+    let s = setup();
+    s.buy(&s.alice, 760);
+    s.buy(&s.bob, 20);
+    s.client.close(&s.owner);
+    s.client.cooling_off_refund(&s.bob);
+    assert_eq!(s.client.state(), SaleState::Closing);
+    assert_eq!(err(s.try_buy(&s.bob, 1)), OfferSaleError::NotActive.into());
+}
+
+/// After a sell-out, a refund frees supply; above the minimum the offering
+/// stays closed, and the freed tokens are burned at finalize.
+#[test]
+fn a_refund_after_a_sell_out_above_the_minimum_stays_closing() {
+    let s = setup();
+    s.buy(&s.alice, 900);
+    s.buy(&s.bob, 100);
+    assert_eq!(s.client.state(), SaleState::Closing);
+    s.client.cooling_off_refund(&s.bob);
+    assert_eq!(s.client.state(), SaleState::Closing);
+    s.past_cooling_off();
+    s.client.finalize();
+    assert_eq!(s.token.total_supply(), 900);
+}
+
+#[test]
+fn a_refund_in_active_never_changes_the_state() {
+    let s = setup();
+    s.buy(&s.alice, 760);
+    s.client.cooling_off_refund(&s.alice);
+    assert_eq!(s.client.state(), SaleState::Active);
 }

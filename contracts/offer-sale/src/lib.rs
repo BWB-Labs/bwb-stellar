@@ -12,18 +12,19 @@
 //! otherwise. So nothing can be undone after success: release is immediate
 //! and open to anyone, the owner withdraws freely, and the unsold tokens
 //! are burned. After failure everyone is refunded in batches and the owner
-//! takes the tokens back. A refund during Closing that drops the offering
-//! below its minimum leaves the owner a choice: reopen, cancel, or let it
-//! fail.
+//! takes the tokens back. A cooling-off refund during Closing that drops the
+//! offering below its minimum puts it back to Active, so buying resumes
+//! instead of anyone failing it; the owner may also reopen.
 //!
 //! Three powers, each a stored address fixed at construction with no
 //! setter, as on the token: `owner` (the tokenizer's treasury) closes,
 //! reopens, cancels, withdraws, pauses and unpauses; `pauser` (the platform
 //! multisig) pauses, never unpauses; `upgrader` (the platform multisig)
-//! replaces the code. A paused sale blocks what moves money toward the
-//! tokenizer (`buy`, `release`, the withdrawals), never the investor's
-//! exit (`cooling_off_refund`, `refund`) nor the decision (`finalize`,
-//! `cancel`).
+//! replaces the code. A paused sale blocks purchases, releases and
+//! withdrawals (`buy`, `release`, `withdraw_payment`, `withdraw_tokens`);
+//! refunds (`cooling_off_refund`, `refund`) and the decision (`close`,
+//! `reopen`, `cancel`, `finalize`) always work. A paused token holds
+//! release too; both levers belong to the tokenizer.
 #![no_std]
 
 mod allowlist;
@@ -270,13 +271,7 @@ impl OfferSale {
     pub fn reopen(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
-        let totals = storage::totals(e);
-        transition(e, SaleState::Closing, SaleState::Active);
-        Reopened {
-            raised: totals.raised,
-            sold_tokens: totals.sold_tokens,
-        }
-        .publish(e);
+        reopen_with(e, &storage::totals(e), "owner");
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
@@ -308,9 +303,7 @@ impl OfferSale {
             panic_with_error!(e, OfferSaleError::CoolingOffOpen);
         }
         let totals = storage::totals(e);
-        let met =
-            totals.sold_tokens * 100 >= totals.supply * i128::from(config.min_success_percent);
-        if !met {
+        if !meets_minimum(&totals, &config) {
             FinalizedFailed {
                 raised: totals.raised,
                 sold_tokens: totals.sold_tokens,
@@ -344,16 +337,20 @@ impl OfferSale {
     /// reservation (6213) or no purchase still open (6212) fails. The
     /// receipts go back to the allowlist in one call, the payment goes
     /// back, and the totals fall; the reservation ends when nothing is
-    /// left. The investor authorizes. Emits `refunded` with reason
+    /// left. The investor authorizes. In Closing, a refund that leaves the
+    /// offering below its minimum moves it back to Active, so buying resumes
+    /// while there is still time to sell. Emits `refunded` with reason
     /// `cooling_off`, after the allowlist's `allocation_restored` events
-    /// and the payment's `transfer`.
+    /// and the payment's `transfer`; then `state_changed` and `reopened`
+    /// (reason `below_minimum`) when it reopens.
     pub fn cooling_off_refund(e: &Env, investor: Address) {
-        require_open(e);
         investor.require_auth();
+        let state = require_open(e);
         let Some(mut reservation) = storage::reservation(e, &investor) else {
             panic_with_error!(e, OfferSaleError::NothingReserved);
         };
-        let window = storage::config(e).cooling_off_secs;
+        let config = storage::config(e);
+        let window = config.cooling_off_secs;
         let now = e.ledger().timestamp();
         let mut receipts: Vec<u32> = Vec::new(e);
         let (mut tokens, mut paid) = (0i128, 0i128);
@@ -389,6 +386,9 @@ impl OfferSale {
             sold_tokens: totals.sold_tokens,
         }
         .publish(e);
+        if state == SaleState::Closing && !meets_minimum(&totals, &config) {
+            reopen_with(e, &totals, "below_minimum");
+        }
     }
 
     /// Delivers the reserved tokens of each investor listed, at most
@@ -632,6 +632,22 @@ fn transition(e: &Env, from: SaleState, to: SaleState) {
     StateChanged {
         from: state_symbol(e, from),
         to: state_symbol(e, to),
+    }
+    .publish(e);
+}
+
+/// Whether the offering has sold its minimum share of the supply.
+fn meets_minimum(totals: &Totals, config: &SaleConfig) -> bool {
+    totals.sold_tokens * 100 >= totals.supply * i128::from(config.min_success_percent)
+}
+
+/// Closing → Active with the reason recorded.
+fn reopen_with(e: &Env, totals: &Totals, reason: &str) {
+    transition(e, SaleState::Closing, SaleState::Active);
+    Reopened {
+        reason: Symbol::new(e, reason),
+        raised: totals.raised,
+        sold_tokens: totals.sold_tokens,
     }
     .publish(e);
 }

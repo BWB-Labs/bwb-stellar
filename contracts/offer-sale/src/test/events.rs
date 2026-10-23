@@ -148,6 +148,7 @@ fn close_reopen_and_cancel_emit_their_event_and_the_transition() {
     );
     s.client.reopen(&s.owner);
     let reopened = Reopened {
+        reason: sym(&s.e, "owner"),
         raised: 10 * PRICE,
         sold_tokens: 10,
     };
@@ -168,6 +169,36 @@ fn close_reopen_and_cancel_emit_their_event_and_the_transition() {
         [
             changed(&s.e, &s.id, "active", "failed"),
             cancelled.to_xdr(&s.e, &s.id)
+        ]
+    );
+}
+
+#[test]
+fn a_refund_below_the_minimum_in_closing_emits_refunded_then_the_reopen() {
+    let s = setup();
+    s.buy(&s.alice, 700);
+    s.buy(&s.bob, 60);
+    s.client.close(&s.owner);
+    s.client.cooling_off_refund(&s.bob);
+    let refunded = Refunded {
+        investor: s.bob.clone(),
+        paid: 60 * PRICE,
+        tokens: 60,
+        reason: sym(&s.e, "cooling_off"),
+        raised: 700 * PRICE,
+        sold_tokens: 700,
+    };
+    let reopened = Reopened {
+        reason: sym(&s.e, "below_minimum"),
+        raised: 700 * PRICE,
+        sold_tokens: 700,
+    };
+    assert_eq!(
+        emitted(&s.e, &s.id),
+        [
+            refunded.to_xdr(&s.e, &s.id),
+            changed(&s.e, &s.id, "closing", "active"),
+            reopened.to_xdr(&s.e, &s.id)
         ]
     );
 }

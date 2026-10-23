@@ -14,7 +14,7 @@ stateDiagram-v2
   [*] --> Preparing
   Preparing --> Active: activate (anyone)
   Active --> Closing: close (owner), or the purchase that sells out
-  Closing --> Active: reopen (owner)
+  Closing --> Active: reopen (owner), or a refund below the minimum
   Closing --> Successful: finalize (anyone), after the last window, minimum met
   Closing --> Failed: finalize, minimum not met
   Active --> Failed: cancel (owner)
@@ -25,9 +25,9 @@ stateDiagram-v2
   note right of Failed : refund, withdraw_tokens
 ```
 
-Every transition emits `state_changed`. The only step back is Closing → Active, by the owner's `reopen`.
+Every transition emits `state_changed`. The only step back is Closing → Active: by the owner's `reopen`, or by itself when a cooling-off refund leaves the offering below its minimum.
 
-**Why Closing.** Each purchase gives its investor a window (5 days in BWB's offerings) to undo it. Base calls the offering Successful the moment the owner finalizes, while windows are still open, so release has to wait per investor, withdrawals have to be capped, and a refund after finalize can leave an offering below its minimum and still Successful. Here `finalize` is refused until `now > last purchase + cooling_off_secs`, so in Successful no refund is possible: release is immediate and open to anyone, the owner withdraws freely, and the burn of the unsold tokens is exact. The price is the same as under the capped alternative: the tokenizer and the issuer are paid `cooling_off_secs` after the last purchase. A refund during Closing that drops the offering below its minimum leaves the state as it is; the owner reopens, cancels, or lets `finalize` fail it. These are decisions for the team to confirm, listed in [interface 11](interface.md#11-open-points).
+**Why Closing.** Each purchase gives its investor a window (5 days in BWB's offerings) to undo it. Base calls the offering Successful the moment the owner finalizes, while windows are still open, so release has to wait per investor, withdrawals have to be capped, and a refund after finalize can leave an offering below its minimum and still Successful. Here `finalize` is refused until `now > last purchase + cooling_off_secs`, so in Successful no refund is possible: release is immediate and open to anyone, the owner withdraws freely, and the burn of the unsold tokens is exact. The price is the same as under the capped alternative: the tokenizer and the issuer are paid `cooling_off_secs` after the last purchase. A cooling-off refund during Closing that drops the offering below its minimum puts it back to Active, so buying resumes while there is still time to sell; a refund that keeps it at or above the minimum leaves it in Closing. Agreed with the team on 2026-10-22. It also means nobody can fail an offering by submitting `finalize` the ledger after a last-second refund. An offering reaches Failed only by `cancel`, or by `finalize` after the owner closed it below the minimum. A fundraising deadline, after which nothing reopens, is planned separately (#43). The remaining decisions for the team are in [interface 11](interface.md#11-open-points).
 
 ## Powers
 
@@ -88,15 +88,15 @@ Every write that names its acting account takes it as the **last** argument (`ca
 | `activate()` | anyone | Preparing (6200) | Checks the sale contract holds the token's whole supply (6204) and `sale` on the allowlist (6219), keeps the supply as the tokens for sale, moves to Active. Runs after the token's deploy and the role grant. Emits `state_changed`, `activated`. |
 | `buy(investor, amount)` | `investor` | Active (6201), not paused (1000) | `amount` must be positive (6205) and buy no more than the tokens left (6207); the investor may hold at most 20 live purchases here (6220). Pulls `amount` of the payment asset, measures what arrived, which must be positive (6209) and an exact multiple of the price (6206), and reserves `arrived / price` tokens. Uses that much allowlist room (`consume`; 6100, 6101, 6107 surface) and keeps the purchase under the receipt number. The purchase that sells the last token closes buying. Emits `purchased`; `closed` and `state_changed` on a sell-out. |
 | `close(caller)` | owner | Active (6201) | Stops buying: → Closing. Emits `closed` (reason `owner`), `state_changed`. |
-| `reopen(caller)` | owner | Closing (6221) | Opens buying again: → Active. For a refund that dropped the offering below its minimum. Emits `state_changed`, `reopened`. |
+| `reopen(caller)` | owner | Closing (6221) | Opens buying again: → Active, at the owner's decision. Emits `state_changed`, `reopened` (reason `owner`). |
 | `cancel(caller)` | owner | Active or Closing (6225) | → Failed, at the owner's decision; everyone is then refunded. Emits `state_changed`, `cancelled`. |
 | `finalize()` | anyone | Closing (6221) | Refused while any window is open: `now ≤ last purchase + cooling_off_secs` (6214). Successful when the minimum held: the sale contract must still hold every sold token (6217; `xfer_admin` can move them), it burns the rest, and moves. Failed otherwise. Emits `finalized {burned}` or `finalized_failed`, then `state_changed`. |
-| `cooling_off_refund(investor)` | `investor` | Active or Closing (6225) | Returns every purchase whose window is still open (`now ≤ at + cooling_off_secs`), whole purchases only. No reservation (6213) or no purchase still open (6212) fails. The receipts go back to the allowlist in one `restore`, the payment goes back, the totals fall; the reservation ends when nothing is left. Emits `refunded` (reason `cooling_off`). |
+| `cooling_off_refund(investor)` | `investor` | Active or Closing (6225) | Returns every purchase whose window is still open (`now ≤ at + cooling_off_secs`), whole purchases only. No reservation (6213) or no purchase still open (6212) fails. The receipts go back to the allowlist in one `restore`, the payment goes back, the totals fall; the reservation ends when nothing is left. In Closing, a refund that leaves the offering below its minimum moves it back to Active. Emits `refunded` (reason `cooling_off`); then `state_changed` and `reopened` (reason `below_minimum`) when it reopens. |
 | `release(investors)` | anyone | Successful (6202), not paused (1000) | At most 30 (6215). Each investor listed with a reservation gets their tokens; the reservation ends. An investor with nothing reserved, or listed twice, is skipped. A failed token transfer fails the whole call. Emits `released` per investor served. |
 | `refund(investors)` | anyone | Failed (6203) | At most 16 investors (6215), and at most 48 event units: 2 per investor served plus 1 per live purchase, checked before any transfer (6215). Each investor listed with a reservation gets their payment back and every receipt restored (`restore_all`); the reservation ends. An investor with nothing reserved is skipped. A failed payment transfer fails the whole call. Emits `refunded` (reason `failed`) per investor served. |
 | `withdraw_payment(payouts, caller)` | owner | Successful (6202), not paused (1000) | Pays every `{recipient, amount}`, at most 30 (6215); each positive (6205), the total at most `raised − withdrawn` (6218). Emits `payment_withdrawn` per leg. |
 | `withdraw_tokens(to, amount, caller)` | owner | Failed (6203), not paused (1000) | Sends tokens to `to`; `amount` positive (6205), within the balance (the token's 100). Emits `tokens_withdrawn`. |
-| `pause(caller)` | owner or pauser | any | Blocks `buy`, `release`, `withdraw_payment` and `withdraw_tokens`: everything that moves value toward the tokenizer. Never `cooling_off_refund`, `refund`, `finalize`, `cancel`, `close` or `reopen`. Emits `paused`, `pause_changed`. Pausing a paused sale fails with 1000. |
+| `pause(caller)` | owner or pauser | any | Blocks purchases, releases and withdrawals: `buy`, `release`, `withdraw_payment`, `withdraw_tokens`. Refunds (`cooling_off_refund`, `refund`) and the decision (`close`, `reopen`, `cancel`, `finalize`) always work. A paused token holds `release` too; both levers belong to the tokenizer. Emits `paused`, `pause_changed`. Pausing a paused sale fails with 1000. |
 | `unpause(caller)` | owner | any | Emits `unpaused`, `pause_changed`. Unpausing a live sale fails with 1001. |
 | `upgrade(new_wasm_hash, operator)` | `operator` = upgrader | any | Replaces the code once the call succeeds (6224 for anyone else). Storage is kept; the constructor does not run again. No `migrate` in this version. |
 
@@ -119,12 +119,14 @@ The reads extend nothing. The code version is in the WASM metadata as `binver` (
 
 **Who is in a batch.** The investors to release or refund are those with a reservation on chain (`purchased` events), not only the backend's confirmed orders; an on-chain buyer missing from the backend's list is never served. Investors with nothing reserved are skipped, so a stale list is harmless; an investor whose payment transfer fails (a frozen balance, SAC 11; a dropped trustline, 13) fails the whole call, and the backend leaves them out and retries the rest.
 
+**Unsold tokens and `admin_transfer`.** `finalize` burns whatever unsold tokens are still in the sale contract. The token's `xfer_admin` (the tokenizer) can move unsold tokens out before that, and `finalize` only checks that every sold token is still there (6217), so where the leftovers go is ultimately the tokenizer's choice; otherwise they are burned. Decided in the L4 audit review (2026-10-23).
+
 ## Differences from Base
 
 - **A Closing state, and success only after the last window.** Base: `finalizeSale` moves to Successful at once; `releaseTokens` has no access control and zeroes the position, so a third party can end a cooling-off (SCAN-01); `withdrawBrla` can empty the escrow while refunds are still owed (NF-04, accepted); a refund after finalize can leave the offering below its minimum and Successful. Here none of the three can happen. The team is asked to confirm the shape ([interface 11](interface.md#11-open-points)).
 - **Buying can close by itself.** The purchase that sells the last token moves to Closing; Base keeps a sold-out offering Active until the owner finalizes.
 - **`finalize` decides, and anyone calls it.** It replaces `finalizeSale` and `markSaleFailed`: the outcome is a fact once the windows have run out, so no signing ceremony is needed. `cancel` (Base's `enableRefunds`) stays the owner's, and also works in Closing.
-- **`reopen`.** New: the owner's way out of a near-miss without failing the offering.
+- **Back to Active.** New: a cooling-off refund in Closing that leaves the offering below its minimum reopens buying by itself, and the owner may `reopen` too.
 - **Unsold tokens are burned at finalize** (provisional, pending the team's legal answer; the alternative is sending them to the issuer, a one-line change). In Base they stay in the contract after success (SCAN-02) and would take a share of every distribution. The token gained a `burn` that only its initial holder may call.
 - **Cooling-off per purchase**, whole purchases, in Active and Closing. Base counted one window from the last purchase and allowed it in Successful.
 - **`buy` keeps Base's shape:** money in, measured on arrival, an exact multiple of the price. No hard cap: `supply × price` is the ceiling.
@@ -136,7 +138,7 @@ The reads extend nothing. The code version is in the WASM metadata as `binver` (
 
 ## Events
 
-Data fields are listed in sorted name order. Symbols: `reason` is `owner` | `sold_out` on `closed` and `cooling_off` | `failed` on `refunded`; `from` and `to` on `state_changed` are `preparing`, `active`, `closing`, `successful`, `failed`.
+Data fields are listed in sorted name order. Symbols: `reason` is `owner` | `sold_out` on `closed`, `owner` | `below_minimum` on `reopened`, and `cooling_off` | `failed` on `refunded`; `from` and `to` on `state_changed` are `preparing`, `active`, `closing`, `successful`, `failed`.
 
 | Event | Topics | Data | When |
 |---|---|---|---|
@@ -145,7 +147,7 @@ Data fields are listed in sorted name order. Symbols: `reason` is `owner` | `sol
 | `activated` | `activated` | `{supply}` | `activate`, after `state_changed` |
 | `purchased` | `purchased`, investor | `{at, paid, raised, receipt, reserved_paid, reserved_tokens, sold_tokens, tokens}` | `buy`. `paid` and `tokens` are this purchase; `reserved_*` the investor's totals afterwards; `raised` and `sold_tokens` the offering's. |
 | `closed` | `closed` | `{raised, reason, sold_tokens}` | `close`, and the purchase that sells out; before `state_changed` |
-| `reopened` | `reopened` | `{raised, sold_tokens}` | `reopen`, after `state_changed` |
+| `reopened` | `reopened` | `{raised, reason, sold_tokens}` | After `state_changed`: the owner's `reopen` (reason `owner`), or a cooling-off refund that left the offering below its minimum (reason `below_minimum`), after its `refunded` |
 | `cancelled` | `cancelled` | `{raised, sold_tokens}` | `cancel`, after `state_changed` |
 | `finalized` | `finalized` | `{burned, raised, sold_tokens}` | `finalize` toward Successful, before `state_changed` |
 | `finalized_failed` | `finalized_failed` | `{min_success_percent, raised, sold_tokens}` | `finalize` toward Failed, before `state_changed` |
@@ -212,7 +214,7 @@ The sale never returns 2000 or 2007 itself: a signed but wrong caller gets the p
 
 | Module | Covers |
 |---|---|
-| `state` | Every transition: activate (and its two checks), close by the owner and by a sell-out, reopen, cancel from Active and from Closing, finalize at the window boundary, at exactly the minimum, below it, with everything sold, with sold tokens missing; every state rejection; release, refund, payout and token withdrawal in their states; `finalizable_at`; a refund below the minimum during Closing, then reopen and success |
+| `state` | Every transition: activate (and its two checks), close by the owner and by a sell-out, reopen, cancel from Active and from Closing, finalize at the window boundary, at exactly the minimum, below it, with everything sold, with sold tokens missing; every state rejection; release, refund, payout and token withdrawal in their states; `finalizable_at`; a refund below the minimum during Closing reopening buying (also at the window's last second, where `finalize` can no longer race it), a refund that keeps the minimum or follows a sell-out staying in Closing, a refund in Active changing nothing |
 | `authorization` | A signed wrong caller per privileged call gets the power's code; an unsigned call fails at authorization (every privileged call, `buy` and `cooling_off_refund`); activate, finalize, release and refund with no auths at all, the burn and the transfers inside them included; exact-signer positives, the investor's purchase tree with the payment sub-call among them; nobody refunds in an investor's name |
 | `boundary` | Price multiples and non-positive amounts; the last token and one more; 20 purchases and the 21st, freed by a cooling-off; 30 and 31 for release and payouts, 16 and 17 for refunds; the unit budget (47 fits, 50 does not) checked before any transfer; full release, refund and payout batches measured under the documented network limits; a payment asset that keeps a fee (credits what arrived; nothing arrived) |
 | `cooling_off` | Inside the window, at its last second, after it; only the purchases still in their window come back; a purchase charged to one month undone in the next gives that month's room back; in Closing; nothing reserved; after the offering is decided; after release; 20 purchases in one call; a second request with nothing left |
