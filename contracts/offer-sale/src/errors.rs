@@ -58,8 +58,7 @@ pub enum OfferSaleError {
     /// The caller signed but is not the stored `upgrader`.
     NotUpgrader = 6224,
     /// `cancel` or `cooling_off_refund` once the offering is decided
-    /// (Successful or Failed), or before it is activated; `cancel` also in
-    /// Closing once the last window has run out, when only success is left.
+    /// (Successful or Failed), or before it is activated.
     NotOpen = 6225,
     /// A `withdraw_payment` leg paid to the sale contract itself: it would
     /// move nothing but count as withdrawn.

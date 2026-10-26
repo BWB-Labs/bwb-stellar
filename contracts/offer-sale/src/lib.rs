@@ -313,18 +313,15 @@ impl OfferSale {
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
-    /// (6225 once decided): everyone is then refunded. In Closing it is
-    /// refused once the last window has run out (6225): the offering holds
-    /// its minimum and nothing can undo a purchase, so success is a fact
-    /// even before `finalize` lands, and a paused token holding `finalize`
-    /// back cannot turn it into a failure. Emits `state_changed`, then
-    /// `cancelled`.
+    /// (6225 once decided): everyone is then refunded. It stays possible in
+    /// Closing after the last window has run out, until `finalize` lands:
+    /// it is the way out when `finalize` cannot pass (sold tokens moved out,
+    /// a token left paused), so the owner can back out of an offering that
+    /// met its minimum until then, and the backend submits `finalize` at
+    /// `finalizable_at`. Emits `state_changed`, then `cancelled`.
     pub fn cancel(e: &Env, caller: Address) {
         require_owner(e, &caller);
         let from = require_open(e);
-        if from == SaleState::Closing && windows_over(e) {
-            panic_with_error!(e, OfferSaleError::NotOpen);
-        }
         let totals = storage::totals(e);
         transition(e, from, SaleState::Failed);
         Cancelled {
@@ -375,9 +372,10 @@ impl OfferSale {
     /// receipts go back to the allowlist in one call, the payment goes
     /// back, and the totals fall; if the allowlist refuses the restore, the
     /// money still goes back and `restore_skipped` names the receipts left
-    /// charged; the reservation ends when nothing is left. The investor authorizes. In Closing, a refund that leaves the
-    /// offering below its minimum moves it back to Active, so buying resumes
-    /// while there is still time to sell. Emits `refunded` with reason
+    /// charged; the reservation ends when nothing is left. The investor
+    /// authorizes. In Closing, a refund that leaves the offering below its
+    /// minimum moves it back to Active, so buying resumes while there is
+    /// still time to sell. Emits `refunded` with reason
     /// `cooling_off`, after the allowlist's `allocation_restored` events
     /// and the payment's `transfer`; then `state_changed` and `reopened`
     /// (reason `below_minimum`) when it reopens.

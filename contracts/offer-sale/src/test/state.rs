@@ -189,31 +189,28 @@ fn close_below_the_minimum_fails_with_below_minimum() {
     assert_eq!(s.client.state(), SaleState::Failed);
 }
 
-/// Once the last window has run out in Closing, success is a fact: the
-/// owner can no longer cancel, even while a paused token holds `finalize`
-/// back.
+/// `cancel` is the way out when `finalize` cannot pass: after the last
+/// window, with the token paused, the owner can still fail the offering
+/// and everyone is refunded. Once `finalize` lands it is too late (6225).
 #[test]
-fn cancel_after_the_last_window_in_closing_fails_with_not_open() {
-    let s = setup();
-    s.buy(&s.alice, SUCCESS_TOKENS);
-    s.client.close(&s.owner);
-    s.advance(super::COOLING_OFF);
-    // Still inside the last window: the owner may cancel.
-    assert!(s.client.try_cancel(&s.owner).is_ok());
-
+fn cancel_stays_possible_in_closing_until_finalize_lands() {
     let s = setup();
     s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     s.token.pause(&s.platform);
     s.past_cooling_off();
     assert!(s.client.try_finalize().is_err());
+    s.client.cancel(&s.owner);
+    assert_eq!(s.client.state(), SaleState::Failed);
+    s.client.refund(&s.investors(&[&s.alice]));
+    assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
+
+    let s = setup();
+    s.successful();
     assert_eq!(
         err(s.client.try_cancel(&s.owner)),
         OfferSaleError::NotOpen.into()
     );
-    s.token.unpause(&s.token_admin);
-    s.client.finalize();
-    assert_eq!(s.client.state(), SaleState::Successful);
 }
 
 #[test]
@@ -418,10 +415,10 @@ fn a_refund_below_the_minimum_during_closing_reopens_buying() {
     assert_eq!(s.client.state(), SaleState::Successful);
 }
 
-/// The window's last second is the case the audit raised: before, the next
-/// ledger's `finalize` by anyone would fail the offering.
+/// The window's last second: the refund reopens buying, so the next
+/// ledger's `finalize` finds the offering Active (6221).
 #[test]
-fn a_refund_below_the_minimum_at_the_last_second_cannot_be_raced_into_failed() {
+fn a_refund_below_the_minimum_at_the_last_second_reopens_before_finalize_can_run() {
     let s = setup();
     s.buy(&s.alice, 700);
     s.buy(&s.bob, 60);

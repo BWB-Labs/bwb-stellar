@@ -90,7 +90,8 @@ pub struct Totals {
     /// The token's supply when the offering was activated; the tokens for
     /// sale. 0 before.
     pub supply: i128,
-    /// Tokens reserved, released or burned-for-sale, net of refunds.
+    /// Tokens sold: reserved or released, net of refunds. Only the unsold
+    /// ones are burned.
     pub sold_tokens: i128,
     /// Payment received, net of refunds. Withdrawals don't reduce it.
     pub raised: i128,
