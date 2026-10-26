@@ -51,7 +51,7 @@ fn buying_before_activation_fails_with_not_active() {
 #[test]
 fn the_owner_closes_and_buying_stops() {
     let s = setup();
-    s.buy(&s.alice, 100);
+    s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     assert_eq!(s.client.state(), SaleState::Closing);
     assert_eq!(err(s.try_buy(&s.bob, 1)), OfferSaleError::NotActive.into());
@@ -78,11 +78,26 @@ fn reopen_returns_to_active_and_buying_resumes() {
         err(s.client.try_reopen(&s.owner)),
         OfferSaleError::NotClosing.into()
     );
+    s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     s.client.reopen(&s.owner);
     assert_eq!(s.client.state(), SaleState::Active);
     s.buy(&s.alice, 10);
-    assert_eq!(s.client.totals().sold_tokens, 10);
+    assert_eq!(s.client.totals().sold_tokens, SUCCESS_TOKENS + 10);
+}
+
+/// Once everything is sold there is nothing to reopen for: buying could
+/// never resume and nothing would close the offering again.
+#[test]
+fn reopen_after_a_sell_out_fails_with_exceeds_supply() {
+    let s = setup();
+    s.buy(&s.alice, SUPPLY);
+    assert_eq!(s.client.state(), SaleState::Closing);
+    assert_eq!(
+        err(s.client.try_reopen(&s.owner)),
+        OfferSaleError::ExceedsSupply.into()
+    );
+    assert_eq!(s.client.state(), SaleState::Closing);
 }
 
 #[test]
@@ -157,16 +172,48 @@ fn finalize_at_exactly_the_minimum_succeeds() {
 }
 
 #[test]
-fn finalize_below_the_minimum_fails_the_offering() {
+fn close_below_the_minimum_fails_with_below_minimum() {
     let s = setup();
-    s.buy(&s.alice, 749);
-    s.client.close(&s.owner);
-    s.past_cooling_off();
-    s.client.finalize();
+    assert_eq!(
+        err(s.client.try_close(&s.owner)),
+        OfferSaleError::BelowMinimum.into()
+    );
+    s.buy(&s.alice, SUCCESS_TOKENS - 1);
+    assert_eq!(
+        err(s.client.try_close(&s.owner)),
+        OfferSaleError::BelowMinimum.into()
+    );
+    assert_eq!(s.client.state(), SaleState::Active);
+    // An offering that cannot succeed is cancelled instead.
+    s.client.cancel(&s.owner);
     assert_eq!(s.client.state(), SaleState::Failed);
-    // Nothing burned, nothing moved: the refunds come next.
-    assert_eq!(s.token.total_supply(), SUPPLY);
-    assert_eq!(s.client.totals().sold_tokens, 749);
+}
+
+/// Once the last window has run out in Closing, success is a fact: the
+/// owner can no longer cancel, even while a paused token holds `finalize`
+/// back.
+#[test]
+fn cancel_after_the_last_window_in_closing_fails_with_not_open() {
+    let s = setup();
+    s.buy(&s.alice, SUCCESS_TOKENS);
+    s.client.close(&s.owner);
+    s.advance(super::COOLING_OFF);
+    // Still inside the last window: the owner may cancel.
+    assert!(s.client.try_cancel(&s.owner).is_ok());
+
+    let s = setup();
+    s.buy(&s.alice, SUCCESS_TOKENS);
+    s.client.close(&s.owner);
+    s.token.pause(&s.platform);
+    s.past_cooling_off();
+    assert!(s.client.try_finalize().is_err());
+    assert_eq!(
+        err(s.client.try_cancel(&s.owner)),
+        OfferSaleError::NotOpen.into()
+    );
+    s.token.unpause(&s.token_admin);
+    s.client.finalize();
+    assert_eq!(s.client.state(), SaleState::Successful);
 }
 
 #[test]
@@ -274,10 +321,7 @@ fn refund_outside_failed_fails_with_not_failed() {
         err(s.client.try_refund(&list)),
         OfferSaleError::NotFailed.into()
     );
-    s.client.close(&s.owner);
-    s.past_cooling_off();
-    s.client.finalize();
-    assert_eq!(s.client.state(), SaleState::Failed);
+    s.client.cancel(&s.owner);
     s.client.refund(&list);
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
 }

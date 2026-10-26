@@ -58,7 +58,8 @@ pub enum OfferSaleError {
     /// The caller signed but is not the stored `upgrader`.
     NotUpgrader = 6224,
     /// `cancel` or `cooling_off_refund` once the offering is decided
-    /// (Successful or Failed), or before it is activated.
+    /// (Successful or Failed), or before it is activated; `cancel` also in
+    /// Closing once the last window has run out, when only success is left.
     NotOpen = 6225,
     /// A `withdraw_payment` leg paid to the sale contract itself: it would
     /// move nothing but count as withdrawn.
@@ -67,4 +68,8 @@ pub enum OfferSaleError {
     /// contract, or that stores none (a token older than 0.2.0): it could
     /// never burn the unsold tokens at finalize.
     NotInitialHolder = 6227,
+    /// `close` while the offering is below its minimum: an offering that
+    /// cannot succeed is cancelled, not closed. Also `finalize` if the
+    /// minimum ever failed to hold in Closing, which only a bug could cause.
+    BelowMinimum = 6228,
 }

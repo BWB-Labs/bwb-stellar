@@ -49,12 +49,6 @@ impl SaleStub {
             &e.current_contract_address(),
         )
     }
-
-    /// What a sale contract does for one investor of a failed offering.
-    pub fn refund_all(e: &Env, allowlist: Address, investor: Address) -> u32 {
-        OfferAllowlistClient::new(e, &allowlist)
-            .restore_all(&investor, &e.current_contract_address())
-    }
 }
 
 /// One deployed allowlist with the platform multisig as admin and the
@@ -137,15 +131,6 @@ impl Setup<'_> {
     pub fn try_restore(&self, investor: &Address, receipts: &[u32]) -> TryResult<()> {
         self.sale()
             .try_refund(&self.id, investor, &self.list(receipts))
-    }
-
-    /// Restores every live receipt of an investor through the sale stub.
-    pub fn restore_all(&self, investor: &Address) -> u32 {
-        self.sale().refund_all(&self.id, investor)
-    }
-
-    pub fn try_restore_all(&self, investor: &Address) -> TryResult<u32> {
-        self.sale().try_refund_all(&self.id, investor)
     }
 
     /// The stub sale's receipt `receipt` for `investor`.

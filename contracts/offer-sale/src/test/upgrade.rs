@@ -31,7 +31,7 @@ mod with_fixture {
         let first = s.buy(&s.alice, 10);
         s.advance(100);
         let second = s.buy(&s.alice, 5);
-        s.buy(&s.bob, 1);
+        s.buy(&s.bob, super::super::SUCCESS_TOKENS);
         s.client.close(&s.owner);
         s.client.pause(&s.platform);
 
@@ -51,7 +51,8 @@ mod with_fixture {
         assert_eq!(v2.state(), v2::SaleState::Closing);
         let totals = v2.totals();
         assert_eq!(totals.supply, SUPPLY);
-        assert_eq!((totals.sold_tokens, totals.raised), (16, 16 * PRICE));
+        let sold = 15 + super::super::SUCCESS_TOKENS;
+        assert_eq!((totals.sold_tokens, totals.raised), (sold, sold * PRICE));
         let config = v2.config();
         assert_eq!(config.price, PRICE);
         assert_eq!(config.min_success_percent, super::super::MIN_PERCENT);
@@ -67,7 +68,10 @@ mod with_fixture {
         );
         assert_eq!(reservation.purchases.get(first).unwrap().tokens, 10);
         assert_eq!(reservation.purchases.get(second).unwrap().tokens, 5);
-        assert_eq!(v2.reservation(&s.bob).unwrap().tokens, 1);
+        assert_eq!(
+            v2.reservation(&s.bob).unwrap().tokens,
+            super::super::SUCCESS_TOKENS
+        );
         assert!(v2.paused());
         assert_eq!(v2.schema_version(), 1);
     }

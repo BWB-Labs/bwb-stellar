@@ -7,14 +7,15 @@
 //! asset and gets a reservation: tokens held for them, kept purchase by
 //! purchase under the allowlist's receipt number, each purchase with its
 //! own cooling-off window. Buying stops when the owner closes or the last
-//! token sells; the offering then waits in Closing until every window has
-//! run out, and anyone finalizes it: Successful if the minimum held, Failed
-//! otherwise. So nothing can be undone after success: release is immediate
+//! token sells, and only with the minimum sold. The offering then waits in
+//! Closing until every window has run out, and anyone finalizes it into
+//! Successful. So nothing can be undone after success: release is immediate
 //! and open to anyone, the owner withdraws freely, and the unsold tokens
-//! are burned. After failure everyone is refunded in batches and the owner
-//! takes the tokens back. A cooling-off refund during Closing that drops the
-//! offering below its minimum puts it back to Active, so buying resumes
-//! instead of anyone failing it; the owner may also reopen.
+//! are burned. A cooling-off refund during Closing that drops the offering
+//! below its minimum puts it back to Active, so Closing always holds the
+//! minimum; the owner may also reopen to sell more. Failed comes only from
+//! the owner's `cancel`; everyone is then refunded in batches and the owner
+//! takes the tokens back.
 //!
 //! Three powers, each a stored address fixed at construction with no
 //! setter, as on the token: `owner` (the tokenizer's treasury) closes,
@@ -47,10 +48,9 @@ use stellar_macros::when_not_paused;
 use crate::allowlist::AllowlistClient;
 pub use crate::errors::OfferSaleError;
 use crate::events::{
-    Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged,
-    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, RestoreSkipped, StateChanged,
-    TokensWithdrawn, Upgraded, REASON_BELOW_MINIMUM, REASON_COOLING_OFF, REASON_FAILED,
-    REASON_OWNER, REASON_SOLD_OUT,
+    Activated, Cancelled, Closed, Configured, Finalized, PauseChanged, PaymentWithdrawn, Purchased,
+    Refunded, Released, Reopened, RestoreSkipped, StateChanged, TokensWithdrawn, Upgraded,
+    REASON_BELOW_MINIMUM, REASON_COOLING_OFF, REASON_FAILED, REASON_OWNER, REASON_SOLD_OUT,
 };
 use crate::offer_token::OfferTokenSupplyClient;
 pub use crate::types::{
@@ -80,8 +80,12 @@ pub const MAX_COOLING_OFF_SECS: u64 = 365 * 86_400;
 /// offering refunds the investor whole, one `allocation_restored` (292 B)
 /// per purchase, so this keeps one investor's refund far inside a
 /// transaction's 16 KB of events, and it equals the allowlist's `restore`
-/// limit, so a cooling-off refund never needs more than one call there.
+/// limit, so every refund gives the investor's receipts back in one call.
 pub const MAX_PURCHASES: u32 = 20;
+
+/// Largest supply `activate` accepts: the minimum check multiplies the
+/// supply by a percentage, which must not overflow.
+pub const MAX_SUPPLY: i128 = i128::MAX / 100;
 
 /// Most investors in one `release`: 30 × (token `transfer` 168 B +
 /// `released` 188 B) = 10,680 B of events, 62 write entries.
@@ -154,9 +158,10 @@ impl OfferSale {
 
     /// Opens buying. Anyone may call it: it only checks facts. The sale
     /// contract must be the token's initial holder (6227), so it can burn
-    /// at finalize, hold the token's whole supply (6204) and `sale` on the
-    /// allowlist (6219), so it runs after the token's deploy and the role
-    /// grant. The supply is kept as the tokens for sale. Emits
+    /// at finalize, hold the token's whole supply (6204), at most
+    /// `MAX_SUPPLY` (6216), and `sale` on the allowlist (6219), so it runs
+    /// after the token's deploy and the role grant. The supply is kept as
+    /// the tokens for sale. Emits
     /// `state_changed`, then `activated`.
     pub fn activate(e: &Env) {
         assert_state(e, SaleState::Preparing, OfferSaleError::NotPreparing);
@@ -172,6 +177,9 @@ impl OfferSale {
         let supply = offer_token.total_supply();
         if supply <= 0 || token.balance(&me) != supply {
             panic_with_error!(e, OfferSaleError::InventoryMissing);
+        }
+        if supply > MAX_SUPPLY {
+            panic_with_error!(e, OfferSaleError::InvalidConfig);
         }
         let allowlist = AllowlistClient::new(e, &contracts.allowlist);
         if allowlist
@@ -277,30 +285,46 @@ impl OfferSale {
     }
 
     /// Stops buying: the offering waits in Closing for the last cooling-off
-    /// window. Owner only. Emits `closed` and `state_changed`.
+    /// window. Owner only, and only with the minimum sold (6228): an
+    /// offering that cannot succeed is cancelled instead. Emits `closed`
+    /// and `state_changed`.
     pub fn close(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Active, OfferSaleError::NotActive);
-        close_with(e, &storage::totals(e), REASON_OWNER);
+        let totals = storage::totals(e);
+        if !meets_minimum(&totals, &storage::config(e)) {
+            panic_with_error!(e, OfferSaleError::BelowMinimum);
+        }
+        close_with(e, &totals, REASON_OWNER);
     }
 
-    /// Opens buying again from Closing, so a refund that dropped the
-    /// offering below its minimum need not fail it. Owner only. Emits
-    /// `state_changed`, then `reopened`.
+    /// Opens buying again from Closing, to sell the tokens left. Owner
+    /// only; refused once everything is sold (6207), since nothing could be
+    /// bought and nothing would close it again. Emits `state_changed`, then
+    /// `reopened`.
     pub fn reopen(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
-        reopen_with(e, &storage::totals(e), REASON_OWNER);
+        let totals = storage::totals(e);
+        if totals.sold_tokens == totals.supply {
+            panic_with_error!(e, OfferSaleError::ExceedsSupply);
+        }
+        reopen_with(e, &totals, REASON_OWNER);
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
-    /// (6225 once decided): everyone is then refunded. It stays possible
-    /// until `finalize` lands, even once the minimum held, so the backend
-    /// submits `finalize` at `finalizable_at`. Emits
-    /// `state_changed`, then `cancelled`.
+    /// (6225 once decided): everyone is then refunded. In Closing it is
+    /// refused once the last window has run out (6225): the offering holds
+    /// its minimum and nothing can undo a purchase, so success is a fact
+    /// even before `finalize` lands, and a paused token holding `finalize`
+    /// back cannot turn it into a failure. Emits `state_changed`, then
+    /// `cancelled`.
     pub fn cancel(e: &Env, caller: Address) {
         require_owner(e, &caller);
         let from = require_open(e);
+        if from == SaleState::Closing && windows_over(e) {
+            panic_with_error!(e, OfferSaleError::NotOpen);
+        }
         let totals = storage::totals(e);
         transition(e, from, SaleState::Failed);
         Cancelled {
@@ -310,29 +334,21 @@ impl OfferSale {
         .publish(e);
     }
 
-    /// Decides the offering once no purchase can be undone: in Closing
-    /// (6221), after the latest purchase's window has run out (6214).
-    /// Anyone may call it. Successful when `sold × 100 ≥ supply × min`:
-    /// the contract must still hold every sold token (6217; `xfer_admin`
-    /// can move them) and burns the rest. Failed otherwise. Emits
-    /// `finalized` or `finalized_failed`, then `state_changed`.
+    /// Declares the offering Successful once no purchase can be undone: in
+    /// Closing (6221), after the latest purchase's window has run out
+    /// (6214). Anyone may call it. Closing always holds the minimum (a
+    /// refund below it reopens buying), so the check here (6228) can only
+    /// fail on a bug. The contract must still hold every sold token (6217;
+    /// `xfer_admin` can move them) and burns the rest. Emits `finalized`,
+    /// then `state_changed`.
     pub fn finalize(e: &Env) {
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
-        let config = storage::config(e);
-        let last = storage::last_purchase_at(e);
-        if e.ledger().timestamp() <= last.saturating_add(config.cooling_off_secs) {
+        if !windows_over(e) {
             panic_with_error!(e, OfferSaleError::CoolingOffOpen);
         }
         let totals = storage::totals(e);
-        if !meets_minimum(&totals, &config) {
-            FinalizedFailed {
-                raised: totals.raised,
-                sold_tokens: totals.sold_tokens,
-                min_success_percent: config.min_success_percent,
-            }
-            .publish(e);
-            transition(e, SaleState::Closing, SaleState::Failed);
-            return;
+        if !meets_minimum(&totals, &storage::config(e)) {
+            panic_with_error!(e, OfferSaleError::BelowMinimum);
         }
         let me = e.current_contract_address();
         let token = token::TokenClient::new(e, &storage::contracts(e).token);
@@ -358,9 +374,8 @@ impl OfferSale {
     /// reservation (6213) or no purchase still open (6212) fails. The
     /// receipts go back to the allowlist in one call, the payment goes
     /// back, and the totals fall; if the allowlist refuses the restore, the
-    /// money still goes back and `restore_skipped` records the receipts
-    /// left charged; the reservation ends when nothing is
-    /// left. The investor authorizes. In Closing, a refund that leaves the
+    /// money still goes back and `restore_skipped` names the receipts left
+    /// charged; the reservation ends when nothing is left. The investor authorizes. In Closing, a refund that leaves the
     /// offering below its minimum moves it back to Active, so buying resumes
     /// while there is still time to sell. Emits `refunded` with reason
     /// `cooling_off`, after the allowlist's `allocation_restored` events
@@ -394,16 +409,7 @@ impl OfferSale {
         reservation.paid -= paid;
         let contracts = storage::contracts(e);
         let me = e.current_contract_address();
-        let restored = AllowlistClient::new(e, &contracts.allowlist)
-            .try_restore(&investor, &receipts, &me)
-            .is_ok_and(|r| r.is_ok());
-        if !restored {
-            RestoreSkipped {
-                investor: investor.clone(),
-                purchases: receipts.len(),
-            }
-            .publish(e);
-        }
+        restore_or_report(e, &contracts.allowlist, &investor, &receipts);
         token::TokenClient::new(e, &contracts.payment_asset).transfer(&me, &investor, &paid);
         storage::set_reservation(e, &investor, &reservation);
         let totals = lower_totals(e, tokens, paid);
@@ -454,16 +460,17 @@ impl OfferSale {
         storage::extend_instance_ttl(e);
     }
 
-    /// Returns the payment of each investor listed and gives all their
-    /// receipts back to the allowlist, in Failed (6203). Anyone may call
+    /// Returns the payment of each investor listed and gives their
+    /// receipts back to the allowlist, in Failed (6203): the receipts the
+    /// reservation holds, by number, in one `restore` per investor. Anyone may call
     /// it. At most `MAX_REFUND` investors and `REFUND_UNITS` event units
     /// (2 per investor served plus 1 per live purchase), both checked
     /// before any transfer (6215). An investor with nothing reserved, or
     /// listed twice, is skipped and costs nothing. A payment transfer that
     /// fails (a frozen balance, a dropped trustline) fails the whole call;
     /// an allowlist that refuses the restore does not: the money still goes
-    /// back and `restore_skipped` records the receipts left charged. Emits `refunded` with reason
-    /// `failed` per investor served, after the allowlist's
+    /// back and `restore_skipped` names the receipts left charged. Emits
+    /// `refunded` with reason `failed` per investor served, after the allowlist's
     /// `allocation_restored` events and the payment's `transfer`.
     pub fn refund(e: &Env, investors: Vec<Address>) {
         assert_state(e, SaleState::Failed, OfferSaleError::NotFailed);
@@ -490,20 +497,13 @@ impl OfferSale {
         }
         let contracts = storage::contracts(e);
         let me = e.current_contract_address();
-        let allowlist = AllowlistClient::new(e, &contracts.allowlist);
         let payment = token::TokenClient::new(e, &contracts.payment_asset);
         let mut totals = storage::totals(e);
         for (investor, reservation) in served.iter() {
-            if !allowlist
-                .try_restore_all(&investor, &me)
-                .is_ok_and(|r| r.is_ok())
-            {
-                RestoreSkipped {
-                    investor: investor.clone(),
-                    purchases: reservation.purchases.len(),
-                }
-                .publish(e);
-            }
+            // The reservation's own receipts, so the events match the unit
+            // budget and a receipt skipped earlier is never given back twice.
+            let receipts = reservation.purchases.keys();
+            restore_or_report(e, &contracts.allowlist, &investor, &receipts);
             payment.transfer(&me, &investor, &reservation.paid);
             storage::remove_reservation(e, &investor);
             totals.sold_tokens -= reservation.tokens;
@@ -611,13 +611,10 @@ impl OfferSale {
     /// second after the latest purchase's window. 0 before any purchase.
     /// It counts from the latest purchase even if that purchase was later
     /// undone by cooling-off, so it can wait longer than needed, never less.
+    /// It only means something in Closing: elsewhere `finalize` fails on the
+    /// state (6221) whatever the time.
     pub fn finalizable_at(e: &Env) -> u64 {
-        let last = storage::last_purchase_at(e);
-        if last == 0 {
-            return 0;
-        }
-        last.saturating_add(storage::config(e).cooling_off_secs)
-            .saturating_add(1)
+        finalizable_time(e)
     }
 
     /// `raised − withdrawn` in Successful, else 0.
@@ -698,9 +695,45 @@ fn transition(e: &Env, from: SaleState, to: SaleState) {
     .publish(e);
 }
 
-/// Whether the offering has sold its minimum share of the supply.
+/// Whether the offering has sold its minimum share of the supply. The
+/// supply is at most `MAX_SUPPLY`, so neither product overflows.
 fn meets_minimum(totals: &Totals, config: &SaleConfig) -> bool {
     totals.sold_tokens * 100 >= totals.supply * i128::from(config.min_success_percent)
+}
+
+/// The time from which `finalize` passes its window check; 0 before any
+/// purchase.
+fn finalizable_time(e: &Env) -> u64 {
+    let last = storage::last_purchase_at(e);
+    if last == 0 {
+        return 0;
+    }
+    last.saturating_add(storage::config(e).cooling_off_secs)
+        .saturating_add(1)
+}
+
+/// Whether every purchase's cooling-off window has run out: nothing can be
+/// undone from now on.
+fn windows_over(e: &Env) -> bool {
+    let last = storage::last_purchase_at(e);
+    e.ledger().timestamp() > last.saturating_add(storage::config(e).cooling_off_secs)
+}
+
+/// Gives `receipts` back to the allowlist; when it refuses, the refund goes
+/// on and `restore_skipped` names them. Any successful return counts as
+/// restored: the allowlist's writes were kept, whatever it returned.
+fn restore_or_report(e: &Env, allowlist: &Address, investor: &Address, receipts: &Vec<u32>) {
+    let me = e.current_contract_address();
+    if AllowlistClient::new(e, allowlist)
+        .try_restore(investor, receipts, &me)
+        .is_err()
+    {
+        RestoreSkipped {
+            investor: investor.clone(),
+            receipts: receipts.clone(),
+        }
+        .publish(e);
+    }
 }
 
 /// Closing → Active with the reason recorded.
@@ -720,6 +753,7 @@ fn close_with(e: &Env, totals: &Totals, reason: &str) {
         reason: Symbol::new(e, reason),
         raised: totals.raised,
         sold_tokens: totals.sold_tokens,
+        finalizable_at: finalizable_time(e),
     }
     .publish(e);
     transition(e, SaleState::Active, SaleState::Closing);

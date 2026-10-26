@@ -51,6 +51,7 @@ fn a_never_buyer_is_skipped_by_release_and_refund() {
 #[test]
 fn close_reopen_close_ends_where_it_started() {
     let s = setup();
+    s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     s.client.reopen(&s.owner);
     s.client.close(&s.owner);

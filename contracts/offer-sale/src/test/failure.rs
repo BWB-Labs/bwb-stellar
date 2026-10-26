@@ -251,14 +251,15 @@ fn a_payout_total_that_overflows_fails_with_exceeds_withdrawable() {
 
 /// The money never waits on the allowlist: if it refuses to restore the
 /// investor's receipts (its book and the sale's reservation disagree),
-/// the refund still pays and the backend repairs the room afterwards.
+/// the refund still pays and `restore_skipped` names the receipts.
 #[test]
 fn a_refund_still_pays_when_the_allowlist_refuses_the_restore() {
     let s = setup();
-    s.buy(&s.alice, 10);
+    let receipt = s.buy(&s.alice, 10);
     s.client.cancel(&s.owner);
     // Empty the allowlist's book for alice behind the sale's back.
-    s.allowlist.restore_all(&s.alice, &s.id);
+    s.allowlist
+        .restore(&s.alice, &soroban_sdk::vec![&s.e, receipt], &s.id);
     s.client.refund(&s.investors(&[&s.alice]));
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
     assert!(s.client.reservation(&s.alice).is_none());

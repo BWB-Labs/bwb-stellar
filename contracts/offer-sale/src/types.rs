@@ -44,7 +44,8 @@ pub struct SaleConfig {
 }
 
 /// Where the offering is in its lifecycle. No state goes back except
-/// Closing to Active, by the owner's `reopen`.
+/// Closing to Active: by the owner's `reopen`, or by itself when a
+/// cooling-off refund leaves the offering below its minimum.
 #[contracttype]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SaleState {

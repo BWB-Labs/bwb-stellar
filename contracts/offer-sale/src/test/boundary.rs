@@ -329,3 +329,53 @@ fn preview_tokens_refuses_a_non_positive_amount() {
         );
     }
 }
+
+/// A refund gives back the receipts the reservation holds, by number, and
+/// nothing else: a receipt live in the allowlist that the reservation no
+/// longer holds (left behind by a refused restore) is neither restored twice
+/// nor charged against the event budget.
+#[test]
+fn a_refund_restores_only_the_reservations_own_receipts() {
+    let s = setup();
+    let bought = s.buy(&s.alice, 10);
+    // A receipt the reservation does not hold, as a refused cooling-off
+    // restore would leave behind.
+    let stray = s.allowlist.consume(&s.alice, &PRICE, &s.id);
+    s.client.cancel(&s.owner);
+    s.client.refund(&s.investors(&[&s.alice]));
+    assert!(s.allowlist.receipt(&s.id, &s.alice, &bought).is_none());
+    assert!(s.allowlist.receipt(&s.id, &s.alice, &stray).is_some());
+}
+
+/// The minimum check multiplies the supply by a percentage, so `activate`
+/// refuses a supply that could overflow it.
+#[test]
+fn a_supply_over_max_supply_is_refused_at_activation() {
+    let s = super::setup_preparing();
+    let huge = crate::MAX_SUPPLY + 1;
+    s.e.register_at(
+        &s.token.address,
+        offer_token::OfferToken,
+        (
+            offer_token::PowerHolders {
+                admin: s.token_admin.clone(),
+                xfer_admin: s.token_admin.clone(),
+                pauser: s.platform.clone(),
+                upgrader: s.platform.clone(),
+            },
+            offer_token::OfferingMetadata {
+                name: soroban_sdk::String::from_str(&s.e, "Edificio Aurora"),
+                symbol: soroban_sdk::String::from_str(&s.e, "AUR"),
+                offer_uri: soroban_sdk::String::from_str(&s.e, "ipfs://offering-v1"),
+            },
+            huge,
+            s.id.clone(),
+            Vec::<Address>::new(&s.e),
+        ),
+    );
+    assert!(s.token.total_supply() > crate::MAX_SUPPLY);
+    assert_eq!(
+        err(s.client.try_activate()),
+        OfferSaleError::InvalidConfig.into()
+    );
+}

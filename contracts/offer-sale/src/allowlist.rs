@@ -15,9 +15,6 @@ pub trait Allowlist {
     /// Gives back the named receipts, at most 20.
     fn restore(e: Env, investor: Address, receipts: Vec<u32>, caller: Address);
 
-    /// Gives back every live receipt of the investor under the caller.
-    fn restore_all(e: Env, investor: Address, caller: Address) -> u32;
-
     /// OpenZeppelin's role check: `Some` when held.
     fn has_role(e: Env, account: Address, role: Symbol) -> Option<u32>;
 }

@@ -7,7 +7,7 @@ use soroban_sdk::{
     BytesN, IntoVal,
 };
 
-use super::{err, setup, setup_preparing, PRICE};
+use super::{err, setup, setup_preparing, PRICE, SUCCESS_TOKENS};
 use crate::{OfferSaleError, SaleState};
 
 #[test]
@@ -23,6 +23,7 @@ fn only_the_owner_closes_reopens_and_cancels() {
             OfferSaleError::NotOwner.into()
         );
     }
+    s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     for caller in [&s.platform, &s.hot_key, &s.alice] {
         assert_eq!(
@@ -114,7 +115,10 @@ needs_signature!(cooling_off_refund_needs_the_investors_signature, |s| { s.buy(&
 needs_signature!(close_needs_the_owners_signature, |s| s
     .client
     .close(&s.owner));
-needs_signature!(reopen_needs_the_owners_signature, |s| { s.client.close(&s.owner); }; s
+needs_signature!(reopen_needs_the_owners_signature, |s| {
+    s.buy(&s.alice, SUCCESS_TOKENS);
+    s.client.close(&s.owner);
+}; s
     .client
     .reopen(&s.owner));
 needs_signature!(cancel_needs_the_owners_signature, |s| s
@@ -191,6 +195,7 @@ fn the_investors_signature_alone_buys() {
 #[test]
 fn the_owners_signature_alone_closes() {
     let s = setup();
+    s.buy(&s.alice, SUCCESS_TOKENS);
     let args = (&s.owner,).into_val(&s.e);
     s.e.mock_auths(&[MockAuth {
         address: &s.owner,

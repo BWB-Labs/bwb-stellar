@@ -151,9 +151,6 @@ needs_signature!(restore_needs_an_accounts_signature, |s| s.client.restore(
     &vec![&s.e, 0],
     &s.hot_key
 ));
-needs_signature!(restore_all_needs_the_sales_authorization, |s| s
-    .client
-    .restore_all(&s.alice, &s.sale));
 needs_signature!(grant_role_needs_the_callers_signature, |s| s
     .client
     .grant_role(&s.alice, &sale_role(&s.e), &s.hot_key));
@@ -204,28 +201,6 @@ fn a_sale_without_the_role_cannot_consume() {
     s.e.set_auths(&[]);
     let sale = SaleStubClient::new(&s.e, &unwired);
     assert_eq!(err(sale.try_buy(&s.id, &s.alice, &1)), code(UNAUTHORIZED));
-}
-
-/// `restore_all` is keyed by the caller like `restore`: a sale gives back
-/// its own book and never sees another offering's.
-#[test]
-fn restore_all_is_scoped_to_the_calling_sale() {
-    let s = setup();
-    s.allow(&s.alice, 100);
-    s.consume(&s.alice, &10);
-    let other = s.another_sale();
-    other.buy(&s.id, &s.alice, &20);
-    s.e.set_auths(&[]);
-    assert_eq!(s.restore_all(&s.alice), 1);
-    assert_eq!(s.client.usage(&s.alice, &period(2026, 10)), 20);
-    let theirs = s.client.receipt_book(&other.address, &s.alice).unwrap();
-    assert_eq!(theirs.receipts.len(), 1);
-    // The hot key, naming itself, holds no book for anyone.
-    s.e.mock_all_auths();
-    assert_eq!(
-        err(s.client.try_restore_all(&s.alice, &s.hot_key)),
-        code(6103)
-    );
 }
 
 #[test]

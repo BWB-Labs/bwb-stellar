@@ -5,7 +5,7 @@
 //! offering's state from any later event. OpenZeppelin's `paused` and
 //! `unpaused`, the token's `transfer` and `burn` and the payment asset's
 //! `transfer` are emitted alongside.
-use soroban_sdk::{contractevent, Address, BytesN, Symbol};
+use soroban_sdk::{contractevent, Address, BytesN, Symbol, Vec};
 
 /// `reason` on `closed` and `reopened`: the owner's call.
 pub const REASON_OWNER: &str = "owner";
@@ -63,12 +63,15 @@ pub struct Purchased {
     pub sold_tokens: i128,
 }
 
-/// Buying closed: `reason` is `owner` or `sold_out`.
+/// Buying closed: `reason` is `owner` or `sold_out`. `finalizable_at` is
+/// the ledger time from which `finalize` passes, as the read returns it; a
+/// cooling-off refund never moves it.
 #[contractevent]
 pub struct Closed {
     pub reason: Symbol,
     pub raised: i128,
     pub sold_tokens: i128,
+    pub finalizable_at: u64,
 }
 
 /// Buying reopened from Closing: `reason` is `owner` (the owner's
@@ -89,14 +92,6 @@ pub struct Finalized {
     pub burned: i128,
 }
 
-/// `finalize` found the offering below its minimum.
-#[contractevent]
-pub struct FinalizedFailed {
-    pub raised: i128,
-    pub sold_tokens: i128,
-    pub min_success_percent: u32,
-}
-
 /// The owner cancelled the offering.
 #[contractevent]
 pub struct Cancelled {
@@ -114,14 +109,18 @@ pub struct Released {
 }
 
 /// The allowlist refused to restore an investor's receipts during a
-/// refund, so the money went back without the room: `purchases` is how
-/// many receipts stayed charged. The backend repairs the allowlist from
-/// it. Emitted only on that failure, before the investor's `refunded`.
+/// refund, so the money went back without the room: `receipts` are the
+/// numbers that stayed charged, each readable through the allowlist's
+/// `receipt` with its period and amount. The room comes back by itself
+/// when those months end; the allowlist has no call that gives usage back,
+/// so the backend can only compensate the current month by raising the
+/// investor's cap. Emitted only on that failure, before the investor's
+/// `refunded`.
 #[contractevent]
 pub struct RestoreSkipped {
     #[topic]
     pub investor: Address,
-    pub purchases: u32,
+    pub receipts: Vec<u32>,
 }
 
 /// Money back to one investor: `reason` is `cooling_off` (the purchases

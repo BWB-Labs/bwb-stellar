@@ -5,11 +5,10 @@ use soroban_sdk::{
     xdr, Address, Env, Event as _, Symbol, TryFromVal,
 };
 
-use super::{setup, setup_preparing, PRICE, SUPPLY, T0};
+use super::{setup, setup_preparing, COOLING_OFF, PRICE, SUCCESS_TOKENS, SUPPLY, T0};
 use crate::events::{
-    Activated, Cancelled, Closed, Configured, Finalized, FinalizedFailed, PauseChanged,
-    PaymentWithdrawn, Purchased, Refunded, Released, Reopened, RestoreSkipped, StateChanged,
-    TokensWithdrawn,
+    Activated, Cancelled, Closed, Configured, Finalized, PauseChanged, PaymentWithdrawn, Purchased,
+    Refunded, Released, Reopened, RestoreSkipped, StateChanged, TokensWithdrawn,
 };
 
 extern crate std;
@@ -125,6 +124,7 @@ fn the_purchase_that_sells_out_emits_purchased_closed_and_the_transition() {
         reason: sym(&s.e, "sold_out"),
         raised: SUPPLY * PRICE,
         sold_tokens: SUPPLY,
+        finalizable_at: T0 + COOLING_OFF + 1,
     };
     assert_eq!(evs[1], closed.to_xdr(&s.e, &s.id));
     assert_eq!(evs[2], changed(&s.e, &s.id, "active", "closing"));
@@ -133,12 +133,13 @@ fn the_purchase_that_sells_out_emits_purchased_closed_and_the_transition() {
 #[test]
 fn close_reopen_and_cancel_emit_their_event_and_the_transition() {
     let s = setup();
-    s.buy(&s.alice, 10);
+    s.buy(&s.alice, SUCCESS_TOKENS);
     s.client.close(&s.owner);
     let closed = Closed {
         reason: sym(&s.e, "owner"),
-        raised: 10 * PRICE,
-        sold_tokens: 10,
+        raised: SUCCESS_TOKENS * PRICE,
+        sold_tokens: SUCCESS_TOKENS,
+        finalizable_at: T0 + COOLING_OFF + 1,
     };
     assert_eq!(
         emitted(&s.e, &s.id),
@@ -150,8 +151,8 @@ fn close_reopen_and_cancel_emit_their_event_and_the_transition() {
     s.client.reopen(&s.owner);
     let reopened = Reopened {
         reason: sym(&s.e, "owner"),
-        raised: 10 * PRICE,
-        sold_tokens: 10,
+        raised: SUCCESS_TOKENS * PRICE,
+        sold_tokens: SUCCESS_TOKENS,
     };
     assert_eq!(
         emitted(&s.e, &s.id),
@@ -162,8 +163,8 @@ fn close_reopen_and_cancel_emit_their_event_and_the_transition() {
     );
     s.client.cancel(&s.owner);
     let cancelled = Cancelled {
-        raised: 10 * PRICE,
-        sold_tokens: 10,
+        raised: SUCCESS_TOKENS * PRICE,
+        sold_tokens: SUCCESS_TOKENS,
     };
     assert_eq!(
         emitted(&s.e, &s.id),
@@ -221,27 +222,6 @@ fn finalize_emits_finalized_with_the_burn_then_the_transition() {
         [
             finalized.to_xdr(&s.e, &s.id),
             changed(&s.e, &s.id, "closing", "successful")
-        ]
-    );
-}
-
-#[test]
-fn finalize_below_the_minimum_emits_finalized_failed_then_the_transition() {
-    let s = setup();
-    s.buy(&s.alice, 100);
-    s.client.close(&s.owner);
-    s.past_cooling_off();
-    s.client.finalize();
-    let failed = FinalizedFailed {
-        raised: 100 * PRICE,
-        sold_tokens: 100,
-        min_success_percent: super::MIN_PERCENT,
-    };
-    assert_eq!(
-        emitted(&s.e, &s.id),
-        [
-            failed.to_xdr(&s.e, &s.id),
-            changed(&s.e, &s.id, "closing", "failed")
         ]
     );
 }
@@ -407,18 +387,20 @@ fn event_sizes_match_the_interface_document() {
 }
 
 /// When the allowlist refuses the restore, the refund still pays, and
-/// `restore_skipped` tells the backend which room to repair.
+/// `restore_skipped` names the receipts that stayed charged.
 #[test]
 fn a_refused_restore_emits_restore_skipped_before_refunded() {
     let s = setup();
-    s.buy(&s.alice, 10);
-    s.buy(&s.alice, 5);
+    let first = s.buy(&s.alice, 10);
+    let second = s.buy(&s.alice, 5);
     s.client.cancel(&s.owner);
-    s.allowlist.restore_all(&s.alice, &s.id);
+    let receipts = soroban_sdk::vec![&s.e, first, second];
+    // Empty the allowlist's book for alice behind the sale's back.
+    s.allowlist.restore(&s.alice, &receipts, &s.id);
     s.client.refund(&s.investors(&[&s.alice]));
     let skipped = RestoreSkipped {
         investor: s.alice.clone(),
-        purchases: 2,
+        receipts,
     };
     let refunded = Refunded {
         investor: s.alice.clone(),
