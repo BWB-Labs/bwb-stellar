@@ -3,10 +3,11 @@
 #
 #   scripts/test.sh [cargo test args...]
 #
-# offer-token's upgrade test swaps to a second binary, the
-# offer-token-upgrade-fixture crate. That WASM has to exist before the tests
-# compile, and only the Stellar CLI builds it (OpenZeppelin 0.7.2 enables
-# soroban-sdk's spec-shaking feature). So: build the fixture, then test.
+# The upgrade tests of offer-token and offer-allowlist each swap to a second
+# binary, the crate's upgrade-fixture. Those WASMs have to exist before the
+# tests compile, and only the Stellar CLI builds them (OpenZeppelin 0.7.2
+# enables soroban-sdk's spec-shaking feature). So: build the fixtures, then
+# test.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,10 +18,12 @@ command -v stellar >/dev/null || {
   exit 1
 }
 
-# Copied to a fixed folder so the test finds it wherever cargo builds
+# Copied to a fixed folder so the tests find them wherever cargo builds
 # (CARGO_TARGET_DIR included).
-echo ">> building the upgrade fixture"
-stellar contract build --package offer-token-upgrade-fixture --out-dir target/fixtures >/dev/null
+echo ">> building the upgrade fixtures"
+for fixture in offer-token-upgrade-fixture offer-allowlist-upgrade-fixture; do
+  stellar contract build --package "$fixture" --out-dir target/fixtures >/dev/null
+done
 
 echo ">> cargo test"
 cargo test --workspace "$@"

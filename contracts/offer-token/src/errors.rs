@@ -4,7 +4,6 @@ use soroban_sdk::contracterror;
 /// own codes (100–104 token, 1000–1001 pause) can surface too; the token
 /// document lists both.
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum OfferTokenError {
     /// Neither the sender nor the recipient is whitelisted.

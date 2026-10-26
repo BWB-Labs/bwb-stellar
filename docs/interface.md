@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 0.6 (draft) |
+| Version | 0.8 (draft) |
 | Status | Under review ([#23](https://github.com/BWB-Labs/bwb-stellar/issues/23)) |
 | Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1) |
 | Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
@@ -55,7 +55,7 @@ This document defines how the BWB backend works with the Soroban contracts that 
 - **What to read, and where.** Read current state by *simulating* the contracts' read functions: a dry run through RPC that changes nothing. Read history from events. RPC keeps events for only about 7 days, so the backend ingests them continuously from a stored cursor ([6.3](#63-ingestion)).
 - **Units.** Payments are in USDC *stroops*, the 7-decimal base unit (1 USDC = 10,000,000 stroops). The allowlist cap is in stroops. Investor limits come from CVM 88 in BRL; whether the backend converts them or the team sets a separate dollar limit is pending the team ([3](#3-premises), [11](#11-open-points)). One token is one quota.
 - **Cooling-off differs from Base (recommended, pending the team).** Tokens are never released to an investor whose cooling-off window is still open, and the tokenizer can only withdraw payment for reservations already released. So the order is: release everyone past their window, then withdraw. The consequence the team is asked to accept: the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase ([3](#3-premises), [5.5](#55-after-success), [11](#11-open-points)).
-- **Batches.** At most 30 investors per release call, 20 per refund call, 30 entries per allowlist batch, and 30 payouts per `withdraw_payment`. These are estimates, reviewed in L4 ([3](#3-premises), [6.4](#64-batch-sizes)).
+- **Batches.** At most 30 investors per release call, 30 entries per allowlist batch, and 30 payouts per `withdraw_payment`. The refund batch (20 in L1) is set in L4: the allowlist restores one investor's purchases per call, at most 20, by receipt, and writes one entry per month plus one for the investor's receipt book ([3](#3-premises), [6.4](#64-batch-sizes)).
 - **Open points** are listed in [11](#11-open-points). Each one changes this document through the changelog.
 
 **Stability.** Until L4 lands, the document stays at 0.x and may change. Every change goes in the [changelog](#changelog) and is announced to the team. From 1.0, events change only by the [additive rule](#61-rules).
@@ -66,10 +66,10 @@ This document defines how the BWB backend works with the Soroban contracts that 
 
 This walkthrough follows one offering from deployment to payout or refund. Each step links to its flow in [section 5](#5-flows).
 
-1. **Deploy.** In T1 the deploy script, signing with the deployer key (on testnet, the platform hot key), deploys `offer-token` and `offer-sale` at precomputed addresses and makes the sale contract a `controller` on the allowlist. The sale contract starts in Preparing. It moves to Active when activated, after checking that it holds the whole supply and is a `controller` on the allowlist. The backend registers the addresses ([5.1](#51-deploying-an-offering)).
-2. **Allowlist.** After KYC, the platform hot key writes the investor's cap, in stroops, to the global allowlist. Every month it resets what investors have used ([5.2](#52-allowlist)).
-3. **Buy.** The investor signs an authorization for `buy(investor, amount)` and BWB submits it. The sale contract pulls the USDC into escrow, reserves tokens for the investor and consumes allowlist room. Each purchase restarts that investor's cooling-off window ([5.3](#53-investing)).
-4. **Cooling-off.** Inside their window, the investor may call `cooling_off_refund` to get the payment back. This works while the offering is Active or Successful, until their tokens are released ([5.7](#57-cooling-off)).
+1. **Deploy.** In T1 the deploy script, signing with the deployer key (on testnet, the platform hot key), deploys `offer-token` and `offer-sale` at precomputed addresses and grants the sale contract `sale` on the allowlist. The sale contract starts in Preparing. It moves to Active when activated, after checking that it holds the whole supply and holds `sale` on the allowlist. The backend registers the addresses ([5.1](#51-deploying-an-offering)).
+2. **Allowlist.** After KYC, the platform hot key, as `allocator`, writes the investor's cap, in stroops, to the global allowlist, and rewrites it only when compliance changes it. Usage is counted per UTC calendar month inside the contract, so nothing is reset and no job runs ([5.2](#52-allowlist)).
+3. **Buy.** The investor signs an authorization for `buy(investor, amount)` and BWB submits it. The sale contract pulls the USDC into escrow, reserves tokens for the investor and consumes allowlist room, which leaves a receipt. Each purchase has its own cooling-off window ([5.3](#53-investing)).
+4. **Cooling-off.** The investor may call `cooling_off_refund` to get back every purchase still inside its own window. This works while the offering is Active or Successful, until their tokens are released ([5.7](#57-cooling-off)).
 5. **Close.** The tokenizer's treasury calls `finalize` (Successful), or `mark_failed` or `cancel` (Failed) ([5.4](#54-closing-an-offering)).
 6. **After success.** The backend releases tokens in batches as windows close. Then the tokenizer's treasury pays every recipient in one `withdraw_payment` call ([5.5](#55-after-success)).
 7. **After failure.** The backend refunds investors in batches, and the tokenizer's treasury may take the tokens back ([5.6](#56-after-failure)).
@@ -88,7 +88,7 @@ sequenceDiagram
   Note over HK,T: Deploy (5.1). T1 by script (deployer key), T2 by the L8 factory
   HK->>T: deploy offer-token
   HK->>S: deploy offer-sale
-  HK->>A: grant controller to the sale contract
+  HK->>A: grant sale to the sale contract
   Note over S: activate: Preparing to Active<br/>(who triggers it is open)
 
   Note over HK,A: Allowlist (5.2)
@@ -113,9 +113,9 @@ sequenceDiagram
   else minimum not sold, or cancelled
     IT->>S: mark_failed or cancel (Active to Failed)
     loop until everyone is refunded
-      HK->>S: refund(up to 20 investors)
+      HK->>S: refund(a batch sized in L4)
       S->>U: return each payment
-      S->>A: restore room
+      S->>A: restore(investor, receipts), per investor
     end
     IT->>S: withdraw_tokens
   end
@@ -139,10 +139,11 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 | admin (stored address) | `offer-token` | tokenizer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
 | `xfer_admin` (stored address, fixed at construction) | `offer-token` | tokenizer's treasury | move tokens between any two accounts, even while paused |
 | owner (stored address) | `offer-sale` | tokenizer's treasury | finalize, mark failed, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
-| access-control admin | `offer-allowlist`, `offer-sale` | platform multisig | grant and revoke the roles below |
+| access-control admin | `offer-allowlist`, `offer-sale` | platform multisig | grant and revoke the roles below; on the allowlist it is also the only upgrader (ADR 0008), and it can never renounce |
 | `pauser` | `offer-token` (stored address), `offer-sale` | platform multisig | pause only, never unpause. **Recommended (ADR 0003), pending the team** |
-| `upgrader` | `offer-token` (stored address), `offer-allowlist`, `offer-sale` | platform multisig | replace the contract's code |
-| `controller` | `offer-allowlist` | platform hot key, and each offering's `offer-sale` | write allocations, consume and restore them, reset consumption, grant and revoke `controller` |
+| `upgrader` | `offer-token` (stored address), `offer-sale`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
+| `allocator` | `offer-allowlist` | platform hot key | write allocations; grant and revoke `sale`. Granted only by the admin |
+| `sale` | `offer-allowlist` | each offering's `offer-sale` | consume room, nothing else. Restoring its own receipts needs no role, so revoking `sale` stops a sale contract's purchases, never its refunds |
 
 The stored addresses (`admin`, `xfer_admin`, owner) have no setter: they are fixed at construction, as Base's `transferAdmin` is. Rotating the treasury's officers keeps the same account address, so no setter is needed.
 
@@ -155,7 +156,7 @@ Two choices here deliberately differ from what a reader might expect:
 - **The platform holds upgrades, not the offering's admin.** In Base, the tokenizer's Safe owns its offering, but the code changes through the factory's beacon, which only the platform Safe controls. Since protocol 28 (CAP-85) Soroban has a beacon equivalent: a contract can take its code from a Wasm-hash entry owned by another contract, so one write upgrades every instance. It needs soroban-sdk ≥ 28, so the T1 contracts (sdk 26) upgrade one by one with `update_current_contract_wasm`. Keeping the split means a fix doesn't need a signing ceremony from every tokenizer. Whether the L8 factory should own the executable reference is an [open point](#11-open-points).
 - **The platform can pause any offering, but only the tokenizer unpauses.** Recommended (ADR 0003), pending the team: it is a governance change. In Base, only the offering's owner pauses token transfers, and the sale contract has no pause. The platform could still stop purchases there by revoking the sale contract's allowlist `controller` role or disabling allocations. Stellar makes this explicit with `pauser`.
 
-`controller` is its own admin role, so a controller can grant and revoke it. That matches Base's `setControllerFromController` (audit NF-01, accepted), and offering deployment depends on it.
+`allocator` is the admin role of `sale`, so the hot key grants `sale` to each new sale contract itself, as Base's `setControllerFromController` lets it; offering deployment depends on it. A sale contract holds no other power, which closes the Base audit's NF-01 (every controller could escalate) that BWB had accepted. Only the admin grants `allocator`. The containment runbook for a leaked hot key is in [offer-allowlist.md](offer-allowlist.md#roles).
 
 **Base and Stellar side by side.** The split of power is the same. A Safe becomes a native multisig account. The upgrade path changes in T1 because the contracts are on sdk 26, which can't use CAP-85.
 
@@ -191,12 +192,12 @@ flowchart LR
     PM -->|admin, upgrader| SAL
     PM -->|pauser, upgrader| ST
     PM -->|role admin, pauser, upgrader| SS
-    HK -->|controller, submits txs| SAL
+    HK -->|allocator, submits txs| SAL
     HK -.->|deploys in T1 via the script| ST
     HK -.->|deploys in T1 via the script| SS
     IT -->|admin, xfer_admin| ST
     IT -->|owner| SS
-    SS -->|controller| SAL
+    SS -->|sale| SAL
   end
 ```
 
@@ -206,7 +207,7 @@ In T2 the L8 factory deploys both contracts instead of the script.
 
 - **Platform multisig:** 2 of 3, at the account's medium threshold. Soroban authorization checks the medium threshold (a native account's signer-weight threshold, see [R1](#r1-stellar-terms)).
 - **Threshold setup.** A native account starts with low, medium and high thresholds of **0**, which means any single signer authorizes everything. Set the medium threshold to the quorum, the high threshold at or above it (high governs adding or removing signers and changing thresholds), and the master key's weight to 0 or count it in the weights. Circle's USDC issuer, for reference, uses low = medium = high = 2.
-- **Platform hot key:** a single key, limited to `controller` and to submitting transactions. On testnet it is also the T1 deploy script's deployer key. It can't move funds. A leaked key lets an attacker change allocations and revoke the sale contracts' `controller` role. That freezes purchases and refunds until the platform multisig grants the role back.
+- **Platform hot key:** a single key, limited to `allocator` and to submitting transactions. On testnet it is also the T1 deploy script's deployer key. It can't move funds. A leaked key lets an attacker change allocations, revoke the sale contracts' `sale` role (which stops their purchases until the role is granted back; their refunds keep working) and grant `sale` to accomplices; it cannot add allocators or upgrade. The runbook is in [offer-allowlist.md](offer-allowlist.md#roles).
 - **Treasuries:** whatever threshold the organization configures, with the same threshold setup. Soroban checks only the medium threshold. Base's app sets its own quorum per approval type (every signer for finalize and distribution, the Safe threshold for deployment), which can be stricter than the Safe's; on Stellar any stricter quorum stays an app-level rule.
 - **Testnet (Tranche 1):** single keys for every role.
 
@@ -218,10 +219,10 @@ The Base backend's layer, part by part, and what each part becomes.
 |---|---|---|---|
 | Who signs, who submits | The investor's Privy wallet signs a UserOp hash and the platform relays it through Notus; the investor pays gas in BRLA. A treasury's signers sign a Safe hash and the platform executes. | The investor or treasury signs a Soroban authorization, and BWB submits: pattern (B), recommended ([4.1](#41-two-patterns)). BWB pays every fee. | Same shape, new fee model |
 | Deploying an offering | One atomic batch of 11 calls through factories (token, sale and a per-offering TokenDistributor, plus seeding, wiring and three ownership transfers), approved in-app by the tokenizer's officers and driven by the backend | T1: the repository's deploy script, and the backend only registers addresses. T2: one call to the L8 factory, driven by the backend ([5.1](#51-deploying-an-offering)). Base's TokenDistributor has no counterpart in T1. | Changes |
-| Allowlist writes | `setAllocations` after KYC, `resetConsumed` monthly | Same calls. The cap is in USDC stroops. Who converts it from the BRL limit, or whether a separate dollar limit applies, is pending the team ([3](#3-premises), [11](#11-open-points)). | Same shape, new unit |
+| Allowlist writes | `setAllocations` after KYC, `resetConsumed` monthly | `set_allocations` after KYC and when compliance changes a limit. No reset and no periodic job: usage is counted per UTC month inside the contract (ADR 0007). The cap is in USDC stroops. Who converts it from the BRL limit, or whether a separate dollar limit applies, is pending the team ([3](#3-premises), [11](#11-open-points)). | Reset removed, new unit |
 | Investing | `approve` + `buyWithBrla` | One `buy`. The investor's authorization covers the USDC transfer inside it. | Simpler |
 | Finalize | `finalizeSale` | `finalize` | Same |
-| Release and payout | One Safe batch: `releaseTokens` in chunks of 200, then one `withdrawBrla` per stakeholder | `release` in batches of at most 30 (refunds 20); `withdraw_payment` takes every payout in one call | Changes |
+| Release and payout | One Safe batch: `releaseTokens` in chunks of 200, then one `withdrawBrla` per stakeholder | `release` in batches of at most 30 (the refund batch is re-measured in L4); `withdraw_payment` takes every payout in one call | Changes |
 | Confirming an investment | Read `TokensPurchased` from the receipt | Read `purchased` from the transaction's events | Same rule, new format |
 | Reading state | RPC reads; raw storage slots for the allowlist; a partial subgraph | Read functions through simulation (the allowlist gains getters), and events from RPC, which keeps them about 7 days. In T2 the L5 indexer replaces the RPC reads. | Changes |
 | Failures | Revert strings, decoded by Notus | Numeric error codes in one block per contract ([7](#7-errors)) | Changes |
@@ -234,12 +235,12 @@ Base's backend never calls cancellation, mark failed, refunds, cooling-off, paus
 The interface holds under these premises. Changing one is a design change, not a defect.
 
 - **One payment asset.** Each offering's payment asset is a constructor parameter. In practice it is USDC for every offering. The allowlist cap is a single number in USDC stroops (7 decimals) shared across offerings, so a second payment asset needs a new design. The kickoff's yield plan may press on this premise ([12](#12-risks)).
-- **No exchange rates on chain.** The cap is in USDC stroops, whichever option the team picks. Investor limits come from CVM 88 in BRL. Base needed no conversion because 1 BRLA = R$1. That no longer holds, and neither does "one real per quota". **Recommended, pending the team:** the backend converts the BRL limit into stroops when it writes an allocation and recalculates at the monthly reset. The alternative is a separate dollar limit for Stellar. The team also decides whether the CVM 88 limit is shared across chains, since the Base and Stellar allowlists are separate ([11](#11-open-points)).
+- **No exchange rates on chain.** The cap is in USDC stroops, whichever option the team picks. Investor limits come from CVM 88 in BRL. Base needed no conversion because 1 BRLA = R$1. That no longer holds, and neither does "one real per quota". **Recommended, pending the team:** the backend converts the BRL limit into stroops when it writes an allocation, at KYC approval and when compliance changes the limit; there is no periodic rewrite and no reset on the allowlist. The alternative is a separate dollar limit for Stellar. The team also decides whether the CVM 88 limit is shared across chains, since the Base and Stellar allowlists are separate ([11](#11-open-points)).
 - **Price.** The price per token, in USDC stroops, is fixed at deployment. A purchase must pay an exact multiple of it. Who chooses the price, and at what exchange rate, is part of the same open point.
 - **Token.** 0 decimals: one token is one quota. It doesn't rebase, and there is no burn or snapshot (dropping snapshot has a consequence for future holdings distributions, [12](#12-risks)). It is SEP-41 except for `burn` and `burn_from`.
 - **Fee on transfer.** The sale contract measures its USDC balance before and after each incoming transfer and credits what actually arrived, as in Base. What arrived must be an exact multiple of the price. A Stellar Asset Contract can't charge transfer fees; the check guards against a non-SAC payment asset.
-- **Batches.** At most 30 investors per release call, 20 per refund call, 30 entries per allowlist batch, and 30 payouts per `withdraw_payment`. These are estimates, reviewed in L4. The limit is the 16 KB of events a transaction may carry, not storage writes ([6.4](#64-batch-sizes)).
-- **Cooling-off.** An investor may undo their reservation and get the payment back within the offering's window, counted from their last purchase. This holds while the offering is Active and after it succeeds, until their tokens are released. **Recommended (ADR 0002), pending the team: tokens are never released to an investor whose window is still open.** Base differs: there, anyone could release early and end the right (audit SCAN-01). SCAN-01's recommended fix was `onlyOwner` on release; we instead keep release permissionless and enforce the window on chain, which removes the early-release path without making release depend on the treasury. The audit response is treated as the written request for this change, pending confirmation by Bruno or Matheus on the PR. The consequence the team is asked to accept: the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase.
+- **Batches.** At most 30 investors per release call, 30 entries per `set_allocations`, 20 receipts of one investor per `restore`, and 30 payouts per `withdraw_payment`. The refund batch (20 in L1) is set in L4: each investor refunded costs one `restore`, which writes that investor's receipt book and one usage entry per month refunded, on top of the sale contract's own entries and the USDC balances, and emits one 292 B event per purchase. L4 sizes the batch against 200 write entries, 400 footprint entries and 16,384 B of events per transaction (testnet, read 2026-10-20, [R7](#r7-network-limits)); for investors with one purchase each, events bind first ([6.4](#64-batch-sizes)).
+- **Cooling-off.** An investor may undo a purchase and get its payment back within the offering's window, counted from that purchase (the team decided cooling-off is per purchase; how the sale contract tracks it is L4's). This holds while the offering is Active and after it succeeds, until their tokens are released. **Recommended (ADR 0002), pending the team: tokens are never released to an investor whose window is still open.** Base differs: there, anyone could release early and end the right (audit SCAN-01). SCAN-01's recommended fix was `onlyOwner` on release; we instead keep release permissionless and enforce the window on chain, which removes the early-release path without making release depend on the treasury. The audit response is treated as the written request for this change, pending confirmation by Bruno or Matheus on the PR. The consequence the team is asked to accept: the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase.
 
 ## 4. Invocation and authorization
 
@@ -330,8 +331,8 @@ The script's sequence. L2 delivered steps 1 and 2; L4 adds the rest.
    - `pauser` and `upgrader`: the platform multisig;
    - the token, the payment asset, the price, the allowlist;
    - the configuration: hard cap, cooling-off seconds, minimum success percent.
-4. **Grant `controller` to the sale contract** on the allowlist. Signed by the platform hot key, as a controller.
-5. **Activate the sale contract.** Signer open (L2/L4). The sale contract checks that it holds the whole supply and that it is a `controller` on the allowlist (the on-chain answer to audit NF-06), then moves from Preparing to Active. So step 5 must follow step 4.
+4. **Grant `sale` to the sale contract** on the allowlist. Signed by the platform hot key, as an allocator (the role-admin of `sale`).
+5. **Activate the sale contract.** Signer open (L2/L4). The sale contract checks that it holds the whole supply and that it holds `sale` on the allowlist (the on-chain answer to audit NF-06), then moves from Preparing to Active. So step 5 must follow step 4.
 
 Ownership is final from the constructors, so nothing transfers ownership afterwards.
 
@@ -346,9 +347,11 @@ In Base the platform server wallet receives the whole supply at mint, seeds the 
 
 ### 5.2 Allowlist
 
-1. **KYC approved.** The platform hot key calls `set_allocations` with the investor's address, the cap in stroops and `enabled = true`. Where the cap comes from (the BRL limit converted by the backend, or a separate dollar limit) is pending the team ([11](#11-open-points)). Repeating the same call is safe.
-2. **Before each purchase**, the backend may read `allocation` or `remaining` instead of reading storage.
-3. **Monthly**, the platform hot key calls `reset_consumed` for investors with confirmed purchases, in batches of at most 30 (Base pages 64 per call). If the team picks the BRL conversion, the same run recalculates caps when the exchange rate moved. That recalculation is new on Stellar: Base's monthly job only resets, despite its comment.
+1. **KYC approved, or compliance changes a limit or a status.** The platform hot key, as `allocator`, calls `set_allocations` with the investor's address, the cap in stroops and `enabled`, at most 30 entries per call. Where the cap comes from (the BRL limit converted by the backend, or a separate dollar limit) is pending the team ([11](#11-open-points)). Repeating the same call is safe, and writing a cap never touches usage. Build every write from a fresh read: `set_allocations` writes both `max` and `enabled`, so an entry built from a stale read can re-enable an investor compliance has just disabled.
+2. **Before each purchase**, the backend may read `allocation` (cap, flag, this month's usage and the current period in one simulation), `remaining` or `can_invest` instead of reading storage.
+3. **Usage is per UTC calendar month** (ADR 0007), **and refunds are per purchase.** The allowlist keeps one usage entry per investor per period; a purchase adds to the current month and a new month starts from zero by itself. Each purchase also leaves a **receipt** in the allowlist, `{amount, period}`, named by the sale contract, the investor and a number: `consume` returns the number (from 0 per sale contract and investor), the sale contract stores it with the purchase, and a refund names one investor's receipt numbers. Each receipt goes back to its own month, once, and only for the sale contract that made it; a second restore of the same receipt fails with 6103. An investor may hold at most 100 live receipts per offering (6107). **There is no monthly reset** and no skip-open-positions rule in the backend. The period formula (`year * 12 + month − 1`) and `current_period()` are in [offer-allowlist.md](offer-allowlist.md#periods); the receipt rule is in [offer-allowlist.md](offer-allowlist.md#receipts). The indexer models usage per `(investor, period)`, and each investor's open receipts per offering, from `allocation_consumed` and `allocation_restored`, which carry the period, the usage after and the receipt number; `receipt(sale, investor, number)` and `receipt_book(sale, investor)` read them.
+   - **Two purchases by the same investor in one offering**, both simulated before the first lands, are the one concurrency edge: the second writes one receipt (80 B) more than it simulated and, unless the submitter left a margin on write bytes, fails as a resource error. So does a refund simulated before the same investor's purchase lands, and, because a month's usage is shared across offerings, a refund that empties a month against that investor's purchase in any offering (the usage entry is removed or recreated, which changes write bytes and the refundable fee). The backend re-simulates and resubmits, and reads the receipt number from `allocation_consumed`, never from the simulation. Purchases by different investors never conflict ([offer-allowlist.md](offer-allowlist.md#receipts)).
+4. **Disabling an investor** is `set_allocations` with `enabled = false`: it blocks purchases everywhere on Stellar and keeps the history. There is no removal.
 
 ### 5.3 Investing
 
@@ -382,15 +385,15 @@ The tokenizer's treasury signs one of these while the offering is Active:
 
 ### 5.6 After failure
 
-- **Refunds.** Anyone may call `refund(investors)`, in batches of at most 20. Each investor gets their payment back, the reservation ends, and the allowlist room is restored.
-  - **Known issue carried from Base:** restoring room fails when the monthly reset already set the investor's usage to 0. A refund after a reset therefore fails, together with its whole batch. The same happens to cooling-off. In Base it is unreachable through the app, but an investor calling the cooling-off function directly within 5 days after a reset would hit it. See [offer-allowlist](offer-allowlist.md#known-issue-refunds-after-the-monthly-reset); it is decided in L3.
+- **Refunds.** Anyone may call `refund(investors)`, in batches whose size L4 sets. Each investor gets their payment back, the reservation ends, and the allowlist room is restored.
+  - **Room is restored per purchase** (L3). The sale contract calls `restore(investor, receipts)` once per investor refunded, with the receipt numbers of that investor's purchases, at most 20 per call, so a refund across a month boundary succeeds in one call and last month's money never frees this month's room. Base's refund-after-reset failure is gone, and so is its over-restore: `restore` fails (6103) for a receipt already restored or unknown, or an investor the sale contract never sold to, which can only be a bug in the sale contract; another sale contract's receipts are never found. `restore` checks no role, so a sale contract whose `sale` was revoked still refunds. How L4 batches refunds is handed to L4 ([offer-sale.md](offer-sale.md)). Receipts and months older than the network's maximum TTL are archived, not gone; the transaction that touches one restores it, so the submitter must simulate a late refund afresh ([9](#9-storage-and-expiry)).
   - An investor with nothing reserved is skipped silently.
   - A failed USDC transfer fails the whole call, as in Base. A typical cause is an investor account that lost its USDC trustline (SAC error 13) or was deauthorized by the USDC issuer, Circle (SAC error 11). The backend leaves that investor out and retries the rest.
 - **Tokens back.** The tokenizer's treasury may withdraw the offering's tokens with `withdraw_tokens(to, amount)`, to the address it names.
 
 ### 5.7 Cooling-off
 
-The investor signs `cooling_off_refund(investor)` themselves, within the window, while the offering is Active or Successful and before their tokens are released. They get their payment back, the reservation ends, and the allowlist room is restored.
+The investor signs `cooling_off_refund(investor)` themselves, within the window, while the offering is Active or Successful and before their tokens are released. They get their payment back and the allowlist room is restored, by receipt, to the months the purchases were charged to. Cooling-off is per purchase (the team's decision): a request returns every purchase still inside its own window, and older purchases stay in the reservation. How the sale contract does this, and when tokens are released now that each purchase has its own window, is L4's ([offer-sale.md](offer-sale.md)).
 
 ### 5.8 Pause, admin transfer and upgrade
 
@@ -431,11 +434,12 @@ The batch limits come from events, not storage. A transaction may carry at most 
 | Call | Events per investor | Limit per call |
 |---|---|---|
 | `release` | token `transfer` + `released` | 30 |
-| `refund` | USDC `transfer` + `refunded` + allowlist `allocation_restored` | 20 |
-| `set_allocations`, `reset_consumed` | one allowlist event | 30 |
+| `refund` | USDC `transfer` + `refunded` + one allowlist `allocation_restored` **per purchase refunded** | 20 in L1, **invalidated**; L4 sizes it against the transaction limits, one `restore` per investor |
+| `set_allocations` | one allowlist event | 30 |
+| `restore` (called by the sale contract) | one `allocation_restored` per receipt | 20 receipts of one investor |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 30 |
 
-The per-investor sizes are measured XDR encodings, to be confirmed by simulation in L4. At the limits they fill about 10.9 KB (release), 15.8 KB (refund), 7.4 KB (allowlist) and 12.9 KB (payout, an estimate). Refund is the tight one: 792 B per investor leaves about 3% of margin at 20, so any field added to `refunded` or `allocation_restored` forces a smaller refund batch. Measured sizes and the arithmetic are in [R5](#r5-event-sizes).
+The per-investor sizes are measured XDR encodings, to be confirmed by simulation in L4. At the limits they fill about 10.9 KB (release), 7.2 KB (`set_allocations`), 5.8 KB (`restore`) and 12.9 KB (payout, an estimate). The other limits are far away: a transaction may write 200 entries and touch 400 ([R7](#r7-network-limits)); `set_allocations` at 30 entries writes 31, and `restore` at its worst case, 20 receipts of one investor in 20 different months, writes **21** (one usage entry per month and the investor's receipt book) and touches 25 in the test environment (the network adds the contracts' code entries); a test pins the `restore` numbers. **The refund limit of 20 no longer holds** as an investor count: each investor refunded emits 836 B or more (one `allocation_restored` per purchase), so about 19 one-purchase investors fill the 16 KB of events, and each costs a `restore` with at least two allowlist writes plus the sale contract's own entries and the investor's USDC balance. L4 sizes the refund batch against these limits, confirmed by simulation. Measured sizes and the arithmetic are in [R5](#r5-event-sizes).
 
 Each investor keeps their own event so that the backend's ledger can record one leg per account, which is how its `operations` table is shaped. Base's ledger has no intent kind for release, refund or cooling-off today; the backend team adds them.
 
@@ -475,7 +479,7 @@ The demonstration script at the end of L4 builds these failing transactions with
 | D2 term | Events |
 |---|---|
 | Issuance | `offer-token` `mint` at construction; `offer-sale` `activated` |
-| Allocation | `offer-allowlist` `allocation_set`, `allocation_consumed`, `allocation_restored`, `consumed_reset` |
+| Allocation | `offer-allowlist` `allocation_set`, `allocation_consumed`, `allocation_restored` |
 | Investment | `offer-sale` `purchased` |
 | Pause / unpause | `pause_changed` (carries the caller, so it tells the treasury's pause from the platform's) on `offer-token` and `offer-sale`; OpenZeppelin's `paused` / `unpaused` accompany it |
 | Cooling-off | `offer-sale` `refunded` with reason `cooling_off` |
@@ -509,6 +513,8 @@ On Stellar, every piece of contract data has a lifetime, its *TTL* (time to live
 | Data | Storage | Where |
 |---|---|---|
 | Allocation per investor | persistent, one entry per investor | `offer-allowlist` |
+| Usage per investor per period | persistent, one entry per `(investor, period)`, written after its month only by a refund, removed at 0 | `offer-allowlist` |
+| Receipt book per investor per offering | persistent, one entry per `(sale contract, investor)`: the next number and up to 100 live receipts; kept when empty | `offer-allowlist` |
 | Reservation per investor | persistent, one entry per investor | `offer-sale` |
 | Balance per holder | persistent (OpenZeppelin) | `offer-token` |
 | Transfer whitelist, one entry per account | persistent | `offer-token` |
@@ -518,7 +524,9 @@ On Stellar, every piece of contract data has a lifetime, its *TTL* (time to live
 
 *Persistent* storage keeps one entry per key, each with its own TTL. *Instance* storage is a single entry that lives with the contract. *Temporary* storage is deleted, not archived, when its TTL runs out.
 
-- **The contracts extend** their instance and every entry they touch, on every call. OpenZeppelin extends balances and roles but never the instance, so the contracts do it.
+- **The contracts extend** their instance and every entry they touch, on every call, up to the network maximum once they fall a month below it. OpenZeppelin extends balances and roles (to 30 and 90 days) but never the instance, so the contracts do it.
+- **Role entries on the allowlist.** OpenZeppelin extends a role entry only to 90 days when it reads it, and its role getters do read them, so those views are not rent-free. Every write on the allowlist additionally tops the caller's own role entry up to the maximum (`allocator` on `set_allocations`, `sale` on `consume` and `restore`), and every `grant_role` the entry it grants, so a sale contract that is quiet for months still finds its role alive for a late refund. The other role keys stay on OpenZeppelin's rule ([offer-allowlist.md](offer-allowlist.md#storage-and-expiry)).
+- **Old usage months and quiet receipts are left to expire.** The allowlist writes a past month again only on a refund, and an investor's receipt book only when that investor buys or is refunded in that offering, so both archive on their own and storage does not grow. An archived entry is not gone: since protocol 23 the transaction that touches it restores it, so a late refund of an old purchase works provided the submitter simulates the call afresh and submits the footprint simulation returned.
 - **There is no backend keep-alive job.** Anyone may extend any entry without permission (`ExtendFootprintTTLOp`), so the team can add one later without contract changes.
 - **Testnet data archives quickly.** New persistent entries live about 7 days on testnet against about 120 on mainnet, and temporary entries about 1 hour against about 1 day ([R7](#r7-network-limits)), so idle testnet data archives within days.
 - **Persistent structs carry a schema version.** The full TTL policy is L9.
@@ -540,15 +548,14 @@ Decided later. Each one changes this document through the changelog. The first f
 
 | Point | Today (recommended, pending the team) | Question for the team | Decided by |
 |---|---|---|---|
-| **BRL → USDC cap** (team item 3) | The backend converts the CVM 88 BRL limit into USDC stroops when it writes an allocation and recalculates at the monthly reset ([3](#3-premises)). | Convert BRL in the backend, or set a separate dollar limit for Stellar? Is the CVM 88 limit shared across chains, given that the Base and Stellar allowlists are separate? Who chooses the price per quota, at what exchange rate, and how is the valuation set? | The team |
+| **BRL → USDC cap** (team item 3) | The backend converts the CVM 88 BRL limit into USDC stroops when it writes an allocation, at KYC approval and when compliance changes the limit; nothing is rewritten on a schedule ([3](#3-premises)). | Convert BRL in the backend, or set a separate dollar limit for Stellar? Is the CVM 88 limit shared across chains, given that the Base and Stellar allowlists are separate? Who chooses the price per quota, at what exchange rate, and how is the valuation set? | The team |
 | **Cooling-off enforced on chain** (ADR 0002) and **withdraw only released money** (ADR 0004) (team items 5 and 11) | `release` waits for each investor's window; `withdraw_payment` is capped at released money minus what was withdrawn ([3](#3-premises), [5.5](#55-after-success)). | Today's practice doesn't respect the cooling-off; should it? If yes, the team accepts that the tokenizer and the issuer are paid up to `cooling_off_secs` (5 days in Base's offerings) after the last purchase. Julia's opinion on NF-04. Bruno or Matheus confirm ADR 0002 on the PR. | The team (Bruno, Matheus; Julia on NF-04) |
 | **The platform may pause any offering** (ADR 0003) | The platform multisig holds `pauser` on token and sale contract; only the tokenizer unpauses ([1](#1-parties-roles-and-keys), [5.8](#58-pause-admin-transfer-and-upgrade)). | It is a governance change: does the tokenizer accept that BWB can pause its offering? | The team (Bruno; Matheus for compliance) |
 | **What a paused sale contract blocks** (team item 25) | `buy` only, as drafted. Recommendation (c): block everything that sends money to the tokenizer (`buy`, `release`, `withdraw_payment`), never the investor's exit (`refund`, `cooling_off_refund`). | Which scope? | The team, then L4 |
 | **Leftover tokens after success** (team item 23) | No `offer-sale` call returns them after success (`withdraw_tokens` requires Failed, as in Base). They are not locked: the token's `admin_transfer` (`adminTransfer` on Base) can move unsold tokens out of the sale contract. The same call can pull sold-but-unreleased tokens and break `release` ([5.5](#55-after-success)). | Do leftovers return to the tokenizer, to the issuer, or cease to exist (there is no burn)? Depends on the quotas' legal treatment. `admin_transfer` is a fact, not a decided exit path. | The team (product, legal) |
 | Inventory at deployment, and who activates | Mint straight into the sale contract is the leading candidate | Who triggers `activate`? Does T2 keep an in-app officer approval before the factory call? | L2 / L4, L8 for the approval |
-| Batch sizes (30 release, 20 refund, 30 allowlist, 30 payouts) | Measured event sizes in [R5](#r5-event-sizes). Refund has about 3% of margin at 20, so a new field in `refunded` or `allocation_restored` lowers it. L4 confirms by simulation and raises the limits as far as they fit, for example by trimming per-investor events. The backend needs a job that releases investors in rolling batches as their windows close. | | L4, and the team for the job |
+| Batch sizes (30 release, refund open, 30 `set_allocations`, 20 receipts of one investor per `restore`, 30 payouts) | Measured event sizes in [R5](#r5-event-sizes). The refund limit of 20 investors is invalidated by L3: a refund restores purchases by receipt, one `restore` per investor, and emits one 292 B event per purchase; with one purchase each, about 19 investors fill the 16 KB of events, before the 200 write entries bind. L4 sizes the refund batch and confirms by simulation. The backend needs a job that releases investors in rolling batches as their windows close. | | L4, and the team for the job |
 | Batch behaviour when one investor can't be served | Revert the whole call, as in Base; the alternative is skip and report | | L4 |
-| Restoring allowlist room after the monthly reset | Fails, as in Base. Recommended fix: restore at most what is consumed. Candidate: a **lazy reset**, where each allocation stores the period its usage belongs to and a purchase in a new period starts from zero. The lazy reset needs no monthly reset run and lets a refund give room back only within the same period. | Calendar month or fixed 30-day period? | L3 |
 | Upgrades through CAP-85 | T1 contracts (sdk 26) upgrade one by one with `update_current_contract_wasm` ([1](#1-parties-roles-and-keys), [5.8](#58-pause-admin-transfer-and-upgrade)). | Should the L8 factory own the executable reference, so one write upgrades every offering? The owner contract then controls every instance, and beacon-style updates emit no per-instance event. | L8, with the sdk 28 move |
 | Definition of AUM | Inputs listed in [8.2](#82-what-moves-value) | Does money still in escrow count? | The team |
 | Custody of each key | Recommendation in [1](#1-parties-roles-and-keys) | | BWB |
@@ -641,9 +648,9 @@ A transaction may carry at most 16,384 bytes of events, including the call's ret
 | USDC `transfer` | 244 B |
 | `released` | 192 B |
 | `refunded` `{paid, raised, reason, sold_tokens, tokens}` | 300 B (`failed`), 304 B (`cooling_off`) |
-| `allocation_restored` (3 topics) `{amount, consumed}` | 248 B |
-| `allocation_set` `{caller, enabled, max}` | 248 B |
-| `consumed_reset` | 228 B |
+| `allocation_restored` (3 topics) `{amount, consumed, period, receipt}` | 292 B (measured; 248 B in L1, 268 B before `receipt`) |
+| `allocation_consumed` (3 topics) `{amount, consumed, period, receipt}` | 292 B (measured) |
+| `allocation_set` `{caller, enabled, max}` | 240 B (measured) |
 | `payment_withdrawn` | about 190 B (estimate) |
 
 Per-investor sizes, to be confirmed by simulation in L4:
@@ -651,11 +658,12 @@ Per-investor sizes, to be confirmed by simulation in L4:
 | Call | Events per investor | Per investor | Limit | Total at the limit | Margin |
 |---|---|---|---|---|---|
 | `release` | token `transfer` + `released` | 364 B | 30 | about 10.9 KB | about 33% |
-| `refund` | USDC `transfer` + `refunded` + allowlist `allocation_restored` | 792 B | 20 | about 15.8 KB (15,844 B with the void return) | about 540 B, 3% |
-| `set_allocations`, `reset_consumed` | one allowlist event | 228–248 B | 30 | about 7.4 KB | about 55% |
+| `refund` | USDC `transfer` + `refunded` + allowlist `allocation_restored` **per purchase** | 836 B with one purchase, + 292 B per further purchase | set in L4 | 20 purchases of 20 investors: about 16.7 KB, over the limit; 20 purchases of one investor: about 6.4 KB | none at 20 one-purchase investors |
+| `restore` (inside a refund) | one `allocation_restored` per receipt | 292 B per receipt | 20 receipts of one investor | 5,840 B | about 64% |
+| `set_allocations` | one allowlist event | 240 B | 30 | about 7.2 KB | about 56% |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | about 430 B | 30 | about 12.9 KB | about 21% |
 
-The refund limit stays at 20. Any field added to `refunded` or `allocation_restored` (about 28 B per `i128`, in two events, for 20 investors) pushes the batch past 16 KB, so adding one forces a smaller refund batch. To be reviewed in L4.
+The refund limit of 20 is invalidated: `allocation_restored` carries the period and the receipt (292 B), and a refund emits one per purchase. Refunding 20 investors with one purchase each would emit about 16.7 KB of events, over the limit; about 19 fit. The write entries come next: each investor costs a `restore` with two allowlist writes (a usage entry and the receipt book, one more per further month), plus the sale contract's entries and the investor's USDC balance, against 200 per transaction. L4 sizes the refund batch against both and confirms by simulation.
 
 ### R6. Error codes
 
@@ -679,7 +687,7 @@ OpenZeppelin codes the backend will meet:
 | 2000 | `Unauthorized` | the caller lacks the role (contracts with OpenZeppelin access control) |
 | 2007 | `RoleNotHeld` | revoking a role the account doesn't hold (same) |
 
-`offer-token` never returns 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 ([offer-token.md](offer-token.md#errors)).
+`offer-token` never returns 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 ([offer-token.md](offer-token.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)).
 
 USDC (Stellar Asset Contract) codes the backend will meet. They come back unchanged as `Error(Contract, #n)` and don't collide with the blocks above:
 
@@ -701,6 +709,11 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 | Ledger close time | about 5 seconds |
 | Events per transaction | 16,384 bytes, including the return value |
 | Instructions per transaction | 400 M |
+| Write entries per transaction | 200 (read 2026-10-20) |
+| Footprint entries per transaction | 400 (read 2026-10-20) |
+| Disk-read entries per transaction | 200 (read 2026-10-20) |
+| Write bytes per transaction | 132,096 (read 2026-10-20) |
+| Size of one contract data entry | 65,536 bytes (read 2026-10-20) |
 | Authorization expiry (`max_entry_ttl`) | 3,110,400 ledgers, about 180 days |
 | Minimum lifetime of a new persistent entry | mainnet 2,073,600 ledgers, about 120 days; testnet 120,960, about 7 days |
 | Minimum lifetime of a new temporary entry | mainnet 17,280 ledgers, about 1 day; testnet 720, about 1 hour |
@@ -731,6 +744,29 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **Offerings and the allowlist:** [`deployments/testnet.json`](../deployments/testnet.json). These IDs change with every testnet redeploy.
 
 ## Changelog
+
+**0.8, 2026-10-19.** Per-purchase receipts on `offer-allowlist` (L3). The team decided cooling-off is per purchase, and refunding by `(period, amount)` let one sale contract restore twice, or more than it consumed, whenever another purchase covered it (audit finding A). Changes here:
+
+- **Receipts:** `consume(investor, amount, caller)` now returns a receipt number instead of the period. Numbers count from 0 per sale contract and investor; the allowlist keeps `{amount, period}` under `(sale contract, investor, number)` in one receipt book per sale contract and investor, which is kept when it empties so numbers are never reused. `restore(investor, receipts, caller)` replaces `restore(investor, entries, caller)`: 1 to 20 whole receipts of one investor under the calling sale contract; each goes back to its own month once and is removed. A usage entry restored to 0 is removed ([5.2](#52-allowlist), [5.6](#56-after-failure), [5.7](#57-cooling-off)).
+- **No shared key per purchase:** a purchase touches only its own investor's entries, so purchases by different investors in the same offering never conflict; a per-sale counter would have made a purchase simulated before another investor's landed fail with a footprint error. The same investor's two purchases simulated together are the remaining edge ([5.2](#52-allowlist)).
+- **Getters** `receipt(sale, investor, receipt)` and `receipt_book(sale, investor)`.
+- **Events:** `allocation_consumed` and `allocation_restored` gain `receipt` (292 B each); one `allocation_restored` per receipt, in list order ([R5](#r5-event-sizes)).
+- **Errors:** 6103 is renamed `ReceiptNotFound` (unknown, already restored or repeated receipt, or an investor the sale contract never sold to); 6104 also covers more than 20 receipts; new 6107 `TooManyReceipts` at 100 live receipts per investor per offering; 6106 `InvalidPeriod` is left for a ledger time whose period doesn't fit a `u32`; 6102 no longer covers restore amounts, since `restore` takes none, and also names two states the contract never reaches (an investor out of receipt numbers, a receipt its usage no longer covers).
+- **Restore needs no role:** `restore` requires the caller's authorization instead of `sale`. A caller only finds receipts it created while holding `sale`, so revoking `sale` (by the platform or a leaked hot key) stops a sale contract's purchases but never its refunds. Accepted in exchange: revocation no longer freezes a compromised sale contract's restores; the bound and the remedies are in [offer-allowlist.md](offer-allowlist.md#roles) ([1](#1-parties-roles-and-keys)).
+- **Batches:** `restore` takes at most 20 receipts of one investor and writes at most 21 entries; the refund batch is sized in L4 against the transaction limits ([6.4](#64-batch-sizes), [11](#11-open-points)).
+- **Network limits re-read** on 2026-10-20: 200 write entries and 400 footprint entries per transaction, not the 50 and 100 that 0.7 quoted; with them, events bind the refund batch first ([R7](#r7-network-limits)).
+- **Handed to L4:** the sale contract stores each purchase by investor and receipt number; `cooling_off_refund` restores every receipt still inside its own window; when tokens are released now that each purchase has its own window; the failed-offering refund loops over investors, one `restore` each; whether to cap purchases per investor below the allowlist's 100 ([offer-sale.md](offer-sale.md)).
+
+**0.7, 2026-10-15.** `offer-allowlist` delivered (L3). Its document now describes the deployed contract. Changes here:
+
+- **Usage per UTC calendar month** (ADR 0007): the allowlist keeps one usage entry per investor per period and a new month starts from zero by itself. `reset_consumed` and the monthly reset are gone; the monthly job is the cap rewrite only, and the backend drops its skip-open-positions rule. `consume` returns the period it charged; `restore` takes `(period, amount)` pairs and fails only when a month cannot account for the amount. The known issue of refunds after the reset is resolved ([5.2](#52-allowlist), [5.6](#56-after-failure), [11](#11-open-points)).
+- **OpenZeppelin roles on the allowlist** (ADR 0008): the platform multisig is the access-control admin and the only upgrader; Base's single controller map becomes `allocator` (the hot key: allocations, and the role-admin of `sale`) and `sale` (each sale contract: consume and restore only), closing Base audit NF-01; only the admin grants `allocator`; `renounce_admin` always fails (6105); the containment runbook for a leaked hot key. Codes 2000 and 2007 surface unchanged ([1](#1-parties-roles-and-keys), [R6](#r6-error-codes)).
+- **No cap cron:** caps are written at KYC approval and when compliance changes them, as on Base; the monthly cap rewrite that 0.6 described is gone ([5.2](#52-allowlist)). L4's planned 6219 `NotController` becomes `NotSale`.
+- **Allowlist additions:** getters `allocation` (a view with the current period and its usage), `usage(investor, period)`, `remaining`, `can_invest`, `current_period`, `schema_version` and the role enumeration; codes 6102 `InvalidAmount` (was `NegativeAmount`), 6103 `RestoreExceedsUsage` (was `RestoreExceedsConsumed`), 6105 `RenounceBlocked`, 6106 `InvalidPeriod`; `allocation_consumed` and `allocation_restored` carry `period`; an `initialized` event; the caller is the last argument of every write.
+- **Refund batch invalidated:** `allocation_restored` measures 268 B and a refund emits one per month the investor bought in; L4 re-measures and sets the limit ([6.4](#64-batch-sizes), [R5](#r5-event-sizes)).
+- **Expiry:** usage entries; the caller's role entry kept to the maximum by every write and the granted entry by every grant; OpenZeppelin's role getters extend what they read; old months left to expire; the archive note for late refunds ([9](#9-storage-and-expiry)).
+- **Batch limits are bound by write entries**, not events: 31 of 50 at 30 allowlist entries ([6.4](#64-batch-sizes), [R5](#r5-event-sizes)).
+- **Handed to L4:** the reservation keeps the amount paid per period; `refund` and `cooling_off_refund` restore per month ([offer-sale.md](offer-sale.md)).
 
 **0.6, 2026-10-09.** `offer-token` delivered (L2). Its document now describes the deployed contract. Changes here:
 

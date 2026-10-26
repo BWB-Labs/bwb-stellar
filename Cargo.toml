@@ -4,6 +4,7 @@ members = [
     "contracts/offer-token",
     "contracts/offer-token/upgrade-fixture",
     "contracts/offer-allowlist",
+    "contracts/offer-allowlist/upgrade-fixture",
     "contracts/offer-sale",
 ]
 

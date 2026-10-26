@@ -25,7 +25,6 @@ pub enum DataKey {
 
 /// Same code as v1's `NotUpgrader`.
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum FixtureError {
     NotUpgrader = 6006,
