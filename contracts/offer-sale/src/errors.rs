@@ -23,7 +23,7 @@ pub enum OfferSaleError {
     NonPositiveAmount = 6205,
     /// What arrived for a purchase is not an exact multiple of the price.
     NotWholeTokens = 6206,
-    /// A purchase beyond the tokens left.
+    /// A purchase beyond the tokens left; `reopen` once everything is sold.
     ExceedsSupply = 6207,
     /// No payment arrived for a purchase.
     NothingReceived = 6209,
@@ -71,4 +71,8 @@ pub enum OfferSaleError {
     /// cannot succeed is cancelled, not closed. Also `finalize` if the
     /// minimum ever failed to hold in Closing, which only a bug could cause.
     BelowMinimum = 6228,
+    /// `consume` returned a receipt number the investor's reservation
+    /// already holds: only a fault in the allowlist could cause it, and
+    /// keeping the purchase would overwrite the earlier one.
+    DuplicateReceipt = 6229,
 }

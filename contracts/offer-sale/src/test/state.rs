@@ -1,7 +1,7 @@
 //! Every transition of the lifecycle, and every call that a state refuses.
 use soroban_sdk::{testutils::Address as _, Address};
 
-use super::{err, sale_role, setup, setup_preparing, PRICE, SUCCESS_TOKENS, SUPPLY};
+use super::{code, err, sale_role, setup, setup_preparing, PRICE, SUCCESS_TOKENS, SUPPLY};
 use crate::{OfferSaleError, SaleState};
 
 #[test]
@@ -199,7 +199,9 @@ fn cancel_stays_possible_in_closing_until_finalize_lands() {
     s.client.close(&s.owner);
     s.token.pause(&s.platform);
     s.past_cooling_off();
-    assert!(s.client.try_finalize().is_err());
+    // The burn inside `finalize` hits the paused token (OpenZeppelin's
+    // EnforcedPause).
+    assert_eq!(err(s.client.try_finalize()), code(1000));
     s.client.cancel(&s.owner);
     assert_eq!(s.client.state(), SaleState::Failed);
     s.client.refund(&s.investors(&[&s.alice]));

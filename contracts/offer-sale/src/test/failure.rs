@@ -265,3 +265,68 @@ fn a_refund_still_pays_when_the_allowlist_refuses_the_restore() {
     assert!(s.client.reservation(&s.alice).is_none());
     assert_eq!(s.client.totals().raised, 0);
 }
+
+/// An allowlist that hands out the same receipt number every time: the
+/// fault the duplicate-receipt guard in `buy` exists for.
+#[soroban_sdk::contract]
+pub struct RepeatAllowlist;
+
+#[soroban_sdk::contractimpl]
+impl RepeatAllowlist {
+    pub fn consume(
+        _e: soroban_sdk::Env,
+        _investor: Address,
+        _amount: i128,
+        _caller: Address,
+    ) -> u32 {
+        7
+    }
+
+    pub fn restore(
+        _e: soroban_sdk::Env,
+        _investor: Address,
+        _receipts: soroban_sdk::Vec<u32>,
+        _caller: Address,
+    ) {
+    }
+
+    pub fn has_role(
+        _e: soroban_sdk::Env,
+        _account: Address,
+        _role: soroban_sdk::Symbol,
+    ) -> Option<u32> {
+        Some(0)
+    }
+}
+
+/// A receipt number the reservation already holds would overwrite a live
+/// purchase; `buy` refuses it (6229) and the first purchase stays whole.
+#[test]
+fn a_repeated_receipt_number_fails_with_duplicate_receipt() {
+    let s = super::setup_preparing();
+    let repeat = s.e.register(RepeatAllowlist, ());
+    let contracts = s.client.contracts();
+    s.e.register_at(
+        &s.id,
+        crate::OfferSale,
+        (
+            s.client.powers(),
+            crate::Contracts {
+                token: contracts.token,
+                payment_asset: contracts.payment_asset,
+                allowlist: repeat,
+            },
+            super::config(),
+        ),
+    );
+    s.client.activate();
+    s.fund(&s.alice, 20 * PRICE);
+    s.client.buy(&s.alice, &(10 * PRICE));
+    assert_eq!(
+        err(s.client.try_buy(&s.alice, &(10 * PRICE))),
+        OfferSaleError::DuplicateReceipt.into()
+    );
+    let reservation = s.client.reservation(&s.alice).unwrap();
+    assert_eq!((reservation.tokens, reservation.purchases.len()), (10, 1));
+    assert_eq!(s.client.totals().sold_tokens, 10);
+}

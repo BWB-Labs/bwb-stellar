@@ -52,7 +52,7 @@ From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is gl
 
 Each token's whole supply is minted to its sale contract's precomputed address. The allowlist's admin is the `bwb-testnet-platform` identity and its only allocator is the deployer hot key; each sale contract is granted `sale` at its own deploy, signed by the allocator. The sale contracts' owner is the `bwb-testnet-treasury` identity, their pauser and upgrader the platform. Earlier allowlist instances are superseded and unused: `CBQLP3DC…TQQHJ26` (0.3.0, the receipt book still named `Receipts`), `CDMGBEK5…TJTH7JSD` (0.2.0, where `restore` still required the `sale` role), `CBQCDFMM…656AT6LX` (receipts numbered per sale contract, which made concurrent purchases conflict), `CAWUBAUY…ESWRBKF` (restore by period and amount, before per-purchase receipts) and `CBTU5S5V…KC42XU` (the single-role code before the audit).
 
-**Upgrade order.** The two L4 sale contracts on testnet run code from before the audit rounds, which calls the allowlist's `restore_all` directly. The repository's allowlist 0.6.0 no longer has it, so upgrade the sale contracts first and the allowlist after; the other way round, their refunds fail until they are upgraded.
+**Upgrade order.** The two L4 sale contracts on testnet run code from before the audit rounds, which calls the allowlist's `restore_all` directly. The repository's allowlist 0.6.0 no longer has it, so upgrade the sale contracts first and the allowlist after; the other way round, their `refund` fails until they are upgraded (cooling-off refunds use `restore`, which 0.6.0 keeps).
 
 ### L4 demonstration
 

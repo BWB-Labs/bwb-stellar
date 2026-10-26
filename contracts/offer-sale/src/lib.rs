@@ -204,7 +204,8 @@ impl OfferSale {
     /// the price (6206), so a payment asset that takes a fee can only buy
     /// whole tokens by sending the fee on top. Then it uses that much
     /// of the investor's allowlist room (6100, 6101, 6107 surface) and
-    /// keeps the purchase under the receipt number. The purchase that sells
+    /// keeps the purchase under the receipt number, which must be new to
+    /// the reservation (6229). The purchase that sells
     /// the last token closes buying. Emits `purchased`, after the
     /// allowlist's `allocation_consumed` and the payment's `transfer`.
     #[when_not_paused]
@@ -250,6 +251,11 @@ impl OfferSale {
 
         let receipt =
             AllowlistClient::new(e, &contracts.allowlist).consume(&investor, &received, &me);
+        // Receipt numbers are never reused; a repeated one would overwrite
+        // a live purchase while the totals still counted it.
+        if reservation.purchases.contains_key(receipt) {
+            panic_with_error!(e, OfferSaleError::DuplicateReceipt);
+        }
         let at = e.ledger().timestamp();
         reservation.purchases.set(
             receipt,
@@ -313,7 +319,7 @@ impl OfferSale {
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
-    /// (6225 once decided): everyone is then refunded. It stays possible in
+    /// (6225 before activation or once decided): everyone is then refunded. It stays possible in
     /// Closing after the last window has run out, until `finalize` lands:
     /// it is the way out when `finalize` cannot pass (sold tokens moved out,
     /// a token left paused), so the owner can back out of an offering that
