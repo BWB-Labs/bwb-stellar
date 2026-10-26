@@ -37,7 +37,8 @@ pub enum OfferSaleError {
     /// `MAX_REFUND` or more event units than `REFUND_UNITS` in `refund`,
     /// or more than `MAX_PAYOUTS` payouts.
     BatchTooLarge = 6215,
-    /// A constructor argument outside its limits.
+    /// A constructor argument outside its limits; `activate` with a supply
+    /// over `MAX_SUPPLY`.
     InvalidConfig = 6216,
     /// `finalize` toward Successful while the sale contract holds fewer
     /// tokens than it sold: `xfer_admin` moved some out.

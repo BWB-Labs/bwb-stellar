@@ -267,18 +267,25 @@ fn a_refund_still_pays_when_the_allowlist_refuses_the_restore() {
 }
 
 /// An allowlist that hands out the same receipt number every time: the
-/// fault the duplicate-receipt guard in `buy` exists for.
+/// fault the duplicate-receipt guard in `buy` exists for. It counts its
+/// `consume` calls, so a test can see them rolled back.
 #[soroban_sdk::contract]
 pub struct RepeatAllowlist;
 
 #[soroban_sdk::contractimpl]
 impl RepeatAllowlist {
+    pub fn consumed(e: soroban_sdk::Env) -> u32 {
+        e.storage().instance().get(&0u32).unwrap_or(0)
+    }
+
     pub fn consume(
-        _e: soroban_sdk::Env,
+        e: soroban_sdk::Env,
         _investor: Address,
         _amount: i128,
         _caller: Address,
     ) -> u32 {
+        let n: u32 = e.storage().instance().get(&0u32).unwrap_or(0);
+        e.storage().instance().set(&0u32, &(n + 1));
         7
     }
 
@@ -300,11 +307,13 @@ impl RepeatAllowlist {
 }
 
 /// A receipt number the reservation already holds would overwrite a live
-/// purchase; `buy` refuses it (6229) and the first purchase stays whole.
+/// purchase; `buy` refuses it (6229), the first purchase stays whole, and
+/// the refused call's payment and allowlist `consume` are undone with it.
 #[test]
 fn a_repeated_receipt_number_fails_with_duplicate_receipt() {
     let s = super::setup_preparing();
     let repeat = s.e.register(RepeatAllowlist, ());
+    let stub = RepeatAllowlistClient::new(&s.e, &repeat);
     let contracts = s.client.contracts();
     s.e.register_at(
         &s.id,
@@ -314,7 +323,7 @@ fn a_repeated_receipt_number_fails_with_duplicate_receipt() {
             crate::Contracts {
                 token: contracts.token,
                 payment_asset: contracts.payment_asset,
-                allowlist: repeat,
+                allowlist: repeat.clone(),
             },
             super::config(),
         ),
@@ -329,4 +338,8 @@ fn a_repeated_receipt_number_fails_with_duplicate_receipt() {
     let reservation = s.client.reservation(&s.alice).unwrap();
     assert_eq!((reservation.tokens, reservation.purchases.len()), (10, 1));
     assert_eq!(s.client.totals().sold_tokens, 10);
+    // The refused purchase moved no money and used no room.
+    assert_eq!(s.usdc.balance(&s.alice), 10 * PRICE);
+    assert_eq!(s.usdc.balance(&s.id), 10 * PRICE);
+    assert_eq!(stub.consumed(), 1);
 }

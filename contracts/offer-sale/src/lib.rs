@@ -322,7 +322,7 @@ impl OfferSale {
     /// (6225 before activation or once decided): everyone is then refunded. It stays possible in
     /// Closing after the last window has run out, until `finalize` lands:
     /// it is the way out when `finalize` cannot pass (sold tokens moved out,
-    /// a token left paused), so the owner can back out of an offering that
+    /// a token left paused while unsold tokens remain to burn), so the owner can back out of an offering that
     /// met its minimum until then, and the backend submits `finalize` at
     /// `finalizable_at`. Emits `state_changed`, then `cancelled`.
     pub fn cancel(e: &Env, caller: Address) {
