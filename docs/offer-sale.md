@@ -110,7 +110,7 @@ Read functions, the backend's read path:
 | `finalizable_at()` | The ledger time from which `finalize` passes its window check: `last purchase + cooling_off_secs + 1`. 0 before any purchase. The app's countdown. It counts from the latest purchase even when that purchase was refunded, so it never moves earlier. It only means something in Closing; elsewhere `finalize` fails on the state (6221). `closed` carries the same value. |
 | `withdrawable()` | `raised − withdrawn` in Successful, else 0. The payout is computed from it. |
 | `preview_tokens(amount)` | `amount / price`; fails on zero or less (6205) and on a non-multiple (6206) |
-| `paused()`, `schema_version()` | OpenZeppelin's flag; 2 (1 was 0.1.0's layout, with the accounting stored under `Totals`) |
+| `paused()`, `schema_version()` | OpenZeppelin's flag; 1, which stays until mainnet |
 
 The reads extend nothing. The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
 

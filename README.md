@@ -38,7 +38,7 @@ Distributors and factories follow in Tranche 2.
 
 ### Testnet
 
-From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22` (the sale's accounting renamed, `offer-sale` 0.2.0); `stellar contract build` of that commit gives the WASM hashes below.
+From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22` (the sale's accounting renamed, `offer-sale` 0.2.0; that build's sale reports `schema_version` 2, which the branch later set back to 1, the only difference); `stellar contract build` of that commit gives the WASM hashes below.
 
 | Contract | Contract ID | WASM hash | Deploy |
 |---|---|---|---|

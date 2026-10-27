@@ -39,7 +39,7 @@ mod with_fixture {
         s.client.upgrade(&hash, &s.platform);
         let ev = Upgraded {
             new_wasm_hash: hash.clone(),
-            from_schema_version: 2,
+            from_schema_version: 1,
         };
         assert_eq!(
             s.e.events().all().filter_by_contract(&s.id).events(),
@@ -76,7 +76,7 @@ mod with_fixture {
             super::super::SUCCESS_TOKENS
         );
         assert!(v2.paused());
-        assert_eq!(v2.schema_version(), 2);
+        assert_eq!(v2.schema_version(), 1);
     }
 
     #[test]
@@ -109,6 +109,6 @@ mod with_fixture {
             err(s.client.try_upgrade(&hash, &s.owner)),
             OfferSaleError::NotUpgrader.into()
         );
-        assert_eq!(s.client.schema_version(), 2);
+        assert_eq!(s.client.schema_version(), 1);
     }
 }

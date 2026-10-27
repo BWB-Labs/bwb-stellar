@@ -55,9 +55,9 @@ pub use crate::types::{
 // Contract metadata that goes on the compiled file.
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 
-/// Version of the storage layout this code writes and reads.
-/// 2 since the accounting's key was renamed from `Totals`.
-const SCHEMA_VERSION: u32 = 2;
+/// Version of the storage layout this code writes and reads. It stays 1
+/// until mainnet: testnet layouts change freely before then.
+const SCHEMA_VERSION: u32 = 1;
 
 /// The allowlist role the sale contract must hold to consume room.
 const SALE_ROLE: &str = "sale";

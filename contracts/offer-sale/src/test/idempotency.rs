@@ -83,5 +83,5 @@ fn the_reads_agree_with_the_writes() {
     assert_eq!(s.client.config().price, PRICE);
     assert_eq!(s.client.powers().owner, s.owner);
     assert_eq!(s.client.contracts().allowlist, s.allowlist.address);
-    assert_eq!(s.client.schema_version(), 2);
+    assert_eq!(s.client.schema_version(), 1);
 }
