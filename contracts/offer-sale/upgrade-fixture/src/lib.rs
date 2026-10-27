@@ -18,7 +18,7 @@ pub enum DataKey {
     Contracts,
     Config,
     State,
-    Totals,
+    Accounting,
     LastPurchaseAt,
     Reservation(Address),
 }
@@ -74,7 +74,7 @@ pub struct Reservation {
 
 #[contracttype]
 #[derive(Clone)]
-pub struct Totals {
+pub struct SaleAccounting {
     pub supply: i128,
     pub sold_tokens: i128,
     pub raised: i128,
@@ -124,8 +124,8 @@ impl OfferSaleV2Fixture {
         e.storage().instance().get(&DataKey::State).unwrap()
     }
 
-    pub fn totals(e: &Env) -> Totals {
-        e.storage().instance().get(&DataKey::Totals).unwrap()
+    pub fn accounting(e: &Env) -> SaleAccounting {
+        e.storage().instance().get(&DataKey::Accounting).unwrap()
     }
 
     pub fn last_purchase_at(e: &Env) -> u64 {

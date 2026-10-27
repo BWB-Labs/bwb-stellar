@@ -1,6 +1,6 @@
 //! Events specific to `offer-sale`. Each name is the struct name in snake
 //! case; `#[topic]` fields become topics, the rest a map in the data,
-//! which the SDK encodes with its keys in sorted name order. The totals
+//! which the SDK encodes with its keys in sorted name order. The accounting figures
 //! that ride on `purchased` and `refunded` let an indexer rebuild the
 //! offering's state from any later event. OpenZeppelin's `paused` and
 //! `unpaused`, the token's `transfer` and `burn` and the payment asset's
@@ -125,7 +125,7 @@ pub struct RestoreSkipped {
 
 /// Money back to one investor: `reason` is `cooling_off` (the purchases
 /// still in their window) or `failed` (everything). `raised` and
-/// `sold_tokens` are the offering's totals afterwards.
+/// `sold_tokens` are the offering's accounting afterwards.
 #[contractevent]
 pub struct Refunded {
     #[topic]

@@ -11,10 +11,10 @@ fn release_twice_and_with_duplicates_delivers_once() {
     s.successful();
     s.client.release(&s.investors(&[&s.alice, &s.alice]));
     assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
-    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
+    assert_eq!(s.client.accounting().released_tokens, SUCCESS_TOKENS);
     s.client.release(&s.investors(&[&s.alice]));
     assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
-    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
+    assert_eq!(s.client.accounting().released_tokens, SUCCESS_TOKENS);
     assert!(s
         .e
         .events()
@@ -32,7 +32,7 @@ fn refund_twice_and_with_duplicates_returns_once() {
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
     s.client.refund(&s.investors(&[&s.alice]));
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
-    assert_eq!(s.client.totals().raised, 0);
+    assert_eq!(s.client.accounting().raised, 0);
 }
 
 #[test]
@@ -71,14 +71,17 @@ fn the_reads_agree_with_the_writes() {
     let p2 = reservation.purchases.get(second).unwrap();
     assert_eq!((p1.tokens, p1.paid, p1.at), (10, 10 * PRICE, T0));
     assert_eq!((p2.tokens, p2.paid, p2.at), (5, 5 * PRICE, T0 + 100));
-    let totals = s.client.totals();
-    assert_eq!(totals.supply, SUPPLY);
-    assert_eq!((totals.sold_tokens, totals.raised), (15, 15 * PRICE));
-    assert_eq!((totals.released_tokens, totals.withdrawn), (0, 0));
+    let accounting = s.client.accounting();
+    assert_eq!(accounting.supply, SUPPLY);
+    assert_eq!(
+        (accounting.sold_tokens, accounting.raised),
+        (15, 15 * PRICE)
+    );
+    assert_eq!((accounting.released_tokens, accounting.withdrawn), (0, 0));
     assert_eq!(s.client.finalizable_at(), T0 + 100 + COOLING_OFF + 1);
     assert_eq!(s.client.withdrawable(), 0);
     assert_eq!(s.client.config().price, PRICE);
     assert_eq!(s.client.powers().owner, s.owner);
     assert_eq!(s.client.contracts().allowlist, s.allowlist.address);
-    assert_eq!(s.client.schema_version(), 1);
+    assert_eq!(s.client.schema_version(), 2);
 }

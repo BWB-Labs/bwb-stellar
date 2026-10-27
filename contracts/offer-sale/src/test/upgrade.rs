@@ -39,7 +39,7 @@ mod with_fixture {
         s.client.upgrade(&hash, &s.platform);
         let ev = Upgraded {
             new_wasm_hash: hash.clone(),
-            from_schema_version: 1,
+            from_schema_version: 2,
         };
         assert_eq!(
             s.e.events().all().filter_by_contract(&s.id).events(),
@@ -49,10 +49,13 @@ mod with_fixture {
         let v2 = v2::Client::new(&s.e, &s.id);
         assert_eq!(v2.v2_marker(), 2);
         assert_eq!(v2.state(), v2::SaleState::Closing);
-        let totals = v2.totals();
-        assert_eq!(totals.supply, SUPPLY);
+        let accounting = v2.accounting();
+        assert_eq!(accounting.supply, SUPPLY);
         let sold = 15 + super::super::SUCCESS_TOKENS;
-        assert_eq!((totals.sold_tokens, totals.raised), (sold, sold * PRICE));
+        assert_eq!(
+            (accounting.sold_tokens, accounting.raised),
+            (sold, sold * PRICE)
+        );
         let config = v2.config();
         assert_eq!(config.price, PRICE);
         assert_eq!(config.min_success_percent, super::super::MIN_PERCENT);
@@ -73,7 +76,7 @@ mod with_fixture {
             super::super::SUCCESS_TOKENS
         );
         assert!(v2.paused());
-        assert_eq!(v2.schema_version(), 1);
+        assert_eq!(v2.schema_version(), 2);
     }
 
     #[test]
@@ -106,6 +109,6 @@ mod with_fixture {
             err(s.client.try_upgrade(&hash, &s.owner)),
             OfferSaleError::NotUpgrader.into()
         );
-        assert_eq!(s.client.schema_version(), 1);
+        assert_eq!(s.client.schema_version(), 2);
     }
 }

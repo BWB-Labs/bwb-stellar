@@ -140,7 +140,7 @@ fn an_unfunded_investor_fails_in_the_payment_asset() {
     s.allow(&carol, PRICE);
     assert!(s.try_buy(&carol, 1).is_err());
     assert!(s.client.reservation(&carol).is_none());
-    assert_eq!(s.client.totals().sold_tokens, 0);
+    assert_eq!(s.client.accounting().sold_tokens, 0);
 }
 
 #[test]
@@ -263,7 +263,7 @@ fn a_refund_still_pays_when_the_allowlist_refuses_the_restore() {
     s.client.refund(&s.investors(&[&s.alice]));
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
     assert!(s.client.reservation(&s.alice).is_none());
-    assert_eq!(s.client.totals().raised, 0);
+    assert_eq!(s.client.accounting().raised, 0);
 }
 
 /// An allowlist that hands out the same receipt number every time: the
@@ -337,7 +337,7 @@ fn a_repeated_receipt_number_fails_with_duplicate_receipt() {
     );
     let reservation = s.client.reservation(&s.alice).unwrap();
     assert_eq!((reservation.tokens, reservation.purchases.len()), (10, 1));
-    assert_eq!(s.client.totals().sold_tokens, 10);
+    assert_eq!(s.client.accounting().sold_tokens, 10);
     // The refused purchase moved no money and used no room.
     assert_eq!(s.usdc.balance(&s.alice), 10 * PRICE);
     assert_eq!(s.usdc.balance(&s.id), 10 * PRICE);

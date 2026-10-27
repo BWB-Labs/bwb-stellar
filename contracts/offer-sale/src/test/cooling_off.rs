@@ -14,8 +14,8 @@ fn a_refund_inside_the_window_returns_the_purchase() {
     assert_eq!(s.usdc.balance(&s.alice), SUPPLY * PRICE);
     assert!(s.client.reservation(&s.alice).is_none());
     assert_eq!(s.allowlist.remaining(&s.alice), SUPPLY * PRICE);
-    let totals = s.client.totals();
-    assert_eq!((totals.sold_tokens, totals.raised), (0, 0));
+    let accounting = s.client.accounting();
+    assert_eq!((accounting.sold_tokens, accounting.raised), (0, 0));
 }
 
 /// Buy, buy again later, ask for cooling-off: only the purchase still
@@ -34,7 +34,7 @@ fn only_purchases_still_in_their_window_come_back() {
     assert!(!reservation.purchases.contains_key(second));
     assert!(s.allowlist.receipt(&s.id, &s.alice, &first).is_some());
     assert!(s.allowlist.receipt(&s.id, &s.alice, &second).is_none());
-    assert_eq!(s.client.totals().sold_tokens, 10);
+    assert_eq!(s.client.accounting().sold_tokens, 10);
     assert_eq!(s.usdc.balance(&s.alice), (SUPPLY - 10) * PRICE);
 }
 

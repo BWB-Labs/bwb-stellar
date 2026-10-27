@@ -66,9 +66,9 @@ One persistent entry per investor with something reserved:
 
 A purchase leaves the reservation on cooling-off, release or refund; the entry is removed once nothing is left. **An investor holds at most 20 live purchases per offering** (`MAX_PURCHASES`, 6220): a failed offering refunds the investor whole, one `allocation_restored` (292 B) per purchase, so the cap keeps one investor's refund far inside a transaction's 16 KB of events, and it equals the allowlist's `restore` limit, so a cooling-off refund never needs more than one call there. The allowlist's own cap of 100 receipts stays as the outer bound.
 
-## Totals
+## Accounting
 
-| Total | Meaning |
+| Field | Meaning |
 |---|---|
 | `supply` | The token's supply when the offering was activated: the tokens for sale. 0 before. |
 | `sold_tokens` | Tokens sold: reserved or released, net of refunds. The success check compares it with `supply`. |
@@ -90,7 +90,7 @@ Every write that names its acting account takes it as the **last** argument (`ca
 | `reopen(caller)` | owner | Closing (6221) | Opens buying again: → Active, at the owner's decision, to sell the tokens left. Refused once everything is sold (6207): nothing could be bought and nothing would close it again. Emits `state_changed`, `reopened` (reason `owner`). |
 | `cancel(caller)` | owner | Active or Closing (6225) | → Failed, at the owner's decision; everyone is then refunded. It stays possible in Closing until `finalize` lands, also after the last window and while a paused token holds `finalize` back (it does while unsold tokens remain to burn): it is the way out when `finalize` cannot pass. So the owner can back out of an offering that met its minimum until then; the backend submits `finalize` at `finalizable_at()`. Emits `state_changed`, `cancelled`. |
 | `finalize()` | anyone | Closing (6221) | Refused while any window is open: `now ≤ last purchase + cooling_off_secs` (6214). Moves to Successful: the sale contract must still hold every sold token (6217; `xfer_admin` can move them) and burns the rest. Closing always holds the minimum, so its check (6228) can only fail on a bug. It cannot pass in two cases, both the tokenizer's to undo: sold tokens moved out (6217; `xfer_admin` sends them back) and a paused token while unsold tokens remain (1000 from the burn; the token admin unpauses); otherwise the owner cancels. Emits `finalized {burned}`, then `state_changed`. |
-| `cooling_off_refund(investor)` | `investor` | Active or Closing (6225) | Returns every purchase whose window is still open (`now ≤ at + cooling_off_secs`), whole purchases only. No reservation (6213) or no purchase still open (6212) fails. The receipts go back to the allowlist in one `restore`, the payment goes back, the totals fall; the reservation ends when nothing is left. If the allowlist refuses the restore, the payment still goes back and `restore_skipped` names the receipts left charged; the investor's exit does not depend on the allowlist, unless it aborts the whole transaction (a bug that exhausts the resources). In Closing, a refund that leaves the offering below its minimum moves it back to Active. Emits `restore_skipped` when the restore was refused, `refunded` (reason `cooling_off`); then `state_changed` and `reopened` (reason `below_minimum`) when it reopens. |
+| `cooling_off_refund(investor)` | `investor` | Active or Closing (6225) | Returns every purchase whose window is still open (`now ≤ at + cooling_off_secs`), whole purchases only. No reservation (6213) or no purchase still open (6212) fails. The receipts go back to the allowlist in one `restore`, the payment goes back, the accounting falls; the reservation ends when nothing is left. If the allowlist refuses the restore, the payment still goes back and `restore_skipped` names the receipts left charged; the investor's exit does not depend on the allowlist, unless it aborts the whole transaction (a bug that exhausts the resources). In Closing, a refund that leaves the offering below its minimum moves it back to Active. Emits `restore_skipped` when the restore was refused, `refunded` (reason `cooling_off`); then `state_changed` and `reopened` (reason `below_minimum`) when it reopens. |
 | `release(investors)` | anyone | Successful (6202), not paused (1000) | At most 30 (6215). Each investor listed with a reservation gets their tokens; the reservation ends. An investor with nothing reserved, or listed twice, is skipped. A failed token transfer fails the whole call. Emits `released` per investor served. |
 | `refund(investors)` | anyone | Failed (6203) | At most 16 investors (6215), and at most 48 event units: 2 per investor served plus 1 per live purchase, checked before any transfer (6215). Each investor listed with a reservation gets their payment back and the reservation's receipts restored by number, in one `restore` (at most 20, the allowlist's limit per call); the reservation ends. Only the reservation's own receipts go back, so the events always match the budget, and a receipt left charged by an earlier refused restore is never given back twice. An investor with nothing reserved, or listed twice, is skipped, and counts toward the unit budget only once. A restore the allowlist refuses does not stop the payment: `restore_skipped` names the receipts. A failed payment transfer fails the whole call. Emits `restore_skipped` when a restore was refused and `refunded` (reason `failed`) per investor served. |
 | `withdraw_payment(payouts, caller)` | owner | Successful (6202), not paused (1000) | Pays every `{recipient, amount}`, at most 30 (6215); each positive (6205), never to the sale contract itself (6226), the total at most `raised − withdrawn` (6218, also when the sum would overflow). Emits `payment_withdrawn` per leg. |
@@ -105,12 +105,12 @@ Read functions, the backend's read path:
 |---|---|
 | `state()` | `Preparing`, `Active`, `Closing`, `Successful` or `Failed` |
 | `config()`, `powers()`, `contracts()` | The constructor's three structs |
-| `totals()` | The five totals |
+| `accounting()` | The five accounting figures |
 | `reservation(investor)` | The reservation, or void |
 | `finalizable_at()` | The ledger time from which `finalize` passes its window check: `last purchase + cooling_off_secs + 1`. 0 before any purchase. The app's countdown. It counts from the latest purchase even when that purchase was refunded, so it never moves earlier. It only means something in Closing; elsewhere `finalize` fails on the state (6221). `closed` carries the same value. |
 | `withdrawable()` | `raised − withdrawn` in Successful, else 0. The payout is computed from it. |
 | `preview_tokens(amount)` | `amount / price`; fails on zero or less (6205) and on a non-multiple (6206) |
-| `paused()`, `schema_version()` | OpenZeppelin's flag; 1 |
+| `paused()`, `schema_version()` | OpenZeppelin's flag; 2 (1 was 0.1.0's layout, with the accounting stored under `Totals`) |
 
 The reads extend nothing. The code version is in the WASM metadata as `binver` (SEP-46, SEP-49): `stellar contract info meta`.
 
@@ -122,7 +122,7 @@ The reads extend nothing. The code version is in the WASM metadata as `binver` (
 
 **A restore the allowlist refuses.** Only a fault in the allowlist (a bug, a bad upgrade) can make it refuse: a submitter cannot provoke it, since running out of resources or leaving entries out of the footprint aborts the whole transaction instead of failing the sub-call. The room of the receipts `restore_skipped` names stays charged until their months end; the allowlist has no call that gives usage back, so the backend can only compensate the current month by raising the investor's cap with `set_allocations`, which raises every month. Each receipt's month and amount are readable through the allowlist's `receipt`. Those receipts also stay in the allowlist's receipt book, which holds at most 100 per offering and investor (6107): after about five refused restores of 20, that investor can no longer buy in that offering.
 
-**Assets sent outside the calls.** The sale contract counts only what its calls move. Tokens an investor sends back to it after release are recoverable only through the token's `admin_transfer`; payment sent to it directly, outside `buy`, belongs to nobody in its totals and cannot be withdrawn.
+**Assets sent outside the calls.** The sale contract counts only what its calls move. Tokens an investor sends back to it after release are recoverable only through the token's `admin_transfer`; payment sent to it directly, outside `buy`, belongs to nobody in its accounting and cannot be withdrawn.
 
 ## Differences from Base
 
@@ -154,14 +154,14 @@ Data fields are listed in sorted name order. Symbols: `reason` is `owner` | `sol
 | `cancelled` | `cancelled` | `{raised, sold_tokens}` | `cancel`, after `state_changed` |
 | `finalized` | `finalized` | `{burned, raised, sold_tokens}` | `finalize` toward Successful, before `state_changed` |
 | `released` | `released`, investor | `{paid, tokens}` | `release`, per investor served |
-| `refunded` | `refunded`, investor | `{paid, raised, reason, sold_tokens, tokens}` | `cooling_off_refund` and `refund`, per investor served. `raised` and `sold_tokens` are the totals afterwards. |
+| `refunded` | `refunded`, investor | `{paid, raised, reason, sold_tokens, tokens}` | `cooling_off_refund` and `refund`, per investor served. `raised` and `sold_tokens` are the offering's accounting afterwards. |
 | `restore_skipped` | `restore_skipped`, investor | `{receipts}` | Before `refunded`, when the allowlist refused to restore the investor's room; `receipts` are the numbers that stayed charged ([Calls](#calls), a restore the allowlist refuses). |
 | `payment_withdrawn` | `payment_withdrawn`, recipient | `{amount}` | `withdraw_payment`, per leg |
 | `tokens_withdrawn` | `tokens_withdrawn`, to | `{amount}` | `withdraw_tokens` |
 | `pause_changed` | `pause_changed`, caller | `{paused}` | `pause` and `unpause`, after OpenZeppelin's |
 | `upgraded` | `upgraded` | `{from_schema_version, new_wasm_hash}` | `upgrade`, emitted by the old code |
 
-The totals on `purchased` and `refunded` let an indexer rebuild the offering's state from any later event. Also emitted, by the contracts the sale calls: the allowlist's `allocation_consumed` (before `purchased`) and `allocation_restored` (before `refunded`, one per receipt); the token's `transfer` on release and withdrawal and `burn` on finalize; the payment asset's `transfer` on every purchase, refund and payout; OpenZeppelin's `paused` / `unpaused`.
+The accounting figures on `purchased` and `refunded` let an indexer rebuild the offering's state from any later event. Also emitted, by the contracts the sale calls: the allowlist's `allocation_consumed` (before `purchased`) and `allocation_restored` (before `refunded`, one per receipt); the token's `transfer` on release and withdrawal and `burn` on finalize; the payment asset's `transfer` on every purchase, refund and payout; OpenZeppelin's `paused` / `unpaused`.
 
 **Sizes.** Measured XDR encodings, pinned by a test: `released` 188 B, `refunded` 300 B (`cooling_off`; 296 B with `failed`), `payment_withdrawn` 168 B, `purchased` 404 B. The batch arithmetic is under [Calls](#calls).
 
@@ -211,7 +211,7 @@ The sale never returns 2000 or 2007 itself: a signed but wrong caller gets the p
 ## Storage and expiry
 
 - Reservations: one persistent entry per investor with something reserved, written by `buy` and `cooling_off_refund`, removed by `release`, `refund` and a cooling-off refund that empties it. At most 20 live purchases; about 1.7 KB at 20.
-- Powers, contracts, terms, state, totals and the latest purchase's time: instance, with OpenZeppelin's pause flag and schema version.
+- Powers, contracts, terms, state, the accounting and the latest purchase's time: instance, with OpenZeppelin's pause flag and schema version.
 
 **Policy.** Every state-changing call tops the instance up to the network maximum once it falls a month below it, and `buy` and `cooling_off_refund` do the same for the reservation they write, so a quiet offering (Closing for five days, Successful with late releases, Failed with late refunds) does not archive between touches. The reads extend nothing. The token and the allowlist keep their own entries alive: the sale contract's token balance on every transfer and burn, its `sale` role on every consume and restore. An archived reservation is not gone: the call that touches it restores it, so a late release or refund works provided the submitter simulates it afresh ([interface 9](interface.md#9-storage-and-expiry)).
 
@@ -229,5 +229,5 @@ The sale never returns 2000 or 2007 itself: a signed but wrong caller gets the p
 | `pause` | A paused sale blocks `buy`, `release`, the withdrawals, never cooling-off, refunds, close, reopen, cancel or finalize; a paused token blocks release and the burn inside finalize; OpenZeppelin's 1000 and 1001 |
 | `failure` | The constructor's limits (6216) and the limits themselves; 6100 and 6101 surfacing through `buy`; an unfunded investor failing in the payment asset; a balance frozen by the asset's issuer failing the whole refund batch, and the batch passing once unfrozen; payout and withdrawal amounts, a leg to the sale itself (6226) and a total that overflows (6218); a refund batch pays everyone whole, and still pays when the allowlist refuses the restore; an allowlist that repeats a receipt number refused (6229); the one-year window limit |
 | `events` | Exact events and order for construction, activate, buy, the sell-out, close (with `finalizable_at`), reopen, cancel, finalize, release, both refunds, payouts, pause and token withdrawal; `restore_skipped` with its receipts before `refunded`; the measured sizes |
-| `upgrade` | Swap to `offer-sale-upgrade-fixture`, a test-only second binary, with the exact `upgraded` event; state, totals, terms, powers, contracts, the latest purchase's time, two investors' reservations with their purchases, the pause flag and `schema_version` survive; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader cannot swap |
+| `upgrade` | Swap to `offer-sale-upgrade-fixture`, a test-only second binary, with the exact `upgraded` event; state, accounting, terms, powers, contracts, the latest purchase's time, two investors' reservations with their purchases, the pause flag and `schema_version` survive; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; a non-upgrader cannot swap |
 | `ttl` | The instance on construction, after a quiet month, on the owner's calls and finalize; the reservation on purchase and on a partial refund; reads extend nothing |

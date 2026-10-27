@@ -267,7 +267,7 @@ fn fee_on_transfer_credits_what_arrived() {
     assert_eq!((reservation.tokens, reservation.paid), (10, 10 * PRICE));
     assert_eq!(fee.balance(&s.alice), SUPPLY * PRICE - 10 * PRICE - 1);
     assert_eq!(fee.balance(&s.id), 10 * PRICE);
-    assert_eq!(s.client.totals().raised, 10 * PRICE);
+    assert_eq!(s.client.accounting().raised, 10 * PRICE);
 }
 
 #[test]
@@ -290,10 +290,10 @@ fn an_asset_that_over_credits_cannot_reserve_past_the_supply() {
         err(s.client.try_buy(&s.alice, &(600 * PRICE))),
         OfferSaleError::ExceedsSupply.into()
     );
-    assert_eq!(s.client.totals().sold_tokens, 0);
+    assert_eq!(s.client.accounting().sold_tokens, 0);
     // 400 asked, 800 arrive: fits, and is what gets reserved.
     s.client.buy(&s.alice, &(400 * PRICE));
-    assert_eq!(s.client.totals().sold_tokens, 800);
+    assert_eq!(s.client.accounting().sold_tokens, 800);
 }
 
 /// A cooling-off refund restores all of an investor's live receipts in

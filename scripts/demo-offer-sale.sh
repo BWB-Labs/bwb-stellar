@@ -111,7 +111,7 @@ offering() {
 allocation() { printf '[{"investor":"%s","max":"%s","enabled":true}]' "$1" "$2"; }
 
 balances() {
-  printf 'sale state %s, totals %s\n' "$(read_fn "$SALE" state)" "$(read_fn "$SALE" totals)"
+  printf 'sale state %s, accounting %s\n' "$(read_fn "$SALE" state)" "$(read_fn "$SALE" accounting)"
   for who in "investor-a:$INV_A" "investor-b:$INV_B" "treasury:$TREASURY" "sale:$SALE"; do
     printf '%s: %s USDC stroops, %s tokens\n' "${who%%:*}" \
       "$(read_fn "$USDC" balance --id "${who#*:}")" "$(read_fn "$TOKEN" balance --account "${who#*:}")"

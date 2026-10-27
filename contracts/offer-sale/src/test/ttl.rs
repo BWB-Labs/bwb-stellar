@@ -98,7 +98,7 @@ fn reads_extend_nothing() {
     let instance = instance_ttl(&s.e, &s.id);
     let reservation = reservation_ttl(&s.e, &s.id, &s.alice);
     s.client.reservation(&s.alice);
-    s.client.totals();
+    s.client.accounting();
     s.client.state();
     s.client.finalizable_at();
     assert_eq!(instance_ttl(&s.e, &s.id), instance);

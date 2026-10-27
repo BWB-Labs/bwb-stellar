@@ -83,10 +83,11 @@ pub struct Reservation {
     pub purchases: Map<u32, Purchase>,
 }
 
-/// The offering's running totals.
+/// The offering's accounting: the supply for sale, and the running
+/// figures of tokens sold and released and of money raised and withdrawn.
 #[contracttype]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Totals {
+pub struct SaleAccounting {
     /// The token's supply when the offering was activated; the tokens for
     /// sale. 0 before.
     pub supply: i128,

@@ -1,12 +1,12 @@
 //! The sale's own storage: the powers, the contracts it works with, the
-//! terms, the state and totals in instance storage, one persistent
+//! terms, the state and the accounting in instance storage, one persistent
 //! reservation per investor, plus the expiry policy and the power check
 //! built on them. The pause flag and the schema version live in
 //! OpenZeppelin's storage.
 use soroban_sdk::{contracttype, panic_with_error, Address, Env};
 
 use crate::errors::OfferSaleError;
-use crate::types::{Contracts, PowerHolders, Reservation, SaleConfig, SaleState, Totals};
+use crate::types::{Contracts, PowerHolders, Reservation, SaleAccounting, SaleConfig, SaleState};
 
 /// Layout version of the `Reservation` struct.
 pub const RESERVATION_SCHEMA: u32 = 1;
@@ -18,7 +18,7 @@ pub enum DataKey {
     Contracts,
     Config,
     State,
-    Totals,
+    Accounting,
     /// Ledger time of the latest purchase; `finalize` waits for its window.
     LastPurchaseAt,
     /// One per investor with something reserved; removed on release or
@@ -52,7 +52,7 @@ fn extend_reservation_ttl(e: &Env, investor: &Address) {
 }
 
 // The instance values are set by the constructor (or `activate`, for the
-// totals' supply) and never removed, so these reads cannot fail.
+// accounting's supply) and never removed, so these reads cannot fail.
 
 pub fn set_powers(e: &Env, holders: &PowerHolders) {
     e.storage().instance().set(&DataKey::Powers, holders);
@@ -86,12 +86,12 @@ pub fn state(e: &Env) -> SaleState {
     e.storage().instance().get(&DataKey::State).unwrap()
 }
 
-pub fn set_totals(e: &Env, totals: &Totals) {
-    e.storage().instance().set(&DataKey::Totals, totals);
+pub fn set_accounting(e: &Env, accounting: &SaleAccounting) {
+    e.storage().instance().set(&DataKey::Accounting, accounting);
 }
 
-pub fn totals(e: &Env) -> Totals {
-    e.storage().instance().get(&DataKey::Totals).unwrap()
+pub fn accounting(e: &Env) -> SaleAccounting {
+    e.storage().instance().get(&DataKey::Accounting).unwrap()
 }
 
 pub fn set_last_purchase_at(e: &Env, at: u64) {

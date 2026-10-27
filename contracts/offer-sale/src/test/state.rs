@@ -8,10 +8,10 @@ use crate::{OfferSaleError, SaleState};
 fn activate_moves_preparing_to_active_with_the_supply() {
     let s = setup_preparing();
     assert_eq!(s.client.state(), SaleState::Preparing);
-    assert_eq!(s.client.totals().supply, 0);
+    assert_eq!(s.client.accounting().supply, 0);
     s.client.activate();
     assert_eq!(s.client.state(), SaleState::Active);
-    assert_eq!(s.client.totals().supply, SUPPLY);
+    assert_eq!(s.client.accounting().supply, SUPPLY);
     assert_eq!(
         err(s.client.try_activate()),
         OfferSaleError::NotPreparing.into()
@@ -68,7 +68,7 @@ fn selling_out_closes_by_itself() {
     assert_eq!(s.client.state(), SaleState::Active);
     s.buy(&s.bob, 1);
     assert_eq!(s.client.state(), SaleState::Closing);
-    assert_eq!(s.client.totals().sold_tokens, SUPPLY);
+    assert_eq!(s.client.accounting().sold_tokens, SUPPLY);
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn reopen_returns_to_active_and_buying_resumes() {
     s.client.reopen(&s.owner);
     assert_eq!(s.client.state(), SaleState::Active);
     s.buy(&s.alice, 10);
-    assert_eq!(s.client.totals().sold_tokens, SUCCESS_TOKENS + 10);
+    assert_eq!(s.client.accounting().sold_tokens, SUCCESS_TOKENS + 10);
 }
 
 /// Once everything is sold there is nothing to reopen for: buying could
@@ -107,7 +107,7 @@ fn cancel_fails_the_offering_from_active() {
     s.client.cancel(&s.owner);
     assert_eq!(s.client.state(), SaleState::Failed);
     // The totals are what the refunds will undo.
-    assert_eq!(s.client.totals().sold_tokens, 10);
+    assert_eq!(s.client.accounting().sold_tokens, 10);
 }
 
 #[test]
@@ -275,7 +275,7 @@ fn release_delivers_the_tokens_and_ends_the_reservation() {
     assert_eq!(s.token.balance(&s.alice), SUCCESS_TOKENS);
     assert_eq!(s.token.balance(&s.id), 0);
     assert!(s.client.reservation(&s.alice).is_none());
-    assert_eq!(s.client.totals().released_tokens, SUCCESS_TOKENS);
+    assert_eq!(s.client.accounting().released_tokens, SUCCESS_TOKENS);
 }
 
 #[test]
@@ -307,8 +307,8 @@ fn refund_returns_the_money_and_restores_every_receipt() {
     let book = s.allowlist.receipt_book(&s.id, &s.alice).unwrap();
     assert_eq!((book.next, book.receipts.len()), (2, 0));
     assert_eq!(s.allowlist.remaining(&s.alice), SUPPLY * PRICE);
-    let totals = s.client.totals();
-    assert_eq!((totals.sold_tokens, totals.raised), (0, 0));
+    let accounting = s.client.accounting();
+    assert_eq!((accounting.sold_tokens, accounting.raised), (0, 0));
 }
 
 #[test]
@@ -347,7 +347,7 @@ fn withdraw_payment_pays_each_leg_up_to_the_money_raised() {
     s.client
         .withdraw_payment(&s.payouts(&[(&s.owner, 50 * PRICE)]), &s.owner);
     assert_eq!(s.client.withdrawable(), 0);
-    assert_eq!(s.client.totals().withdrawn, raised);
+    assert_eq!(s.client.accounting().withdrawn, raised);
 }
 
 #[test]
@@ -408,7 +408,7 @@ fn a_refund_below_the_minimum_during_closing_reopens_buying() {
     s.client.close(&s.owner);
     s.client.cooling_off_refund(&s.bob);
     assert_eq!(s.client.state(), SaleState::Active);
-    assert_eq!(s.client.totals().sold_tokens, 700);
+    assert_eq!(s.client.accounting().sold_tokens, 700);
     // Buying is open again, and a later close starts a new wait.
     s.buy(&s.bob, 50);
     s.client.close(&s.owner);

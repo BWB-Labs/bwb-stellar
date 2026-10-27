@@ -54,14 +54,15 @@ use crate::events::{
 };
 use crate::offer_token::OfferTokenSupplyClient;
 pub use crate::types::{
-    Contracts, Payout, PowerHolders, Purchase, Reservation, SaleConfig, SaleState, Totals,
+    Contracts, Payout, PowerHolders, Purchase, Reservation, SaleAccounting, SaleConfig, SaleState,
 };
 
 // Contract metadata that goes on the compiled file.
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 
 /// Version of the storage layout this code writes and reads.
-const SCHEMA_VERSION: u32 = 1;
+/// 2 since the accounting's key was renamed from `Totals`.
+const SCHEMA_VERSION: u32 = 2;
 
 /// The allowlist role the sale contract must hold to consume room.
 const SALE_ROLE: &str = "sale";
@@ -130,9 +131,9 @@ impl OfferSale {
         storage::set_contracts(e, &contracts);
         storage::set_config(e, &config);
         storage::set_state(e, SaleState::Preparing);
-        storage::set_totals(
+        storage::set_accounting(
             e,
-            &Totals {
+            &SaleAccounting {
                 supply: 0,
                 sold_tokens: 0,
                 raised: 0,
@@ -188,9 +189,9 @@ impl OfferSale {
         {
             panic_with_error!(e, OfferSaleError::NotSale);
         }
-        let mut totals = storage::totals(e);
-        totals.supply = supply;
-        storage::set_totals(e, &totals);
+        let mut accounting = storage::accounting(e);
+        accounting.supply = supply;
+        storage::set_accounting(e, &accounting);
         transition(e, SaleState::Preparing, SaleState::Active);
         Activated { supply }.publish(e);
     }
@@ -216,8 +217,8 @@ impl OfferSale {
         if amount <= 0 {
             panic_with_error!(e, OfferSaleError::NonPositiveAmount);
         }
-        let mut totals = storage::totals(e);
-        if amount / config.price > totals.supply - totals.sold_tokens {
+        let mut accounting = storage::accounting(e);
+        if amount / config.price > accounting.supply - accounting.sold_tokens {
             panic_with_error!(e, OfferSaleError::ExceedsSupply);
         }
         let mut reservation = storage::reservation(e, &investor).unwrap_or(Reservation {
@@ -245,14 +246,14 @@ impl OfferSale {
         let tokens = received / config.price;
         // Checked again on what arrived: an asset that credits more than it
         // took must not reserve tokens that don't exist.
-        if tokens > totals.supply - totals.sold_tokens {
+        if tokens > accounting.supply - accounting.sold_tokens {
             panic_with_error!(e, OfferSaleError::ExceedsSupply);
         }
 
         let receipt =
             AllowlistClient::new(e, &contracts.allowlist).consume(&investor, &received, &me);
         // Receipt numbers are never reused; a repeated one would overwrite
-        // a live purchase while the totals still counted it.
+        // a live purchase while the accounting still counted it.
         if reservation.purchases.contains_key(receipt) {
             panic_with_error!(e, OfferSaleError::DuplicateReceipt);
         }
@@ -268,9 +269,9 @@ impl OfferSale {
         reservation.tokens += tokens;
         reservation.paid += received;
         storage::set_reservation(e, &investor, &reservation);
-        totals.sold_tokens += tokens;
-        totals.raised += received;
-        storage::set_totals(e, &totals);
+        accounting.sold_tokens += tokens;
+        accounting.raised += received;
+        storage::set_accounting(e, &accounting);
         storage::set_last_purchase_at(e, at);
         storage::extend_instance_ttl(e);
         Purchased {
@@ -281,12 +282,12 @@ impl OfferSale {
             at,
             reserved_paid: reservation.paid,
             reserved_tokens: reservation.tokens,
-            raised: totals.raised,
-            sold_tokens: totals.sold_tokens,
+            raised: accounting.raised,
+            sold_tokens: accounting.sold_tokens,
         }
         .publish(e);
-        if totals.sold_tokens == totals.supply {
-            close_with(e, &totals, REASON_SOLD_OUT);
+        if accounting.sold_tokens == accounting.supply {
+            close_with(e, &accounting, REASON_SOLD_OUT);
         }
     }
 
@@ -297,11 +298,11 @@ impl OfferSale {
     pub fn close(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Active, OfferSaleError::NotActive);
-        let totals = storage::totals(e);
-        if !meets_minimum(&totals, &storage::config(e)) {
+        let accounting = storage::accounting(e);
+        if !meets_minimum(&accounting, &storage::config(e)) {
             panic_with_error!(e, OfferSaleError::BelowMinimum);
         }
-        close_with(e, &totals, REASON_OWNER);
+        close_with(e, &accounting, REASON_OWNER);
     }
 
     /// Opens buying again from Closing, to sell the tokens left. Owner
@@ -311,11 +312,11 @@ impl OfferSale {
     pub fn reopen(e: &Env, caller: Address) {
         require_owner(e, &caller);
         assert_state(e, SaleState::Closing, OfferSaleError::NotClosing);
-        let totals = storage::totals(e);
-        if totals.sold_tokens == totals.supply {
+        let accounting = storage::accounting(e);
+        if accounting.sold_tokens == accounting.supply {
             panic_with_error!(e, OfferSaleError::ExceedsSupply);
         }
-        reopen_with(e, &totals, REASON_OWNER);
+        reopen_with(e, &accounting, REASON_OWNER);
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
@@ -328,11 +329,11 @@ impl OfferSale {
     pub fn cancel(e: &Env, caller: Address) {
         require_owner(e, &caller);
         let from = require_open(e);
-        let totals = storage::totals(e);
+        let accounting = storage::accounting(e);
         transition(e, from, SaleState::Failed);
         Cancelled {
-            raised: totals.raised,
-            sold_tokens: totals.sold_tokens,
+            raised: accounting.raised,
+            sold_tokens: accounting.sold_tokens,
         }
         .publish(e);
     }
@@ -349,23 +350,23 @@ impl OfferSale {
         if !windows_over(e) {
             panic_with_error!(e, OfferSaleError::CoolingOffOpen);
         }
-        let totals = storage::totals(e);
-        if !meets_minimum(&totals, &storage::config(e)) {
+        let accounting = storage::accounting(e);
+        if !meets_minimum(&accounting, &storage::config(e)) {
             panic_with_error!(e, OfferSaleError::BelowMinimum);
         }
         let me = e.current_contract_address();
         let token = token::TokenClient::new(e, &storage::contracts(e).token);
         let held = token.balance(&me);
-        if held < totals.sold_tokens {
+        if held < accounting.sold_tokens {
             panic_with_error!(e, OfferSaleError::TokensMissing);
         }
-        let burned = held - totals.sold_tokens;
+        let burned = held - accounting.sold_tokens;
         if burned > 0 {
             token.burn(&me, &burned);
         }
         Finalized {
-            raised: totals.raised,
-            sold_tokens: totals.sold_tokens,
+            raised: accounting.raised,
+            sold_tokens: accounting.sold_tokens,
             burned,
         }
         .publish(e);
@@ -376,7 +377,7 @@ impl OfferSale {
     /// window, whole purchases only, while Active or Closing (6225). No
     /// reservation (6213) or no purchase still open (6212) fails. The
     /// receipts go back to the allowlist in one call, the payment goes
-    /// back, and the totals fall; if the allowlist refuses the restore, the
+    /// back, and the accounting falls; if the allowlist refuses the restore, the
     /// money still goes back and `restore_skipped` names the receipts left
     /// charged; the reservation ends when nothing is left. The investor
     /// authorizes. In Closing, a refund that leaves the offering below its
@@ -416,19 +417,19 @@ impl OfferSale {
         restore_or_report(e, &contracts.allowlist, &investor, &receipts);
         token::TokenClient::new(e, &contracts.payment_asset).transfer(&me, &investor, &paid);
         storage::set_reservation(e, &investor, &reservation);
-        let totals = lower_totals(e, tokens, paid);
+        let accounting = lower_accounting(e, tokens, paid);
         storage::extend_instance_ttl(e);
         Refunded {
             investor,
             paid,
             tokens,
             reason: Symbol::new(e, REASON_COOLING_OFF),
-            raised: totals.raised,
-            sold_tokens: totals.sold_tokens,
+            raised: accounting.raised,
+            sold_tokens: accounting.sold_tokens,
         }
         .publish(e);
-        if state == SaleState::Closing && !meets_minimum(&totals, &config) {
-            reopen_with(e, &totals, REASON_BELOW_MINIMUM);
+        if state == SaleState::Closing && !meets_minimum(&accounting, &config) {
+            reopen_with(e, &accounting, REASON_BELOW_MINIMUM);
         }
     }
 
@@ -445,14 +446,14 @@ impl OfferSale {
         }
         let token = token::TokenClient::new(e, &storage::contracts(e).token);
         let me = e.current_contract_address();
-        let mut totals = storage::totals(e);
+        let mut accounting = storage::accounting(e);
         for investor in investors.iter() {
             let Some(reservation) = storage::reservation(e, &investor) else {
                 continue;
             };
             token.transfer(&me, &investor, &reservation.tokens);
             storage::remove_reservation(e, &investor);
-            totals.released_tokens += reservation.tokens;
+            accounting.released_tokens += reservation.tokens;
             Released {
                 investor,
                 paid: reservation.paid,
@@ -460,7 +461,7 @@ impl OfferSale {
             }
             .publish(e);
         }
-        storage::set_totals(e, &totals);
+        storage::set_accounting(e, &accounting);
         storage::extend_instance_ttl(e);
     }
 
@@ -502,7 +503,7 @@ impl OfferSale {
         let contracts = storage::contracts(e);
         let me = e.current_contract_address();
         let payment = token::TokenClient::new(e, &contracts.payment_asset);
-        let mut totals = storage::totals(e);
+        let mut accounting = storage::accounting(e);
         for (investor, reservation) in served.iter() {
             // The reservation's own receipts, so the events match the unit
             // budget and a receipt skipped earlier is never given back twice.
@@ -510,19 +511,19 @@ impl OfferSale {
             restore_or_report(e, &contracts.allowlist, &investor, &receipts);
             payment.transfer(&me, &investor, &reservation.paid);
             storage::remove_reservation(e, &investor);
-            totals.sold_tokens -= reservation.tokens;
-            totals.raised -= reservation.paid;
+            accounting.sold_tokens -= reservation.tokens;
+            accounting.raised -= reservation.paid;
             Refunded {
                 investor,
                 paid: reservation.paid,
                 tokens: reservation.tokens,
                 reason: Symbol::new(e, REASON_FAILED),
-                raised: totals.raised,
-                sold_tokens: totals.sold_tokens,
+                raised: accounting.raised,
+                sold_tokens: accounting.sold_tokens,
             }
             .publish(e);
         }
-        storage::set_totals(e, &totals);
+        storage::set_accounting(e, &accounting);
         storage::extend_instance_ttl(e);
     }
 
@@ -552,8 +553,8 @@ impl OfferSale {
                 None => panic_with_error!(e, OfferSaleError::ExceedsWithdrawable),
             };
         }
-        let mut totals = storage::totals(e);
-        if total > totals.raised - totals.withdrawn {
+        let mut accounting = storage::accounting(e);
+        if total > accounting.raised - accounting.withdrawn {
             panic_with_error!(e, OfferSaleError::ExceedsWithdrawable);
         }
         let payment = token::TokenClient::new(e, &storage::contracts(e).payment_asset);
@@ -565,8 +566,8 @@ impl OfferSale {
             }
             .publish(e);
         }
-        totals.withdrawn += total;
-        storage::set_totals(e, &totals);
+        accounting.withdrawn += total;
+        storage::set_accounting(e, &accounting);
         storage::extend_instance_ttl(e);
     }
 
@@ -602,8 +603,8 @@ impl OfferSale {
         storage::contracts(e)
     }
 
-    pub fn totals(e: &Env) -> Totals {
-        storage::totals(e)
+    pub fn accounting(e: &Env) -> SaleAccounting {
+        storage::accounting(e)
     }
 
     /// The investor's reservation, or void.
@@ -626,8 +627,8 @@ impl OfferSale {
         if storage::state(e) != SaleState::Successful {
             return 0;
         }
-        let totals = storage::totals(e);
-        totals.raised - totals.withdrawn
+        let accounting = storage::accounting(e);
+        accounting.raised - accounting.withdrawn
     }
 
     /// Tokens `amount` of the payment asset buys; fails when it is not
@@ -701,8 +702,8 @@ fn transition(e: &Env, from: SaleState, to: SaleState) {
 
 /// Whether the offering has sold its minimum share of the supply. The
 /// supply is at most `MAX_SUPPLY`, so neither product overflows.
-fn meets_minimum(totals: &Totals, config: &SaleConfig) -> bool {
-    totals.sold_tokens * 100 >= totals.supply * i128::from(config.min_success_percent)
+fn meets_minimum(accounting: &SaleAccounting, config: &SaleConfig) -> bool {
+    accounting.sold_tokens * 100 >= accounting.supply * i128::from(config.min_success_percent)
 }
 
 /// The time from which `finalize` passes its window check; 0 before any
@@ -741,35 +742,35 @@ fn restore_or_report(e: &Env, allowlist: &Address, investor: &Address, receipts:
 }
 
 /// Closing → Active with the reason recorded.
-fn reopen_with(e: &Env, totals: &Totals, reason: &str) {
+fn reopen_with(e: &Env, accounting: &SaleAccounting, reason: &str) {
     transition(e, SaleState::Closing, SaleState::Active);
     Reopened {
         reason: Symbol::new(e, reason),
-        raised: totals.raised,
-        sold_tokens: totals.sold_tokens,
+        raised: accounting.raised,
+        sold_tokens: accounting.sold_tokens,
     }
     .publish(e);
 }
 
 /// Active → Closing with the reason recorded.
-fn close_with(e: &Env, totals: &Totals, reason: &str) {
+fn close_with(e: &Env, accounting: &SaleAccounting, reason: &str) {
     Closed {
         reason: Symbol::new(e, reason),
-        raised: totals.raised,
-        sold_tokens: totals.sold_tokens,
+        raised: accounting.raised,
+        sold_tokens: accounting.sold_tokens,
         finalizable_at: finalizable_time(e),
     }
     .publish(e);
     transition(e, SaleState::Active, SaleState::Closing);
 }
 
-/// Takes a refund out of the totals and returns them.
-fn lower_totals(e: &Env, tokens: i128, paid: i128) -> Totals {
-    let mut totals = storage::totals(e);
-    totals.sold_tokens -= tokens;
-    totals.raised -= paid;
-    storage::set_totals(e, &totals);
-    totals
+/// Takes a refund out of the accounting and returns it.
+fn lower_accounting(e: &Env, tokens: i128, paid: i128) -> SaleAccounting {
+    let mut accounting = storage::accounting(e);
+    accounting.sold_tokens -= tokens;
+    accounting.raised -= paid;
+    storage::set_accounting(e, &accounting);
+    accounting
 }
 
 #[contractimpl]
