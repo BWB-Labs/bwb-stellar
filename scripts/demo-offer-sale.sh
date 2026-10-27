@@ -11,12 +11,12 @@
 # the failure path alone. Wiring is idempotent, so a rerun skips a grant
 # or an activation already done.
 #
-# Two offerings from deployments/testnet.json. `l4-demo-1` walks the success
+# Two offerings from deployments/testnet.json. `t1-demo-1` walks the success
 # path: activation, an eligibility rejection, an allocation rejection, a
 # purchase, pause and unpause (with a rejected purchase in between), a
 # cooling-off refund, more purchases, close, reopen, close, a too-early
 # finalize; then, in stage 2, finalize with the burn, release, the payout
-# and a refused late cooling-off. `l4-demo-2` walks the failure path in
+# and a refused late cooling-off. `t1-demo-3` walks the failure path in
 # stage 1: a purchase, a cancel refused to a stranger, the owner's cancel,
 # the refund and the token withdrawal.
 #
@@ -131,7 +131,7 @@ wire() {
 }
 
 if [[ "$STAGE" == 1 && " $DEMOS " == *" 1 "* ]]; then
-  offering l4-demo-1
+  offering t1-demo-1
   wire 1
 
   step "3. The allocator allows investor A up to 3,000 USDC this month"
@@ -190,17 +190,17 @@ if [[ "$STAGE" == 1 && " $DEMOS " == *" 1 "* ]]; then
   step "15. Finalize before the windows run out: rejected (6214 CoolingOffOpen)"
   rejected bwb-testnet-deployer "$SALE" "$SALE_WASM" 6214 -- finalize
 
-  step "l4-demo-1 after stage 1"
+  step "t1-demo-1 after stage 1"
   balances
   echo "finalizable_at: $(read_fn "$SALE" finalizable_at) (unix seconds); run STAGE=2 after it"
 fi
 
 if [[ "$STAGE" == 1 && " $DEMOS " == *" 2 "* ]]; then
-  offering l4-demo-2
+  offering t1-demo-3
   wire 16
 
   # The allowlist's cap is per investor per month across offerings, and A
-  # used 3,000 USDC of room in l4-demo-1: the cap goes to 4,000 so that
+  # used 3,000 USDC of room in t1-demo-1: the cap goes to 4,000 so that
   # 1,000 is left for this purchase.
   step "18. The allocator raises investor A's cap to 4,000 USDC; A buys 100 tokens"
   ok bwb-testnet-deployer "$ALLOWLIST" set_allocations --entries "$(allocation "$INV_A" 40000000000)" --caller "$DEPLOYER"
@@ -219,12 +219,12 @@ if [[ "$STAGE" == 1 && " $DEMOS " == *" 2 "* ]]; then
   held="$(read_fn "$TOKEN" balance --account "$SALE" | tr -d '"')"
   ok bwb-testnet-treasury "$SALE" withdraw_tokens --to "$TREASURY" --amount "$held" --caller "$TREASURY"
 
-  step "l4-demo-2 after stage 1"
+  step "t1-demo-3 after stage 1"
   balances
 fi
 
 if [[ "$STAGE" == 2 ]]; then
-  offering l4-demo-1
+  offering t1-demo-1
   now="$(date +%s)"
   at="$(read_fn "$SALE" finalizable_at | tr -d '"')"
   if (( now < at )); then
@@ -247,6 +247,6 @@ if [[ "$STAGE" == 2 ]]; then
     --payouts "[{\"recipient\":\"$TREASURY\",\"amount\":\"$((7000 * 10000000))\"},{\"recipient\":\"$INV_B\",\"amount\":\"$((1000 * 10000000))\"}]" \
     --caller "$TREASURY"
 
-  step "l4-demo-1 after stage 2"
+  step "t1-demo-1 after stage 2"
   balances
 fi

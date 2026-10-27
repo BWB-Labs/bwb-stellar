@@ -5,7 +5,7 @@
 - **Who uses it.** Investors call `buy` and `cooling_off_refund`. The tokenizer's treasury (the owner) closes, reopens and cancels, withdraws, pauses and unpauses. Anyone, in practice the backend, activates, finalizes, and runs `release` and `refund` in batches. The platform multisig pauses and upgrades.
 - **Where it comes from.** A port of Base's `OfferTokenSale` with the moment of truth moved: Base declares an offering Successful while investors can still undo purchases, and patches the consequences by hand (the audits' SCAN-01 and NF-04, and a success that can stop being true). Here success is declared only once nothing can be undone, so those three cannot occur. Cooling-off is per purchase, the unsold tokens are burned, and the sale has a pause.
 
-**Delivered in L4 (interface v1.0).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `l4-demo-1`. The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L4 (interface v1.0).** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-1`. The cross-cutting rules are in [interface.md](interface.md).
 
 ## States
 

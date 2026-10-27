@@ -160,16 +160,136 @@
           "tx": "https://stellar.expert/explorer/testnet/tx/22226075b93cdb73be6c6fc0f8acc68248ad766c97863077c856d766bd04b7f2"
         }
       }
+    },
+    "t1-demo-1": {
+      "token": {
+        "status": "deployed",
+        "salt": "bd8e7b5d5240961816d7edc271289817d9af83f21f882335ef3019b26174db0c",
+        "crate": "offer-token",
+        "contract_id": "CBJCLJOQU5ZPD5J76YWTGH47XEOMICLWXRK6KWV2ZUFQ2H4K7QV7VYJP",
+        "wasm_hash": "a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0",
+        "deploy_tx": "ef50a123122ee8ee5e18982f56a561b2c5afcbbe2537f43cc8f31636affaed46",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-10-26T19:56:08Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"xfer_admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--metadata",
+          "{\"name\":\"BWB T1 Demo 1\",\"symbol\":\"BWBT1A\",\"offer_uri\":\"ipfs://bwb-t1-demo-1\"}",
+          "--supply",
+          "1000",
+          "--initial_holder",
+          "CBCZ2EHNSFKKLJQAFIPUA6KV2CHMMVQOVISUJTSIVUTHFBWDVADVIF5M",
+          "--whitelist",
+          "[]"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CBJCLJOQU5ZPD5J76YWTGH47XEOMICLWXRK6KWV2ZUFQ2H4K7QV7VYJP",
+          "tx": "https://stellar.expert/explorer/testnet/tx/ef50a123122ee8ee5e18982f56a561b2c5afcbbe2537f43cc8f31636affaed46"
+        }
+      },
+      "sale": {
+        "status": "deployed",
+        "salt": "f8c260eaea0313861c75a595be098b225c4b9ffd5d4b505f85e04c77f4fedc09",
+        "crate": "offer-sale",
+        "contract_id": "CBCZ2EHNSFKKLJQAFIPUA6KV2CHMMVQOVISUJTSIVUTHFBWDVADVIF5M",
+        "wasm_hash": "02425e9f9f0af601d6567b92a269259a28e3da926fcad36312ba93c7675373c5",
+        "deploy_tx": "7f5847d94e076d380abd2f9fb2364f6a81a41f335545d6ad4453227059efc6a5",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-10-26T19:56:23Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"owner\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--contracts",
+          "{\"token\":\"CBJCLJOQU5ZPD5J76YWTGH47XEOMICLWXRK6KWV2ZUFQ2H4K7QV7VYJP\",\"payment_asset\":\"CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY\",\"allowlist\":\"CASHJ3GSNWKEB4R35AZ4I52ME7RTKPNBOZMR3O5H4C5SQZ4WWQKZYT6A\"}",
+          "--config",
+          "{\"price\":\"100000000\",\"cooling_off_secs\":86400,\"min_success_percent\":75}"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CBCZ2EHNSFKKLJQAFIPUA6KV2CHMMVQOVISUJTSIVUTHFBWDVADVIF5M",
+          "tx": "https://stellar.expert/explorer/testnet/tx/7f5847d94e076d380abd2f9fb2364f6a81a41f335545d6ad4453227059efc6a5"
+        }
+      }
+    },
+    "t1-demo-3": {
+      "token": {
+        "status": "deployed",
+        "salt": "fe4ff29d1d1d629b84dce06194128ac0c9fdd8a2b961259912731818ceff4b98",
+        "crate": "offer-token",
+        "contract_id": "CDWNAKEQ7HDNF3MHDVJ3F6ZR4WNKDMVVUJS3SQ2NI7JRBIBAZWH56QFA",
+        "wasm_hash": "a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0",
+        "deploy_tx": "763ec770efb46008e27da953d7341ac1af22b6650862f7562a857077b7d80b5c",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-10-26T19:57:57Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"xfer_admin\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--metadata",
+          "{\"name\":\"BWB T1 Demo 3\",\"symbol\":\"BWBT1C\",\"offer_uri\":\"ipfs://bwb-t1-demo-3\"}",
+          "--supply",
+          "1000",
+          "--initial_holder",
+          "CCDTVJYQ5UNB7OZSTOGRHZHM74RSLC23SCCXI5JRXYDQYH7RYGMCQQRV",
+          "--whitelist",
+          "[]"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CDWNAKEQ7HDNF3MHDVJ3F6ZR4WNKDMVVUJS3SQ2NI7JRBIBAZWH56QFA",
+          "tx": "https://stellar.expert/explorer/testnet/tx/763ec770efb46008e27da953d7341ac1af22b6650862f7562a857077b7d80b5c"
+        }
+      },
+      "sale": {
+        "status": "deployed",
+        "salt": "eb8a7a65be19adf4af2295cd7dbcbf7640890fbb99ce7e2509462d0d9551e189",
+        "crate": "offer-sale",
+        "contract_id": "CCDTVJYQ5UNB7OZSTOGRHZHM74RSLC23SCCXI5JRXYDQYH7RYGMCQQRV",
+        "wasm_hash": "02425e9f9f0af601d6567b92a269259a28e3da926fcad36312ba93c7675373c5",
+        "deploy_tx": "b94205803fa5f7bdb379df35cc5733799beda67c670421af56eec3fecd16bca5",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-10-26T19:58:14Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"owner\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--contracts",
+          "{\"token\":\"CDWNAKEQ7HDNF3MHDVJ3F6ZR4WNKDMVVUJS3SQ2NI7JRBIBAZWH56QFA\",\"payment_asset\":\"CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY\",\"allowlist\":\"CASHJ3GSNWKEB4R35AZ4I52ME7RTKPNBOZMR3O5H4C5SQZ4WWQKZYT6A\"}",
+          "--config",
+          "{\"price\":\"100000000\",\"cooling_off_secs\":86400,\"min_success_percent\":75}"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CCDTVJYQ5UNB7OZSTOGRHZHM74RSLC23SCCXI5JRXYDQYH7RYGMCQQRV",
+          "tx": "https://stellar.expert/explorer/testnet/tx/b94205803fa5f7bdb379df35cc5733799beda67c670421af56eec3fecd16bca5"
+        }
+      }
     }
   },
   "contracts": {
     "offer-allowlist": {
       "crate": "offer-allowlist",
-      "contract_id": "CAWQW2XWFBO3QHGEHLGXLVCLY4QDVAPR7TPLCH6PVYU4CVLU5IIX3THF",
-      "wasm_hash": "443ca5cd132525fc476516467989a41e006c297c278daf712b68a827554cfcd1",
-      "deploy_tx": "54f50e64c49c00cb75c72a5df8ba9f2d0f85482ab82ec527681363db9a196c16",
+      "contract_id": "CASHJ3GSNWKEB4R35AZ4I52ME7RTKPNBOZMR3O5H4C5SQZ4WWQKZYT6A",
+      "wasm_hash": "577b1c184ec72a065d1a7e5dcc462de0343ac63af49de8c758fdb0d77f7e5597",
+      "deploy_tx": "d6ca8379269c672802e4c0ba4d79d6044305179c4811e0fcc69743b8044fcee5",
       "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
-      "deployed_at": "2026-10-20T17:55:29Z",
+      "deployed_at": "2026-10-26T19:55:39Z",
       "constructor_args": [
         "--admin",
         "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
@@ -182,12 +302,9 @@
         "stellar_cli": "28.1.0"
       },
       "explorer": {
-        "contract": "https://stellar.expert/explorer/testnet/contract/CAWQW2XWFBO3QHGEHLGXLVCLY4QDVAPR7TPLCH6PVYU4CVLU5IIX3THF",
-        "tx": "https://stellar.expert/explorer/testnet/tx/54f50e64c49c00cb75c72a5df8ba9f2d0f85482ab82ec527681363db9a196c16",
-        "upgrade_tx": "https://stellar.expert/explorer/testnet/tx/38cf17f90b9b17f3a7e7b269afc4912855aff2336d85698878f1bc0d937dc200"
-      },
-      "upgrade_tx": "38cf17f90b9b17f3a7e7b269afc4912855aff2336d85698878f1bc0d937dc200",
-      "upgraded_at": "2026-10-22T20:40:00Z"
+        "contract": "https://stellar.expert/explorer/testnet/contract/CASHJ3GSNWKEB4R35AZ4I52ME7RTKPNBOZMR3O5H4C5SQZ4WWQKZYT6A",
+        "tx": "https://stellar.expert/explorer/testnet/tx/d6ca8379269c672802e4c0ba4d79d6044305179c4811e0fcc69743b8044fcee5"
+      }
     },
     "demo-usdc": {
       "what": "Demo payment asset for the L4 testnet run: a Stellar Asset Contract for USDC issued by the bwb-testnet-usdc identity. Not Circle's USDC.",
