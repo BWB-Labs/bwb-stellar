@@ -42,9 +42,6 @@ use stellar_tokens::fungible::{
 };
 
 pub use crate::errors::OfferTokenError;
-use crate::events::{
-    AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, Upgraded, WhitelistUpdated,
-};
 pub use crate::types::{OfferingMetadata, PowerHolders};
 use crate::whitelist::Whitelisted;
 
@@ -95,7 +92,7 @@ impl OfferToken {
             pauser,
             upgrader,
         } = power_holders;
-        Initialized {
+        events::Initialized {
             admin,
             xfer_admin,
             pauser,
@@ -126,14 +123,14 @@ impl OfferToken {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_whitelisted(e, &account, allowed);
         storage::extend_instance_ttl(e);
-        WhitelistUpdated { account, allowed }.publish(e);
+        events::WhitelistUpdated { account, allowed }.publish(e);
     }
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         set_uri_checked(e, &uri);
         storage::extend_instance_ttl(e);
-        OfferUriUpdated { uri }.publish(e);
+        events::OfferUriUpdated { uri }.publish(e);
     }
 
     /// Moves `amount` from `from` to `to`, ignoring pause and the whitelist:
@@ -153,7 +150,7 @@ impl OfferToken {
         storage::extend_balance_ttl(e, &to);
         storage::extend_instance_ttl(e);
         emit_transfer(e, &from, &to, None, amount);
-        AdminTransfer { from, to, amount }.publish(e);
+        events::AdminTransfer { from, to, amount }.publish(e);
     }
 
     /// Destroys `amount` of `from`'s own balance, lowering the supply. Only
@@ -228,7 +225,7 @@ fn set_uri_checked(e: &Env, uri: &String) {
 fn whitelist_if_new(e: &Env, account: &Address) {
     if !storage::is_whitelisted(e, account) {
         storage::set_whitelisted(e, account, true);
-        WhitelistUpdated {
+        events::WhitelistUpdated {
             account: account.clone(),
             allowed: true,
         }
@@ -270,7 +267,7 @@ impl Pausable for OfferToken {
         storage::require_power(e, &caller, &holders, OfferTokenError::NotPauser);
         pausable::pause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: true,
         }
@@ -282,7 +279,7 @@ impl Pausable for OfferToken {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         pausable::unpause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: false,
         }
@@ -302,7 +299,7 @@ impl Upgradeable for OfferToken {
             OfferTokenError::NotUpgrader,
         );
         storage::extend_instance_ttl(e);
-        Upgraded {
+        events::Upgraded {
             new_wasm_hash: new_wasm_hash.clone(),
             from_schema_version: upgradeable::get_schema_version(e),
         }

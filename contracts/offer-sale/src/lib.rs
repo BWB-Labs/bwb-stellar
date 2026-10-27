@@ -47,11 +47,6 @@ use stellar_macros::when_not_paused;
 
 use crate::allowlist::AllowlistClient;
 pub use crate::errors::OfferSaleError;
-use crate::events::{
-    Activated, Cancelled, Closed, Configured, Finalized, PauseChanged, PaymentWithdrawn, Purchased,
-    Refunded, Released, Reopened, RestoreSkipped, StateChanged, TokensWithdrawn, Upgraded,
-    REASON_BELOW_MINIMUM, REASON_COOLING_OFF, REASON_FAILED, REASON_OWNER, REASON_SOLD_OUT,
-};
 use crate::offer_token::OfferTokenSupplyClient;
 pub use crate::types::{
     Contracts, Payout, PowerHolders, Purchase, Reservation, SaleAccounting, SaleConfig, SaleState,
@@ -143,7 +138,7 @@ impl OfferSale {
         );
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         storage::extend_instance_ttl(e);
-        Configured {
+        events::Configured {
             owner: power_holders.owner,
             pauser: power_holders.pauser,
             upgrader: power_holders.upgrader,
@@ -193,7 +188,7 @@ impl OfferSale {
         accounting.supply = supply;
         storage::set_accounting(e, &accounting);
         transition(e, SaleState::Preparing, SaleState::Active);
-        Activated { supply }.publish(e);
+        events::Activated { supply }.publish(e);
     }
 
     /// Reserves `amount / price` tokens for `investor` against `amount` of
@@ -274,7 +269,7 @@ impl OfferSale {
         storage::set_accounting(e, &accounting);
         storage::set_last_purchase_at(e, at);
         storage::extend_instance_ttl(e);
-        Purchased {
+        events::Purchased {
             investor,
             paid: received,
             tokens,
@@ -287,7 +282,7 @@ impl OfferSale {
         }
         .publish(e);
         if accounting.sold_tokens == accounting.supply {
-            close_with(e, &accounting, REASON_SOLD_OUT);
+            close_with(e, &accounting, events::REASON_SOLD_OUT);
         }
     }
 
@@ -302,7 +297,7 @@ impl OfferSale {
         if !meets_minimum(&accounting, &storage::config(e)) {
             panic_with_error!(e, OfferSaleError::BelowMinimum);
         }
-        close_with(e, &accounting, REASON_OWNER);
+        close_with(e, &accounting, events::REASON_OWNER);
     }
 
     /// Opens buying again from Closing, to sell the tokens left. Owner
@@ -316,7 +311,7 @@ impl OfferSale {
         if accounting.sold_tokens == accounting.supply {
             panic_with_error!(e, OfferSaleError::ExceedsSupply);
         }
-        reopen_with(e, &accounting, REASON_OWNER);
+        reopen_with(e, &accounting, events::REASON_OWNER);
     }
 
     /// Fails the offering at the owner's decision, while Active or Closing
@@ -331,7 +326,7 @@ impl OfferSale {
         let from = require_open(e);
         let accounting = storage::accounting(e);
         transition(e, from, SaleState::Failed);
-        Cancelled {
+        events::Cancelled {
             raised: accounting.raised,
             sold_tokens: accounting.sold_tokens,
         }
@@ -364,7 +359,7 @@ impl OfferSale {
         if burned > 0 {
             token.burn(&me, &burned);
         }
-        Finalized {
+        events::Finalized {
             raised: accounting.raised,
             sold_tokens: accounting.sold_tokens,
             burned,
@@ -419,17 +414,17 @@ impl OfferSale {
         storage::set_reservation(e, &investor, &reservation);
         let accounting = lower_accounting(e, tokens, paid);
         storage::extend_instance_ttl(e);
-        Refunded {
+        events::Refunded {
             investor,
             paid,
             tokens,
-            reason: Symbol::new(e, REASON_COOLING_OFF),
+            reason: Symbol::new(e, events::REASON_COOLING_OFF),
             raised: accounting.raised,
             sold_tokens: accounting.sold_tokens,
         }
         .publish(e);
         if state == SaleState::Closing && !meets_minimum(&accounting, &config) {
-            reopen_with(e, &accounting, REASON_BELOW_MINIMUM);
+            reopen_with(e, &accounting, events::REASON_BELOW_MINIMUM);
         }
     }
 
@@ -454,7 +449,7 @@ impl OfferSale {
             token.transfer(&me, &investor, &reservation.tokens);
             storage::remove_reservation(e, &investor);
             accounting.released_tokens += reservation.tokens;
-            Released {
+            events::Released {
                 investor,
                 paid: reservation.paid,
                 tokens: reservation.tokens,
@@ -513,11 +508,11 @@ impl OfferSale {
             storage::remove_reservation(e, &investor);
             accounting.sold_tokens -= reservation.tokens;
             accounting.raised -= reservation.paid;
-            Refunded {
+            events::Refunded {
                 investor,
                 paid: reservation.paid,
                 tokens: reservation.tokens,
-                reason: Symbol::new(e, REASON_FAILED),
+                reason: Symbol::new(e, events::REASON_FAILED),
                 raised: accounting.raised,
                 sold_tokens: accounting.sold_tokens,
             }
@@ -560,7 +555,7 @@ impl OfferSale {
         let payment = token::TokenClient::new(e, &storage::contracts(e).payment_asset);
         for payout in payouts.iter() {
             payment.transfer(&me, &payout.recipient, &payout.amount);
-            PaymentWithdrawn {
+            events::PaymentWithdrawn {
                 recipient: payout.recipient,
                 amount: payout.amount,
             }
@@ -584,7 +579,7 @@ impl OfferSale {
         let token = token::TokenClient::new(e, &storage::contracts(e).token);
         token.transfer(&e.current_contract_address(), &to, &amount);
         storage::extend_instance_ttl(e);
-        TokensWithdrawn { to, amount }.publish(e);
+        events::TokensWithdrawn { to, amount }.publish(e);
     }
 
     pub fn state(e: &Env) -> SaleState {
@@ -693,7 +688,7 @@ fn state_symbol(e: &Env, state: SaleState) -> Symbol {
 fn transition(e: &Env, from: SaleState, to: SaleState) {
     storage::set_state(e, to);
     storage::extend_instance_ttl(e);
-    StateChanged {
+    events::StateChanged {
         from: state_symbol(e, from),
         to: state_symbol(e, to),
     }
@@ -733,7 +728,7 @@ fn restore_or_report(e: &Env, allowlist: &Address, investor: &Address, receipts:
         .try_restore(investor, receipts, &me)
         .is_err()
     {
-        RestoreSkipped {
+        events::RestoreSkipped {
             investor: investor.clone(),
             receipts: receipts.clone(),
         }
@@ -744,7 +739,7 @@ fn restore_or_report(e: &Env, allowlist: &Address, investor: &Address, receipts:
 /// Closing → Active with the reason recorded.
 fn reopen_with(e: &Env, accounting: &SaleAccounting, reason: &str) {
     transition(e, SaleState::Closing, SaleState::Active);
-    Reopened {
+    events::Reopened {
         reason: Symbol::new(e, reason),
         raised: accounting.raised,
         sold_tokens: accounting.sold_tokens,
@@ -754,7 +749,7 @@ fn reopen_with(e: &Env, accounting: &SaleAccounting, reason: &str) {
 
 /// Active → Closing with the reason recorded.
 fn close_with(e: &Env, accounting: &SaleAccounting, reason: &str) {
-    Closed {
+    events::Closed {
         reason: Symbol::new(e, reason),
         raised: accounting.raised,
         sold_tokens: accounting.sold_tokens,
@@ -790,7 +785,7 @@ impl Pausable for OfferSale {
         );
         pausable::pause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: true,
         }
@@ -802,7 +797,7 @@ impl Pausable for OfferSale {
         require_owner(e, &caller);
         pausable::unpause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: false,
         }
@@ -823,7 +818,7 @@ impl Upgradeable for OfferSale {
             OfferSaleError::NotUpgrader,
         );
         storage::extend_instance_ttl(e);
-        Upgraded {
+        events::Upgraded {
             new_wasm_hash: new_wasm_hash.clone(),
             from_schema_version: upgradeable::get_schema_version(e),
         }
