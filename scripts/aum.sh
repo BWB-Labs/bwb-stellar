@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tokenized AUM, read from the sale contracts: the grant's Tranche 1 query,
-# reproducible by anyone with the Stellar CLI, jq and python3.
+# reproducible by anyone with the Stellar CLI, jq, python3 and a testnet
+# identity to simulate with (see SOURCE below).
 #
 #   scripts/aum.sh [--json <file>] [offering-id ...]
 #
@@ -29,7 +30,10 @@ case "$NETWORK" in
   testnet) ;;
   *) echo "only testnet is supported for now (NETWORK=$NETWORK)" >&2; exit 1 ;;
 esac
-SOURCE=bwb-testnet-deployer
+# Simulations need a source account but sign nothing and pay nothing, so
+# any identity in the local keystore works (`stellar keys generate any
+# --network testnet` makes one). SOURCE overrides the default.
+SOURCE="${SOURCE:-bwb-testnet-deployer}"
 PAYMENT_DECIMALS=7
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
