@@ -46,7 +46,7 @@ Purchases are paid in a USDC issued by BWB on testnet, the Stellar Asset Contrac
 
 ### How to verify
 
-Check out the release commit and run `stellar contract build` with Stellar CLI 28.1.0. The Rust toolchain is pinned in [`rust-toolchain.toml`](../../rust-toolchain.toml) and installs itself. `shasum -a 256 target/wasm32v1-none/release/*.wasm` gives the three hashes above, and `stellar contract info hash --id <contract> --network testnet` shows which hash each contract runs today.
+Check out the release commit and run `stellar contract build` with Stellar CLI 28.1.0. The Rust toolchain is pinned in [`rust-toolchain.toml`](../../rust-toolchain.toml) and installs itself. `shasum -a 256 target/wasm32v1-none/release/offer_*.wasm` gives the three hashes above (the `*_upgrade_fixture.wasm` files beside them are test-only), and `stellar contract info hash --id <contract> --network testnet` shows which hash each contract runs today.
 
 ## Criterion 2 — met ✅
 
@@ -73,7 +73,7 @@ RPC keeps transactions and their events for about seven days, and testnet resets
 
 ### How to verify
 
-Open any transaction on the explorer. The Events tab shows the decoded events, and a failed transaction shows its contract error code. `scripts/capture-evidence.sh --out /tmp/evidence` re-fetches every result and event from RPC while it still holds them.
+Open any transaction on the explorer. The Events tab shows the decoded events, and a failed transaction shows its contract error code. `scripts/capture-evidence.sh --out /tmp/evidence` re-fetches every result and event from RPC while it still holds them, writing the demonstration's files there and the deploys next to it, in `/tmp/deploys`.
 
 ## Criterion 3 — met ✅
 
@@ -86,7 +86,7 @@ Open any transaction on the explorer. The Events tab shows the decoded events, a
 Here, AUM is every token an investor has bought and not been refunded for, in every offering that has not failed. The query takes `sold_tokens` from each sale contract (tokens reserved or already released, net of refunds), multiplies by the offering's price, and sums, then checks that figure against `raised`, the payment the contract holds net of refunds, so the two cannot drift. No personal data enters the calculation, because the contracts' events and storage hold only addresses and amounts.
 
 ```bash
-scripts/aum.sh --json docs/scf/evidence/aum.json t1-demo-4 t1-demo-5
+SOURCE=<any-testnet-identity> scripts/aum.sh --json docs/scf/evidence/aum.json t1-demo-4 t1-demo-5
 ```
 
 At ledger `TODO(ledger)`, `TODO(date)`, after the demonstration's settlement:
@@ -101,7 +101,7 @@ The successful offering's supply reads 800 because finalize burned the 200 unsol
 
 ### How to verify
 
-Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any testnet identity to simulate with (`stellar keys generate any --network testnet` creates one, then pass it as `SOURCE=any`).
+Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any testnet identity to simulate with: `stellar keys generate any --network testnet` creates one, unfunded is fine, and `SOURCE=any` names it.
 
 ## Criterion 4 — met ✅
 
@@ -109,7 +109,7 @@ Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any te
 
 ### Evidence
 
-CI runs on every change under `contracts/`: formatting, the full test suite, clippy with warnings as errors, and the WASM build ([workflow](../../.github/workflows/contracts.yml), [run on the release](TODO(run link))). The suite has 326 tests (token 80, allowlist 114, sale 132), in modules named after the scenarios the criterion lists, so each row below points at a file rather than a search:
+CI runs on every pull request, and on every push to `main` that touches the contracts or the scripts: formatting, the full test suite, clippy with warnings as errors, and the WASM build ([workflow](../../.github/workflows/contracts.yml), [run on the release](TODO(run link))). The suite has 326 tests (token 80, allowlist 114, sale 132), in modules named after the scenarios the criterion lists, so each row below points at a file rather than a search:
 
 | Scenario | Tests | Code | On chain |
 |---|---|---|---|
