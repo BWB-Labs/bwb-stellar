@@ -101,7 +101,7 @@ The successful offering's supply reads 800 because finalize burned the 200 unsol
 
 ### How to verify
 
-Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any testnet identity to simulate with (`stellar keys generate any --network testnet` creates one; pass it as `SOURCE=any`).
+Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any testnet identity to simulate with (`stellar keys generate any --network testnet` creates one, then pass it as `SOURCE=any`).
 
 ## Criterion 4 — met ✅
 
