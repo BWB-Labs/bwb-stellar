@@ -7,8 +7,8 @@
 #
 # With no offering ids, every offering in deployments/testnet.json whose
 # sale is "deployed". For each one the sale's `state`, `config` and
-# `accounting` views are simulated (never sent, no fee, no key material
-# beyond the bwb-testnet-deployer identity the simulation is built for).
+# `accounting` views are simulated (never sent, no fee; the identity the
+# simulation is built for signs nothing and need not exist on the ledger).
 #
 # Definition: AUM counts the offerings whose state is not Failed. Per
 # offering, units = sold_tokens and value = sold_tokens × config.price, in

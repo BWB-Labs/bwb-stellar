@@ -75,7 +75,7 @@ capture_tx() {
     events=null
     errors="$(jq -c --arg m "events: $(tail -n1 "$ERR")" '. + [$m]' <<<"$errors")"
   fi
-  if ! horizon="$(curl -sfS --retry 2 "$HORIZON/transactions/$hash" 2>"$ERR")"; then
+  if ! horizon="$(curl -sfS --retry 2 --max-time 30 "$HORIZON/transactions/$hash" 2>"$ERR")"; then
     horizon=null
     errors="$(jq -c --arg m "horizon: $(tail -n1 "$ERR")" '. + [$m]' <<<"$errors")"
   fi
