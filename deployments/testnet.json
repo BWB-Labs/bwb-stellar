@@ -318,7 +318,8 @@
         "salt": "ba5a8138e8feefc34c8dbbc259461d9ac81c9eb3b73482a84c73711631a8038c",
         "crate": "offer-sale",
         "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-        "wasm_hash": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3",
+        "wasm_hash": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd",
+        "previous_wasm_hash": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3",
         "deploy_tx": "a985509755d5127c6256d38e38c2ae83e2d1e750ad9c0f97989efe2d56522631",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
         "deployed_at": "2026-10-27T21:01:41Z",
@@ -337,8 +338,11 @@
         },
         "explorer": {
           "contract": "https://stellar.expert/explorer/testnet/contract/CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "tx": "https://stellar.expert/explorer/testnet/tx/a985509755d5127c6256d38e38c2ae83e2d1e750ad9c0f97989efe2d56522631"
-        }
+          "tx": "https://stellar.expert/explorer/testnet/tx/a985509755d5127c6256d38e38c2ae83e2d1e750ad9c0f97989efe2d56522631",
+          "upgrade_tx": "https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1"
+        },
+        "upgrade_tx": "779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1",
+        "upgraded_at": "2026-10-28T16:45:10Z"
       }
     },
     "t1-demo-5": {
@@ -378,7 +382,8 @@
         "salt": "73c798aebda5e0a5efdec104d1cb0a1f211309ac4c61b6db6da1c13e1494fb6a",
         "crate": "offer-sale",
         "contract_id": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
-        "wasm_hash": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3",
+        "wasm_hash": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd",
+        "previous_wasm_hash": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3",
         "deploy_tx": "4ea3f9a8e90919308d15d6b63eea91eec0168a7d0abc5081e3244bdda659b1a1",
         "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
         "deployed_at": "2026-10-27T21:02:16Z",
@@ -397,8 +402,11 @@
         },
         "explorer": {
           "contract": "https://stellar.expert/explorer/testnet/contract/CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
-          "tx": "https://stellar.expert/explorer/testnet/tx/4ea3f9a8e90919308d15d6b63eea91eec0168a7d0abc5081e3244bdda659b1a1"
-        }
+          "tx": "https://stellar.expert/explorer/testnet/tx/4ea3f9a8e90919308d15d6b63eea91eec0168a7d0abc5081e3244bdda659b1a1",
+          "upgrade_tx": "https://stellar.expert/explorer/testnet/tx/65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade"
+        },
+        "upgrade_tx": "65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade",
+        "upgraded_at": "2026-10-28T16:45:20Z"
       }
     }
   },
