@@ -71,9 +71,15 @@ Also on chain, beyond D2's list: activation (steps 2 and 17), more purchases (12
 scripts/aum.sh --json docs/scf/evidence/aum.json t1-demo-4 t1-demo-5
 ```
 
-Output at ledger `TODO`, `TODO(UTC)`:
+Output at ledger 5436517, 2026-10-28 16:50 UTC, before stage 2 (both offerings still undecided; 800 of 1,000 tokens sold in `t1-demo-4`):
 
-`TODO(table)`
+| Offering | State | Counted | Supply | Sold (units) | Price | Value (base units) | Value (USDC) |
+|---|---|---|---|---|---|---|---|
+| `t1-demo-4` | Closing | yes | 1000 | 800 | 100000000 | 80000000000 | 8,000.00 |
+| `t1-demo-5` | Failed | no | 1000 | 0 | 100000000 | 0 | 0.00 |
+| **Total** | | 1 of 2 | | **800** | | **80000000000** | **8,000.00** |
+
+After stage 2 the same query shows `t1-demo-4` Successful with 800 units and the 200 unsold tokens burned (`TODO(post-stage-2 run)`).
 
 Committed output: [`evidence/aum.json`](evidence/aum.json).
 

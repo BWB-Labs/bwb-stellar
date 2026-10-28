@@ -60,7 +60,7 @@ Superseded offerings, kept in the manifest: `t1-demo-1` and `t1-demo-3`, the fir
 
 | Step | What | Transaction |
 |---|---|---|
-| 1 | The allocator grants the sale contract the allowlist's sale role | [`0f98ffd3…`](https://stellar.expert/explorer/testnet/tx/0f98ffd31d7f2f1ebf3c733d9dcb81f4c1c9a913193545ebaaf28b7e0149bd3b) |
+| 1 | The allocator grants the sale contract the allowlist's sale role | [`8b54be8d…`](https://stellar.expert/explorer/testnet/tx/8b54be8d10afd9a815ef0dcf979c6c2c9e05d6efe1a0810c4e5805084fe92fa8) |
 | 2 | Anyone activates: the sale holds the whole supply and the role | [`9bc461f8…`](https://stellar.expert/explorer/testnet/tx/9bc461f8d2b043eaa4d942e6f54f2130a966d7957999b88769be12f80af9144c) |
 | 3 | The allocator allows investor A up to 3,000 USDC this month | [`9e9c86c0…`](https://stellar.expert/explorer/testnet/tx/9e9c86c006aaccaa0ed55031b6a489cc9fa74978b5d8c6d705e5c1e15e074bb8) |
 | 4 | Eligibility rejection: investor B, not on the allowlist, buys 10 tokens (6100 InvestorNotEnabled) | [`bb98c609…`](https://stellar.expert/explorer/testnet/tx/bb98c60984c32ada9b0fb770579bbffbf31102d51305df9d3e2ef468f44b96a6) |
