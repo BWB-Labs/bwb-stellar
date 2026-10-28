@@ -14,9 +14,10 @@
 #
 # Each file: {step, what, hash, explorer_url, horizon: {successful, ledger,
 # created_at, source_account, fee_charged}, contract_error, result, events}.
-# `events` is the CLI's own split: contract_events (the events the ledger
-# kept), diagnostic_events (fn_call/fn_return noise and, for a rejected
-# step, the error trail) and transaction_events. A rejected step has no
+# `events` holds contract_events (the events the ledger kept) and
+# transaction_events; for a rejected step, whose contract events were
+# rolled back, those come as rolled_back_events. The host's diagnostic
+# trail (fn_call/fn_return, metrics) is not kept. A rejected step has no
 # contract_events; its code is read from the host_fn_failed diagnostic
 # into contract_error, null for a successful step. A hash the RPC no
 # longer has gets fetch_errors instead of result/events.
@@ -98,7 +99,16 @@ capture_tx() {
                        | first // null)
     }
     + (if $errors == [] then {} else {fetch_errors: $errors} end)
-    + {result: $result, events: $events}' > "$file"
+    + {result: $result}
+    # Keep what a reader needs: the events the ledger kept and the
+    # transaction-level ones. The fn_call/fn_return trail of the host and its
+    # metrics are dropped; for a rejected call, whose contract events were
+    # rolled back, those events are kept from the trail as rolled_back_events.
+    + {events: ($events | if . == null then null else {
+        contract_events: ([.contract_events[]?] | flatten),
+        transaction_events: ([.transaction_events[]?] | flatten),
+        rolled_back_events: ([.diagnostic_events[]? | select(.in_successful_contract_call == false and .event.type == "contract") | .event])
+      } | if .rolled_back_events == [] then del(.rolled_back_events) else . end end)}' > "$file"
   printf '%s  %s\n' "$file" "$hash"
 }
 

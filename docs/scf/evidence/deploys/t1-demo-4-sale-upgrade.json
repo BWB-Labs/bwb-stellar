@@ -28,645 +28,73 @@
   },
   "events": {
     "contract_events": [
-      [
-        {
-          "ext": "v0",
-          "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "upgraded"
+              }
+            ],
+            "data": {
+              "map": [
                 {
-                  "symbol": "upgraded"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "from_schema_version"
-                    },
-                    "val": {
-                      "u32": 2
-                    }
+                  "key": {
+                    "symbol": "from_schema_version"
                   },
-                  {
-                    "key": {
-                      "symbol": "new_wasm_hash"
-                    },
-                    "val": {
-                      "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
-                    }
+                  "val": {
+                    "u32": 2
                   }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "ext": "v0",
-          "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "type": "system",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "executable_update"
                 },
                 {
-                  "vec": [
-                    {
-                      "symbol": "Wasm"
-                    },
-                    {
-                      "bytes": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3"
-                    }
-                  ]
-                },
-                {
-                  "vec": [
-                    {
-                      "symbol": "Wasm"
-                    },
-                    {
-                      "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
-                    }
-                  ]
+                  "key": {
+                    "symbol": "new_wasm_hash"
+                  },
+                  "val": {
+                    "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
+                  }
                 }
-              ],
-              "data": {
-                "vec": []
-              }
+              ]
             }
           }
         }
-      ]
-    ],
-    "diagnostic_events": [
+      },
       {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "fn_call"
-                },
-                {
-                  "bytes": "310f49d1d817cbba656049404d3df5f4a5ca74a26b755ef8c1d3612928225a38"
-                },
-                {
-                  "symbol": "upgrade"
-                }
-              ],
-              "data": {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "system",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "executable_update"
+              },
+              {
                 "vec": [
                   {
+                    "symbol": "Wasm"
+                  },
+                  {
+                    "bytes": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3"
+                  }
+                ]
+              },
+              {
+                "vec": [
+                  {
+                    "symbol": "Wasm"
+                  },
+                  {
                     "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
-                  },
-                  {
-                    "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
                   }
                 ]
               }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "upgraded"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "from_schema_version"
-                    },
-                    "val": {
-                      "u32": 2
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "new_wasm_hash"
-                    },
-                    "val": {
-                      "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "type": "system",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "executable_update"
-                },
-                {
-                  "vec": [
-                    {
-                      "symbol": "Wasm"
-                    },
-                    {
-                      "bytes": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3"
-                    }
-                  ]
-                },
-                {
-                  "vec": [
-                    {
-                      "symbol": "Wasm"
-                    },
-                    {
-                      "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
-                    }
-                  ]
-                }
-              ],
-              "data": {
-                "vec": []
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "fn_return"
-                },
-                {
-                  "symbol": "upgrade"
-                }
-              ],
-              "data": "void"
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_entry"
-                }
-              ],
-              "data": {
-                "u64": "3"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_entry"
-                }
-              ],
-              "data": {
-                "u64": "1"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "ledger_read_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "ledger_write_byte"
-                }
-              ],
-              "data": {
-                "u64": "1124"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "1124"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "emit_event"
-                }
-              ],
-              "data": {
-                "u64": "2"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "emit_event_byte"
-                }
-              ],
-              "data": {
-                "u64": "404"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "cpu_insn"
-                }
-              ],
-              "data": {
-                "u64": "905829"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "mem_byte"
-                }
-              ],
-              "data": {
-                "u64": "1379238"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "invoke_time_nsecs"
-                }
-              ],
-              "data": {
-                "u64": "255503"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "48"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "1124"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_emit_event_byte"
-                }
-              ],
-              "data": {
-                "u64": "220"
-              }
+            ],
+            "data": {
+              "vec": []
             }
           }
         }

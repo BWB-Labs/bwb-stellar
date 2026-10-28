@@ -28,837 +28,134 @@
   },
   "events": {
     "contract_events": [
-      [
-        {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "initialized"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "admin"
-                    },
-                    "val": {
-                      "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "initial_holder"
-                    },
-                    "val": {
-                      "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "offer_uri"
-                    },
-                    "val": {
-                      "string": "ipfs://bwb-t1-demo-4"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "pauser"
-                    },
-                    "val": {
-                      "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "supply"
-                    },
-                    "val": {
-                      "i128": "1000"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "upgrader"
-                    },
-                    "val": {
-                      "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "xfer_admin"
-                    },
-                    "val": {
-                      "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "mint"
-                },
-                {
-                  "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "amount"
-                    },
-                    "val": {
-                      "i128": "1000"
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "whitelist_updated"
-                },
-                {
-                  "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "allowed"
-                    },
-                    "val": {
-                      "bool": true
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        }
-      ]
-    ],
-    "diagnostic_events": [
       {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "initialized"
+              }
+            ],
+            "data": {
+              "map": [
                 {
-                  "symbol": "fn_call"
+                  "key": {
+                    "symbol": "admin"
+                  },
+                  "val": {
+                    "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                  }
                 },
                 {
-                  "bytes": "04d1ddbfe6140420c09d69914b2702956075808beff2d7882206f3610df5d72c"
-                },
-                {
-                  "symbol": "__constructor"
-                }
-              ],
-              "data": {
-                "vec": [
-                  {
-                    "map": [
-                      {
-                        "key": {
-                          "symbol": "admin"
-                        },
-                        "val": {
-                          "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "pauser"
-                        },
-                        "val": {
-                          "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "upgrader"
-                        },
-                        "val": {
-                          "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "xfer_admin"
-                        },
-                        "val": {
-                          "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                        }
-                      }
-                    ]
+                  "key": {
+                    "symbol": "initial_holder"
                   },
-                  {
-                    "map": [
-                      {
-                        "key": {
-                          "symbol": "name"
-                        },
-                        "val": {
-                          "string": "BWB T1 Demo 4"
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "offer_uri"
-                        },
-                        "val": {
-                          "string": "ipfs://bwb-t1-demo-4"
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "symbol"
-                        },
-                        "val": {
-                          "string": "BWBT1D"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "i128": "1000"
-                  },
-                  {
+                  "val": {
                     "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                  },
-                  {
-                    "vec": []
                   }
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
+                },
                 {
-                  "symbol": "initialized"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "admin"
-                    },
-                    "val": {
-                      "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                    }
+                  "key": {
+                    "symbol": "offer_uri"
                   },
-                  {
-                    "key": {
-                      "symbol": "initial_holder"
-                    },
-                    "val": {
-                      "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "offer_uri"
-                    },
-                    "val": {
-                      "string": "ipfs://bwb-t1-demo-4"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "pauser"
-                    },
-                    "val": {
-                      "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "supply"
-                    },
-                    "val": {
-                      "i128": "1000"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "upgrader"
-                    },
-                    "val": {
-                      "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "xfer_admin"
-                    },
-                    "val": {
-                      "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
-                    }
+                  "val": {
+                    "string": "ipfs://bwb-t1-demo-4"
                   }
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "mint"
                 },
                 {
-                  "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "amount"
-                    },
-                    "val": {
-                      "i128": "1000"
-                    }
+                  "key": {
+                    "symbol": "pauser"
+                  },
+                  "val": {
+                    "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
                   }
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "contract",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "whitelist_updated"
                 },
                 {
-                  "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
-                }
-              ],
-              "data": {
-                "map": [
-                  {
-                    "key": {
-                      "symbol": "allowed"
-                    },
-                    "val": {
-                      "bool": true
-                    }
+                  "key": {
+                    "symbol": "supply"
+                  },
+                  "val": {
+                    "i128": "1000"
                   }
-                ]
-              }
+                },
+                {
+                  "key": {
+                    "symbol": "upgrader"
+                  },
+                  "val": {
+                    "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "xfer_admin"
+                  },
+                  "val": {
+                    "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                  }
+                }
+              ]
             }
           }
         }
       },
       {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "mint"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              }
+            ],
+            "data": {
+              "map": [
                 {
-                  "symbol": "fn_return"
-                },
-                {
-                  "symbol": "__constructor"
+                  "key": {
+                    "symbol": "amount"
+                  },
+                  "val": {
+                    "i128": "1000"
+                  }
                 }
-              ],
-              "data": "void"
+              ]
             }
           }
         }
       },
       {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_entry"
-                }
-              ],
-              "data": {
-                "u64": "4"
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "whitelist_updated"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
               }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
+            ],
+            "data": {
+              "map": [
                 {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_entry"
+                  "key": {
+                    "symbol": "allowed"
+                  },
+                  "val": {
+                    "bool": true
+                  }
                 }
-              ],
-              "data": {
-                "u64": "3"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "ledger_read_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "ledger_write_byte"
-                }
-              ],
-              "data": {
-                "u64": "1036"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "1036"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "read_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "write_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "emit_event"
-                }
-              ],
-              "data": {
-                "u64": "3"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "emit_event_byte"
-                }
-              ],
-              "data": {
-                "u64": "824"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "cpu_insn"
-                }
-              ],
-              "data": {
-                "u64": "1451934"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "mem_byte"
-                }
-              ],
-              "data": {
-                "u64": "2533878"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "invoke_time_nsecs"
-                }
-              ],
-              "data": {
-                "u64": "413213"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_key_byte"
-                }
-              ],
-              "data": {
-                "u64": "116"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_data_byte"
-                }
-              ],
-              "data": {
-                "u64": "756"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_rw_code_byte"
-                }
-              ],
-              "data": {
-                "u64": "0"
-              }
-            }
-          }
-        }
-      },
-      {
-        "in_successful_contract_call": true,
-        "event": {
-          "ext": "v0",
-          "contract_id": null,
-          "type": "diagnostic",
-          "body": {
-            "v0": {
-              "topics": [
-                {
-                  "symbol": "core_metrics"
-                },
-                {
-                  "symbol": "max_emit_event_byte"
-                }
-              ],
-              "data": {
-                "u64": "476"
-              }
+              ]
             }
           }
         }
