@@ -109,7 +109,7 @@ Run the command above. It needs the Stellar CLI, `jq` and `python3`, plus any te
 
 ### Evidence
 
-CI runs on every pull request, and on every push to `main` that touches the contracts or the scripts: formatting, the full test suite, clippy with warnings as errors, and the WASM build ([workflow](../../.github/workflows/contracts.yml), [run on the release](TODO(run link))). The suite has 326 tests (token 80, allowlist 114, sale 132), in modules named after the scenarios the criterion lists, so each row below points at a file rather than a search:
+CI runs on every pull request, and on every push to `main` that touches the contracts or the scripts: formatting, the full test suite, clippy with warnings as errors, and the WASM build ([workflow](../../.github/workflows/contracts.yml), [run on `main`](https://github.com/BWB-Labs/bwb-stellar/actions/runs/40806408511)). The suite has 326 tests (token 80, allowlist 114, sale 132), in modules named after the scenarios the criterion lists, so each row below points at a file rather than a search:
 
 | Scenario | Tests | Code | On chain |
 |---|---|---|---|
