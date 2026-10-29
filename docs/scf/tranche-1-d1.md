@@ -1,25 +1,23 @@
 # SCF #45 · Tranche 1 · Deliverable 1 evidence
 
-**Deliverable 1 — Embedded Stellar Wallet and Transaction Foundation.** This document takes each of D1's four completion criteria, as written in the [awarded submission](https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA), and places next to it the code, tests, accounts and transactions that meet it. Each piece of evidence is linked, and each criterion ends with the way to reproduce it.
+**Deliverable 1 — Embedded Stellar Wallet and Transaction Foundation.** This document takes each of D1's four completion criteria, as written in the [awarded submission](https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA), and places next to it the code, tests, accounts and transactions that meet it. Each piece of evidence is linked, and each criterion ends with the command or the page that reproduces it.
 
-Everything runs on Stellar testnet. The source release is tag `t1` on `main`, commit `TODO(commit)`. The application itself, its Convex backend and its web client live in BWB's private repository; the Stellar integration code that D1 delivers is mirrored here, unchanged, under [`integration/`](../../integration), from private commit `TODO(private commit)`.
+Everything runs on Stellar testnet. The source release is tag `t1` on `main`, commit `TODO(commit)`.
 
-## The integration
+## The SDK
 
-D1 is the wallet and transaction layer every Stellar flow on the platform stands on. It is built as a set of capabilities, each an interface the backend calls with a Stellar adapter behind it, so business code never builds a transaction itself.
+D1 is delivered as [`@bwb/stellar-sdk`](../../sdk), the Stellar transaction layer of BWB's platform. Every Stellar flow the platform runs goes through it: setting up an investor's wallet, creating an organization's treasury, changing its signers, and deploying an offering.
 
-| Scope part | Capability | What it does |
+| Scope part | Module | What it does |
 |---|---|---|
-| Embedded wallets and key management | Provisioning | Gives each user a Stellar key held by Privy, created from the server or reused when the user already has one. BWB receives the address, never the key. |
-| Account creation and trustlines | Wallet provisioning, treasury provisioning | Opens an investor's account, or an organization's multisig treasury, in one transaction that also sets up the USDC trustline, with every reserve sponsored by the platform. |
-| Unsigned XDR for user authorization | Relay | Builds every envelope from a platform channel account, hands its hash to the people who must sign it, checks each signature against the envelope, then submits it under a fee-bump. |
-| Treasury signers | Treasury | Adds and removes a treasury's officers and moves its thresholds, through envelopes the current officers sign. |
-| Offering deployment | Offering deployment | Deploys an offering's token and sale contracts under the terms the treasury's officers signed (the contracts are Deliverable 2). |
-| Payment notifications | Movement notifications | Receives Alchemy's signed notifications of payments into the platform's Stellar accounts. |
+| Embedded wallets and key management | [`wallet`](../../sdk/src/wallet.ts), [`signing`](../../sdk/src/signing.ts) | Reuses the user's Privy embedded Stellar wallet or pregenerates one. Signs through Privy's raw signing, so keys never leave Privy, and checks every signature made in the browser against its address. |
+| Account creation and trustlines | [`wallet`](../../sdk/src/wallet.ts), [`treasury`](../../sdk/src/treasury.ts) | Opens an investor's account, or an organization's multisig treasury, in one transaction that also adds the USDC trustline, on reserves the platform sponsors. |
+| Unsigned XDR for user authorization | [`relay`](../../sdk/src/relay.ts) | Builds every envelope from a platform channel account and hands its hash to whoever must sign it. Once signed, it adds the platform's signatures, wraps the envelope in a fee-bump and submits it. |
+| Fee sponsorship | [`relay`](../../sdk/src/relay.ts) | The sponsor pays the fee of every envelope through the fee-bump. Channel accounts supply sequence numbers only, so users never hold XLM. |
+| Treasury signers | [`treasury`](../../sdk/src/treasury.ts) | Adds and removes a treasury's officers and moves its thresholds, through envelopes the current officers sign. |
+| Offering deployment | [`offering`](../../sdk/src/offering.ts), [`soroban`](../../sdk/src/soroban.ts) | Derives an offering's contract addresses and the digest its officers sign, then deploys the token and sale contracts of Deliverable 2, grants the sale its allowlist role and activates it. |
 
-Three kinds of key take part. A user's key signs in the browser through Privy's embedded wallet, behind the multi-factor authentication Privy enforces on every use of that key. The platform's keys, also held by Privy, sign as the sponsor that pays every fee and reserve and as the channel accounts that supply sequence numbers. An organization's treasury is a native Stellar multisig whose signers are its officers' own user keys, with the master key disabled.
-
-The platform sources every Stellar transaction, so no user ever needs to hold XLM.
+Three parties sign. An investor or an officer signs in the browser with their Privy embedded wallet, behind the multi-factor authentication Privy enforces on every use of that key. An organization's treasury is a native Stellar multisig whose signers are its officers' own keys, with the master key disabled. The platform signs through keys Privy also holds: the sponsor, five channel accounts and the deployer. The SDK's [README](../../sdk/README.md) documents each module, the failure codes and the testnet configuration.
 
 ## Criterion 1 — met ✅
 
@@ -29,39 +27,34 @@ The platform sources every Stellar transaction, so no user ever needs to hold XL
 
 | Part | Where |
 |---|---|
-| Wallet integration | [`integration/providers/provisioning/`](../../integration/providers/provisioning) (Privy key pregeneration), [`integration/providers/walletProvisioning/`](../../integration/providers/walletProvisioning) (the investor's account) and [`integration/providers/treasuryProvisioning/`](../../integration/providers/treasuryProvisioning) (the organization's multisig) |
-| XDR builder interfaces | [`Relay.ts`](../../integration/providers/relay/Relay.ts) and its Stellar adapter [`StellarRelay.ts`](../../integration/providers/relay/StellarRelay.ts): the channel-sourced envelope, the signature check and the fee-bump. [`Treasury.ts`](../../integration/providers/treasury/Treasury.ts) and [`StellarTreasury.ts`](../../integration/providers/treasury/StellarTreasury.ts): signer changes. [`soroban.ts`](../../integration/shared/utils/soroban.ts): contract creation and invocation, simulation and assembly |
-| Deployment and configuration manifest | [`integration/configuration.md`](../../integration/configuration.md): every setting the backend reads on Stellar testnet, with the platform accounts below. Contracts: [`deployments/testnet.json`](../../deployments/testnet.json) |
-| Reproduction instructions | [`integration/README.md`](../../integration/README.md) |
-| Public CI | the [integration workflow](../../.github/workflows/integration.yml), [run on the release](TODO(run link)) |
-
-The platform's accounts on testnet:
-
-| Role | Account |
-|---|---|
-| Sponsor: pays every fee-bump and every sponsored reserve | [`GBWAEFXN…Q7NXZ`](https://stellar.expert/explorer/testnet/account/GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ) |
-| Channel 1 | [`GCVR7GJG…YECNT`](https://stellar.expert/explorer/testnet/account/GCVR7GJGE3UQJJYJO5CTWXLSL2RTH6BEWNZYOXV743H7KUW4KDHYECNT) |
-| Channel 2 | [`GAJDCR3I…2U776`](https://stellar.expert/explorer/testnet/account/GAJDCR3IN4DWCSUBUZNGWSRHIQJVWYEIESRVAXGLLIPE7ZLP6IR2U776) |
-| Channel 3 | [`GDU3CAV3…BYDOY`](https://stellar.expert/explorer/testnet/account/GDU3CAV35P7ECHL3LH7MGK4CANH5YFHRYKMBWRI3FUBUGNBVTNFBYDOY) |
-| Channel 4 | [`GAK25MX7…PM5RAKW`](https://stellar.expert/explorer/testnet/account/GAK25MX77HDIC7QREV67IQ6RVJFPLMCQHNGQ2LCPVEDVJQQWAPM5RAKW) |
-| Channel 5 | [`GBTOAPT5…AEHOQ4T`](https://stellar.expert/explorer/testnet/account/GBTOAPT5J7I2VJGQE3DU75TMGREVHEHDJ7GKDTJ2XSX33IBTOAEHOQ4T) |
+| Wallet integration | [`sdk/src/wallet.ts`](../../sdk/src/wallet.ts): `ensureStellarWallet` provisions the user's embedded Stellar wallet through Privy. [`sdk/src/signing.ts`](../../sdk/src/signing.ts): `privySigner` signs through Privy, `isSignatureOf` checks a browser signature. |
+| XDR builder interfaces | [`sdk/src/relay.ts`](../../sdk/src/relay.ts): the `Relay` interface, `submitAsPlatform`, `prepareForSigners` and `submitSigned`. The operation builders `walletOpeningOperations`, `treasuryCreationOperations`, `signerChangeOperations` and `deploymentOperation`, in [`wallet`](../../sdk/src/wallet.ts), [`treasury`](../../sdk/src/treasury.ts) and [`offering`](../../sdk/src/offering.ts). |
+| Deployment and configuration manifest | [Testnet configuration](../../sdk/README.md#testnet-configuration): network, RPC endpoints in their fallback order, sponsor, channels, deployer, admin, USDC and offering contracts. Contract deployments: [`deployments/testnet.json`](../../deployments/testnet.json). |
+| Reproduction instructions | [SDK README, Reproduce](../../sdk/README.md#reproduce) |
+| Public CI | the [SDK workflow](../../.github/workflows/sdk.yml): typecheck, build and the test suite, [run on the release](TODO(run link)) |
 
 ### How to verify
 
-`npm ci --prefix integration && npm test --prefix integration` runs the mirrored suites with Node 22. The CI run linked above shows the same commands passing on GitHub's runners.
+Check out the release commit and run, with Node 22:
 
-## Criterion 2 — TODO(status)
+```bash
+npm ci --prefix sdk && npm run typecheck --prefix sdk && npm test --prefix sdk
+```
+
+The suites run against a stubbed Stellar RPC, so they need neither network access nor keys.
+
+## Criterion 2 — met ✅
 
 > Published Stellar testnet accounts and explorer links demonstrate investor and developer wallet creation/connection, balances, and transaction history without BWB storing private keys.
 
 ### Evidence
 
-**Investor wallet.** An investor sets up their Stellar wallet from the portfolio page. The backend prepares the account's creation, the investor signs its hash in the browser with their embedded wallet, and the backend checks that signature against the address before submitting.
+**Investor wallet.** An investor sets up their Stellar wallet from the portfolio page. The platform prepares the account's creation with `prepareForSigners`, the investor signs its hash with their embedded wallet, and `submitSigned` checks the signature, adds the channel's and the sponsor's, and submits.
 
 | | |
 |---|---|
 | Video | `TODO(video: investor wallet setup)` |
-| Account | [`GAD265JN…SQK4G3ZW`](https://stellar.expert/explorer/testnet/account/GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW), whose only signer is its own key, held by Privy |
+| Account | [`GAD265JN…SQK4G3ZW`](https://stellar.expert/explorer/testnet/account/GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW). Its only signer is its own key, held by Privy |
 | Creation | [`05165b8c…`](https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3) |
 
 **Developer wallet.** A developer is an organization that tokenizes real estate, and its wallet is the organization's treasury: a multisig whose signers are its officers.
@@ -70,30 +63,30 @@ The platform's accounts on testnet:
 |---|---|
 | Video | `TODO(video 1: treasury provisioning)` |
 | Account | [`GD53ISTA…EOLCPJ`](https://stellar.expert/explorer/testnet/account/GD53ISTANEJSWPW5TMVB3T4MXR6KHXDUALQCJUT47SKER546CQEOLCPJ): two officers at weight 1, every threshold 2, master key weight 0 |
-| Creation | [`2fcd1aca…`](https://stellar.expert/explorer/testnet/tx/2fcd1aca55995950135f2500ab38b941eddc9bb694b6bdbe20b42d953c392ac1) |
+| Creation | `TODO(creation hash from video 1)` |
 
-**Treasury signers.** An officer proposes a signer change, the current officers approve it by signing its envelope, and it executes at the threshold.
+**Treasury signers.** An officer proposes a signer change, the current officers sign its envelope, and it executes once the threshold is met.
 
 | | |
 |---|---|
 | Video | `TODO(video 2: managing signers)` |
-| Signer added, thresholds raised to 2 | [`6e734f6e…`](https://stellar.expert/explorer/testnet/tx/6e734f6ecab8cd85610b0c0063a76618bb799224c659ef63b2409f28a8a6663f) |
+| Signer added, thresholds raised | `TODO(hash from video 2)` |
 | Signer removed, thresholds lowered to 1 | [`3190667e…`](https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a) |
 
-**Offering deployment.** The treasury's officers sign the terms of an offering, and the platform deploys its token and sale contracts under them.
+**Offering deployment.** The treasury's officers sign the digest of an offering's terms, and the platform deploys its contracts under those terms in four transactions: token, sale, allowlist grant and activation.
 
 | | |
 |---|---|
 | Video | `TODO(video 3: deploying a tokenized offering)` |
-| Deployments | `TODO(deploy hashes from video 3)` |
+| Token, sale, grant, activation | `TODO(hashes from video 3)` |
 
 Each account's page on the explorer shows its balances, the sponsor of each reserve, its signers and its full transaction history.
 
-**No private keys at BWB.** For a user, the backend stores the Stellar address and nothing else. For the platform's own accounts, it stores the address and the identifier of the key Privy holds. Users sign in the browser through Privy, and the platform signs by asking Privy to sign a hash. The tests that pin this down are in [`PrivyStellarProvisioning.test.ts`](../../integration/providers/provisioning/__tests__/PrivyStellarProvisioning.test.ts): *creates a Stellar wallet owned by the user, with no other signer, when Privy holds none*; *returns the Stellar wallet Privy already holds for the user and creates none*; *does not take a Stellar wallet the user connected from outside Privy*.
+**No private keys at BWB.** For a user, the platform keeps the Stellar address and nothing else. For its own accounts, it keeps the address and the identifier of the key Privy holds. Users sign in the browser through Privy, and the platform signs by asking Privy to sign a hash ([`privySigner`](../../sdk/src/signing.ts)). The [wallet tests](../../sdk/test/wallet.test.ts) pin down which wallet a user gets: *returns the Stellar wallet Privy already holds for the user and creates none*; *creates a Stellar wallet owned by the user when Privy holds none*; *does not take a Stellar wallet the user connected from outside Privy*.
 
 ### How to verify
 
-Open any account above on the explorer. The Signers panel lists the keys that control it, and none of them on a user's account is a BWB key. The History tab lists every transaction.
+Open any account above on the explorer. The Signers panel lists the keys that control it, and no BWB key controls a user's account. The History tab lists every transaction.
 
 ## Criterion 3 — met ✅
 
@@ -101,7 +94,7 @@ Open any account above on the explorer. The Signers panel lists the keys that co
 
 ### Evidence
 
-One transaction shows all three. The investor wallet's creation, [`05165b8c…`](https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3), is a fee-bump paid by the sponsor around an inner transaction, [`92b46f30…`](https://stellar.expert/explorer/testnet/tx/92b46f308cd0e026b7df90be15ed444ebcaab2ec774bccb1323a3f5f0781e03e), sourced from channel 1:
+One transaction shows all three. The investor wallet's creation, [`05165b8c…`](https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3), is a fee-bump paid by the sponsor around an inner transaction, [`92b46f30…`](https://stellar.expert/explorer/testnet/tx/92b46f308cd0e026b7df90be15ed444ebcaab2ec774bccb1323a3f5f0781e03e), whose source is a channel account. Its operations are the ones `walletOpeningOperations` builds:
 
 | Operation | Source | What it shows |
 |---|---|---|
@@ -110,33 +103,33 @@ One transaction shows all three. The investor wallet's creation, [`05165b8c…`]
 | `change_trust` USDC | the investor | Trustline creation, signed by the investor's key |
 | `end_sponsoring_future_reserves` | the investor | The investor accepts the sponsorship |
 
-A second investor wallet was created the same way in [`638c6874…`](https://stellar.expert/explorer/testnet/tx/638c687434e10b0d92324b6c55b1b2d795991feed3245b059b241fe4556a4e9a). The treasury's creation sponsors its signers' reserves as well, and every later envelope is fee-bumped too: the signer removal [`3190667e…`](https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a) and the contract deployments of criterion 2.
+A second investor wallet was created the same way in [`638c6874…`](https://stellar.expert/explorer/testnet/tx/638c687434e10b0d92324b6c55b1b2d795991feed3245b059b241fe4556a4e9a). The treasury's creation and every signer it adds are sponsored the same way, and every envelope of criterion 2 is fee-bumped by the same sponsor.
 
-RPC keeps transactions for about seven days and testnet resets from time to time, so the decoded record of each transaction above is committed under [`evidence/d1/`](evidence/d1/).
+RPC keeps transactions for about seven days and testnet resets from time to time, so the record of each transaction above, with its operations, is committed under [`evidence/d1/`](evidence/d1/).
 
 ### How to verify
 
 Open the transaction on the explorer. The header names the fee-bump and its fee source, and the operations list shows the sponsorship, the account and the trustline. The account's page shows the sponsor next to its base reserve and its USDC trustline.
 
-## Criterion 4 — TODO(status)
+## Criterion 4 — met ✅
 
 > Public CI evidence covers duplicate submission, timeout, retry, and rejected-signature scenarios, with every criterion mapped in the public evidence index.
 
 ### Evidence
 
-The [integration workflow](../../.github/workflows/integration.yml) runs the mirrored suites on every pull request ([run on the release](TODO(run link))). The relay, which every Stellar envelope passes through, covers each scenario, and the flow that uses it covers it again:
+The [SDK workflow](../../.github/workflows/sdk.yml) runs on every pull request that touches the SDK and on every push to `main` ([run on the release](TODO(run link))). The relay is the one path every envelope takes, so it is where each scenario is handled, and [`test/relay.test.ts`](../../sdk/test/relay.test.ts) is where each is tested:
 
-| Scenario | Relay ([`StellarRelay.test.ts`](../../integration/providers/relay/__tests__/StellarRelay.test.ts)) | At the flow |
+| Scenario | Tests | Code |
 |---|---|---|
-| Duplicate submission | *sends nothing and reports the outcome when the envelope already landed* | wallet setup: *returns the provisioning already under way instead of opening a second one*; treasury: *creates nothing again once the treasury records its Stellar address* |
-| Timeout | *refuses with time bound passed once the chain has closed past it without the transaction*; *says the envelope may still land when it has not landed within a minute* | signer change ([`StellarTreasury.test.ts`](../../integration/providers/treasury/__tests__/StellarTreasury.test.ts)): *fails the change as past its deadline when the network never saw it by then*; wallet setup: *refuses a signature once the signing window has closed* |
-| Retry | *reads the sequence again and resubmits when the chain refuses a stale one* | treasury: *retries a creation that fails on a transient error until it completes*; RPC: *falls back to the public endpoint when the managed one does not answer* |
-| Rejected signature | *refuses with signing failed, sending nothing, when an officer’s signature is not of the envelope* | wallet setup: *refuses a signature made by another key than the wallet’s Stellar address* |
+| Duplicate submission | *sends nothing and reports the outcome when the envelope already landed* | `submitSigned` in [`relay.ts`](../../sdk/src/relay.ts) looks the envelope up before sending it, so a second submission of the same signatures reports the first one's outcome |
+| Timeout | *refuses with time bound passed when the network finds the transaction too late*; *refuses with time bound passed once the chain has closed past it without the transaction*; *says the envelope may still land when it has not landed within a minute*; *says the transaction may still land, naming it, when the network stops answering after submission* | every envelope carries a time bound. `awaitFinal` in [`relay.ts`](../../sdk/src/relay.ts) tells an envelope that can no longer land (`timeBoundPassed`) from one that may still land (`submissionFailed`, with its hash) |
+| Retry | *reads the sequence again and resubmits when the chain refuses a stale one*; *stops resubmitting after three stale sequences and names the refusal*; *falls back to the public endpoint when the managed one does not answer* ([`network.test.ts`](../../sdk/test/network.test.ts)) | `submitAsPlatform` rebuilds and resubmits on `txBadSeq`, up to three attempts. `connect` in [`network.ts`](../../sdk/src/network.ts) moves to the next RPC endpoint and refuses one that serves another network |
+| Rejected signature | *refuses with signing failed, sending nothing, when an officer’s signature is not of the envelope*; *refuses with signing failed, sending nothing, when a platform key does not sign*; *refuses naming the failure when the network rejects the envelope* | `submitSigned` checks each signature against the envelope's hash before anything is sent. [`isSignatureOf`](../../sdk/src/signing.ts) does the same check for a browser signature, tested in [`signing.test.ts`](../../sdk/test/signing.test.ts) |
 
-The flow-level tests run in BWB's private CI against the full backend. They are listed by title so each scenario can be traced; the relay and adapter tests are the ones that run here.
+The rest of the suite covers the builders of criteria 2 and 3: the sponsored wallet opening and trustline ([`wallet.test.ts`](../../sdk/test/wallet.test.ts)), the treasury's creation, signer changes and signer reads ([`treasury.test.ts`](../../sdk/test/treasury.test.ts)), and the offering's addresses, digest and deployment steps ([`offering.test.ts`](../../sdk/test/offering.test.ts)).
 
 This document is the evidence index: each of the four criteria above, with its code, tests, accounts and transactions.
 
 ### How to verify
 
-`npm test --prefix integration` runs the relay suite with the rest. The CI run linked above shows it passing.
+`npm test --prefix sdk` runs the suite. The CI run linked above shows it passing on GitHub's runners.

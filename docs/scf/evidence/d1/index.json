@@ -1,0 +1,20 @@
+[
+  {
+    "file": "investor-wallet-1.json",
+    "what": "Investor wallet opened: sponsored account, USDC trustline, fee-bump",
+    "hash": "05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3"
+  },
+  {
+    "file": "investor-wallet-2.json",
+    "what": "Second investor wallet opened the same way",
+    "hash": "638c687434e10b0d92324b6c55b1b2d795991feed3245b059b241fe4556a4e9a",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/638c687434e10b0d92324b6c55b1b2d795991feed3245b059b241fe4556a4e9a"
+  },
+  {
+    "file": "signer-removal.json",
+    "what": "Treasury signer removed, thresholds lowered to 1, fee-bumped",
+    "hash": "3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a"
+  }
+]
