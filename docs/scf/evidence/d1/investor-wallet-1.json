@@ -1,0 +1,75 @@
+{
+  "what": "Investor wallet opened: sponsored account, USDC trustline, fee-bump",
+  "hash": "05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3",
+  "horizon": {
+    "successful": true,
+    "ledger": 5356488,
+    "created_at": "2026-10-24T01:40:27Z",
+    "source_account": "GCVR7GJGE3UQJJYJO5CTWXLSL2RTH6BEWNZYOXV743H7KUW4KDHYECNT",
+    "fee_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+    "fee_charged": "500",
+    "max_fee": "500",
+    "operation_count": 4,
+    "envelope_xdr": "AAAABQAAAABsAhbtzzo5ry0c0cpj3XX0F9sQ8xA5n6iXLzhuLLVPDwAAAAAAAAH0AAAAAgAAAACrH5kmJukEpwl3RTtdcl6jM/gks3OHXr/mz/VS3FDPggAAAZAATb6PAAAAEwAAAAEAAAAAAAAAAAAAAABq3A0uAAAAAAAAAAQAAAABAAAAAGwCFu3POjmvLRzRymPddfQX2xDzEDmfqJcvOG4stU8PAAAAEAAAAAAHr3UttHEv6MZWd/WAoSJ9mDU4iIdN+cStobhnqJQVwwAAAAEAAAAAbAIW7c86Oa8tHNHKY9119BfbEPMQOZ+oly84biy1Tw8AAAAAAAAAAAevdS20cS/oxlZ39YChIn2YNTiIh035xK2huGeolBXDAAAAAAAAAAAAAAABAAAAAAevdS20cS/oxlZ39YChIn2YNTiIh035xK2huGeolBXDAAAABgAAAAFVU0RDAAAAAEI+fQXy7K+/7BkrIVo/G+lq7bjY5wJUq+NBPgIH3layf/////////8AAAABAAAAAAevdS20cS/oxlZ39YChIn2YNTiIh035xK2huGeolBXDAAAAEQAAAAAAAAADqJQVwwAAAEAu1Sf6lS0mxVn+qd7phhXduaG5iSSWzrJwUAmTeMO+FTlHO8E07yHf39De+aOHsUniAnaeoqK6DVdqTgUHvT0N3FDPggAAAECMZaJR677jE4ZSe98mmNIdTDJ3GODGXw958FYib4jWCMbT898Qt+Vr3FIocHDSVNp23vgOVuoTDxLfW/q6gKULLLVPDwAAAEAB5Fl23fmNV5bgH34bfGXynqphZNaPm7kvQIzB4jI373Ybg+bwAuhIr13v1pkSyn0qLcmfWmWcr8GhOzq8eGwGAAAAAAAAAAEstU8PAAAAQE5vDusuUoqLyd0Z8Bili0C3L76edwZBP6HohfgrPoVvVCfQ0VoYVF7AX47wLXRTBLz+89q6svKqESUFZnz98Ao=",
+    "result_xdr": "AAAAAAAAAfQAAAABkrRvMIzQ4Ca335C+Fe1ETryqsux3S8yxMjo/XweB4D4AAAAAAAAAAAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAABEAAAAAAAAAAAAAAAA="
+  },
+  "fee_bump": {
+    "hash": "05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3",
+    "signatures": [
+      "Tm8O6y5SiovJ3RnwGKWLQLcvvp53BkE/oeiF+Cs+hW9UJ9DRWhhUXsBfjvAtdFMEvP7z2rqy8qoRJQVmfP3wCg=="
+    ]
+  },
+  "inner_transaction": {
+    "hash": "92b46f308cd0e026b7df90be15ed444ebcaab2ec774bccb1323a3f5f0781e03e",
+    "signatures": [
+      "LtUn+pUtJsVZ/qne6YYV3bmhuYkkls6ycFAJk3jDvhU5RzvBNO8h39/Q3vmjh7FJ4gJ2nqKiug1Xak4FB709DQ==",
+      "jGWiUeu+4xOGUnvfJpjSHUwydxjgxl8PefBWIm+I1gjG0/PfELfla9xSKHBw0lTadt74DlbqEw8S31v6uoClCw==",
+      "AeRZdt35jVeW4B9+G3xl8p6qYWTWj5u5L0CMweIyN+92G4Pm8ALoSK9d79aZEsp9Ki3Jn1plnK/BoTs6vHhsBg=="
+    ],
+    "max_fee": "400"
+  },
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "type": "begin_sponsoring_future_reserves",
+      "type_i": 16,
+      "created_at": "2026-10-24T01:40:27Z",
+      "sponsored_id": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "type": "create_account",
+      "type_i": 0,
+      "created_at": "2026-10-24T01:40:27Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "starting_balance": "0.0000000",
+      "funder": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "account": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW",
+      "type": "change_trust",
+      "type_i": 6,
+      "created_at": "2026-10-24T01:40:27Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "USDC",
+      "asset_issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "limit": "922337203685.4775807",
+      "trustee": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "trustor": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW",
+      "type": "end_sponsoring_future_reserves",
+      "type_i": 17,
+      "created_at": "2026-10-24T01:40:27Z",
+      "begin_sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ"
+    }
+  ]
+}

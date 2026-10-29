@@ -1,0 +1,86 @@
+{
+  "what": "KMGN Holding's treasury created: sponsored account, USDC trustline, officer as signer, master key disabled",
+  "hash": "cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b",
+  "horizon": {
+    "successful": true,
+    "ledger": 5303271,
+    "created_at": "2026-10-20T23:45:42Z",
+    "source_account": "GDU3CAV35P7ECHL3LH7MGK4CANH5YFHRYKMBWRI3FUBUGNBVTNFBYDOY",
+    "fee_account": "GDU3CAV35P7ECHL3LH7MGK4CANH5YFHRYKMBWRI3FUBUGNBVTNFBYDOY",
+    "fee_charged": "600",
+    "max_fee": "600",
+    "operation_count": 6,
+    "envelope_xdr": "AAAAAgAAAADpsQK76/5BHXtZ/sMrggNP3BTxwpgbRRstA0M0NZtKHAAAAlgATb6RAAAAAQAAAAEAAAAAAAAAAAAAAABq1/1cAAAAAAAAAAYAAAABAAAAAGwCFu3POjmvLRzRymPddfQX2xDzEDmfqJcvOG4stU8PAAAAEAAAAACGX8hTdkpJDONqr0nJ1a+S/B4PgP+DlKU4bcSYIWwuOQAAAAEAAAAAbAIW7c86Oa8tHNHKY9119BfbEPMQOZ+oly84biy1Tw8AAAAAAAAAAIZfyFN2SkkM42qvScnVr5L8Hg+A/4OUpThtxJghbC45AAAAAAAAAAAAAAABAAAAAIZfyFN2SkkM42qvScnVr5L8Hg+A/4OUpThtxJghbC45AAAABgAAAAFVU0RDAAAAAEI+fQXy7K+/7BkrIVo/G+lq7bjY5wJUq+NBPgIH3layf/////////8AAAABAAAAAIZfyFN2SkkM42qvScnVr5L8Hg+A/4OUpThtxJghbC45AAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAHr3UttHEv6MZWd/WAoSJ9mDU4iIdN+cStobhnqJQVwwAAAAEAAAABAAAAAIZfyFN2SkkM42qvScnVr5L8Hg+A/4OUpThtxJghbC45AAAABQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAIAAAABAAAAAgAAAAEAAAACAAAAAAAAAAEAAAAAmEQyywwA/oKBzVtFDsXWXYRLQaFxPo2M0T2DeQe7uqUAAAABAAAAAQAAAACGX8hTdkpJDONqr0nJ1a+S/B4PgP+DlKU4bcSYIWwuOQAAABEAAAAAAAAAAzWbShwAAABAVUGN6tkgmDb6+Is6CAHpmJel2VxCV7NOXuhvFZLWEef9nWCvR9i0K/fQu3N2bMTONEe+eEQ1TadbJ9bhZPKJBCy1Tw8AAABAqi9KYPvTK9y/h65HBA+Q0nQEC35S+UABA1T5ccDstK+KhcgzDPLFoQLnQEe0mMxi2XYOgIp5NatPGU+gPamEAyFsLjkAAABA4dXe3jw0FhPMcw65l9qT+tG9AFCQ6KxojSZOGgjmLaxGgg45TUWVAKZoNrAzmjk9GIRNUy44ubKOElWmNSXGAA==",
+    "result_xdr": "AAAAAAAAAlgAAAAAAAAABgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAARAAAAAAAAAAA="
+  },
+  "fee_bump": null,
+  "inner_transaction": null,
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "type": "begin_sponsoring_future_reserves",
+      "type_i": 16,
+      "created_at": "2026-10-20T23:45:42Z",
+      "sponsored_id": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "type": "create_account",
+      "type_i": 0,
+      "created_at": "2026-10-20T23:45:42Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "starting_balance": "0.0000000",
+      "funder": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "change_trust",
+      "type_i": 6,
+      "created_at": "2026-10-20T23:45:42Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "asset_type": "credit_alphanum4",
+      "asset_code": "USDC",
+      "asset_issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "limit": "922337203685.4775807",
+      "trustee": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "trustor": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "set_options",
+      "type_i": 5,
+      "created_at": "2026-10-20T23:45:42Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "signer_key": "GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW",
+      "signer_weight": 1
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "set_options",
+      "type_i": 5,
+      "created_at": "2026-10-20T23:45:42Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "master_key_weight": 0,
+      "signer_key": "GCMEIMWLBQAP5AUBZVNUKDWF2ZOYIS2BUFYT5DMM2E6YG6IHXO5KK4FW",
+      "signer_weight": 1,
+      "low_threshold": 2,
+      "med_threshold": 2,
+      "high_threshold": 2
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "end_sponsoring_future_reserves",
+      "type_i": 17,
+      "created_at": "2026-10-20T23:45:42Z",
+      "begin_sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ"
+    }
+  ]
+}
