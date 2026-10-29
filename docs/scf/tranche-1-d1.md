@@ -56,24 +56,24 @@ The suites run against a stubbed Stellar RPC, so they need neither network acces
 | Account | [`GAD265JN…SQK4G3ZW`](https://stellar.expert/explorer/testnet/account/GAD265JNWRYS72GGKZ37LAFBEJ6ZQNJYRCDU36OEVWQ3QZ5ISQK4G3ZW). Its only signer is its own key, held by Privy |
 | Creation | [`05165b8c…`](https://stellar.expert/explorer/testnet/tx/05165b8cb7eb7088ddd7688feaa195b7c1ac9a74944f78bfba7348f6f695aaa3) |
 
-**Developer wallet and its signers.** A developer is an organization that tokenizes real estate, and its wallet is the organization's treasury: a multisig whose signers are its officers. In the video, KMGN Holding's officer adds a second officer as a signer, which raises every threshold to 2, and the two officers then remove her together, each signing in their own browser.
+**Developer wallet and its signers.** A developer is an organization that tokenizes real estate, and its wallet is the organization's treasury: a multisig whose signers are its officers. In the video, KMGN Holding's officer adds a second officer as a signer, which raises every threshold to 2, and the two officers then remove that signer together, each signing from a separate session.
 
 | | |
 |---|---|
-| Video | [▶ Treasury and signers on Stellar](../../assets/treasury-and-signers.webm) (2:56) |
+| Video | [▶ Treasury and signers on Stellar](../../assets/treasury-and-signers.webm) (2:54) |
 | Treasury | [`GCDF7SCT…NQXDSGHZ`](https://stellar.expert/explorer/testnet/account/GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ): officers at weight 1, every threshold at the treasury's, master key weight 0 |
 | Creation | [`cd1e1ae7…`](https://stellar.expert/explorer/testnet/tx/cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b): sponsored account, USDC trustline, officers as signers, master key disabled. It predates the fee-bump, so a channel account paid its fee |
-| Signer added, thresholds raised to 2 | [`1bd9cecc…`](https://stellar.expert/explorer/testnet/tx/1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8): the new signer's reserve sponsored, signed by the one officer |
-| Signer removed, thresholds lowered to 1 | [`587d2907…`](https://stellar.expert/explorer/testnet/tx/587d2907e74fc4ea9e413d12fac6266f3edb053ef19f226c140889f667d26074): signed by both officers |
+| Signer added, thresholds raised to 2 | [`1aff29a2…`](https://stellar.expert/explorer/testnet/tx/1aff29a25dab254fdf37a7dff36fd8bbcbd160fd2ba231a50578fc246db94dc5): the new signer's reserve sponsored, signed by the one officer |
+| Signer removed, thresholds lowered to 1 | [`3cb759a5…`](https://stellar.expert/explorer/testnet/tx/3cb759a5116851f05f183d3c40962ca264fef8afc88ce92d0424ffb32d035ff3): signed by both officers |
 
 **Offering deployment.** The treasury's officers sign the digest of an offering's terms, and the platform deploys its contracts under those terms in four transactions: token, sale, allowlist grant and activation.
 
 | | |
 |---|---|
-| Video | [▶ Deploying a tokenized offering on Stellar](../../assets/deploying-an-offering.webm) (1:57) |
-| Token | [`CBKN76MK…QLPSSWJP`](https://stellar.expert/explorer/testnet/contract/CBKN76MK4YMQBVY35JZZ3OXXTS3MB4VSWKNIY4TGHWWDE2L4QLPSSWJP), `offer-token` WASM `a2091175…`, deployed by [`f6170155…`](https://stellar.expert/explorer/testnet/tx/f6170155c99319e5396df7dc95d203d92f689914f9ba9dd09808f563f76c71d5) |
-| Sale | [`CBDLFRJP…NKJNIQONI`](https://stellar.expert/explorer/testnet/contract/CBDLFRJPSYV6GDFJMHOI6MBXLYWDQKCX4DAMWMZK4BO4LQUNKJNIQONI), `offer-sale` WASM `49edfc27…`, deployed by [`4c6a0d17…`](https://stellar.expert/explorer/testnet/tx/4c6a0d17343ffe91141d82ff3ed9b9661423a02ca958790bc3541eda1f588484) |
-| Allowlist grant, activation | [`5da57e99…`](https://stellar.expert/explorer/testnet/tx/5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c), [`3af91469…`](https://stellar.expert/explorer/testnet/tx/3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32) |
+| Video | [▶ Deploying a tokenized offering on Stellar](../../assets/deploying-an-offering.webm) (2:04) |
+| Token | [`CD2YEHIT…EIOWQLAM`](https://stellar.expert/explorer/testnet/contract/CD2YEHIT7LIYNYQCJJO5B4JSGLGVHCX2WYRNNCQMH4ESKD44EIOWQLAM), `offer-token` WASM `a2091175…`, deployed by [`5748fcb6…`](https://stellar.expert/explorer/testnet/tx/5748fcb603aaf92eea2095908826ad12bdedbf2ba353d39e636e8cadc6c9ecff) |
+| Sale | [`CAWO54S2…VNPFRJPN7`](https://stellar.expert/explorer/testnet/contract/CAWO54S2WVVMLIIRXR4VY2F7JW5SOO4QTA2U5BEAHQVDCDXVNPFRJPN7), `offer-sale` WASM `49edfc27…`, deployed by [`bdaf3a23…`](https://stellar.expert/explorer/testnet/tx/bdaf3a23a2b53a9f1d0891f32a23bdb5bb7c350b9b376f610a3e7a5d2512c1af) |
+| Allowlist grant, activation | [`dcdf5f01…`](https://stellar.expert/explorer/testnet/tx/dcdf5f016490300286a794e5ee09642505f5febcdb551b297684b0ae2ab6491e), [`6e210663…`](https://stellar.expert/explorer/testnet/tx/6e210663e4e36e4cbb3499d82f080aa0ee69ff3896322afa9591f6dfa02a1626) |
 
 Both contracts run the WASM of Deliverable 2's release: `stellar contract info hash --id <contract> --network testnet` gives `a2091175…` and `49edfc27…`, the hashes the [Deliverable 2 page](tranche-1-d2.md) lists.
 

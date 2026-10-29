@@ -14,14 +14,14 @@
   {
     "file": "signer-addition.json",
     "what": "Treasury signer added under sponsorship, thresholds raised to 2, fee-bumped",
-    "hash": "1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8"
+    "hash": "1aff29a25dab254fdf37a7dff36fd8bbcbd160fd2ba231a50578fc246db94dc5",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/1aff29a25dab254fdf37a7dff36fd8bbcbd160fd2ba231a50578fc246db94dc5"
   },
   {
     "file": "signer-removal.json",
     "what": "Treasury signer removed with both officers' signatures, thresholds lowered to 1, fee-bumped",
-    "hash": "587d2907e74fc4ea9e413d12fac6266f3edb053ef19f226c140889f667d26074",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/587d2907e74fc4ea9e413d12fac6266f3edb053ef19f226c140889f667d26074"
+    "hash": "3cb759a5116851f05f183d3c40962ca264fef8afc88ce92d0424ffb32d035ff3",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/3cb759a5116851f05f183d3c40962ca264fef8afc88ce92d0424ffb32d035ff3"
   },
   {
     "file": "treasury-creation.json",
@@ -32,25 +32,25 @@
   {
     "file": "offering-token.json",
     "what": "Offering token deployed (offer-token, Deliverable 2 WASM), fee-bumped",
-    "hash": "f6170155c99319e5396df7dc95d203d92f689914f9ba9dd09808f563f76c71d5",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/f6170155c99319e5396df7dc95d203d92f689914f9ba9dd09808f563f76c71d5"
+    "hash": "5748fcb603aaf92eea2095908826ad12bdedbf2ba353d39e636e8cadc6c9ecff",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/5748fcb603aaf92eea2095908826ad12bdedbf2ba353d39e636e8cadc6c9ecff"
   },
   {
     "file": "offering-sale.json",
     "what": "Offering sale deployed (offer-sale, Deliverable 2 WASM), fee-bumped",
-    "hash": "4c6a0d17343ffe91141d82ff3ed9b9661423a02ca958790bc3541eda1f588484",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/4c6a0d17343ffe91141d82ff3ed9b9661423a02ca958790bc3541eda1f588484"
+    "hash": "bdaf3a23a2b53a9f1d0891f32a23bdb5bb7c350b9b376f610a3e7a5d2512c1af",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/bdaf3a23a2b53a9f1d0891f32a23bdb5bb7c350b9b376f610a3e7a5d2512c1af"
   },
   {
     "file": "offering-grant.json",
     "what": "Allowlist grants the sale its role, fee-bumped",
-    "hash": "5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c"
+    "hash": "dcdf5f016490300286a794e5ee09642505f5febcdb551b297684b0ae2ab6491e",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/dcdf5f016490300286a794e5ee09642505f5febcdb551b297684b0ae2ab6491e"
   },
   {
     "file": "offering-activation.json",
     "what": "Sale activated, fee-bumped",
-    "hash": "3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32"
+    "hash": "6e210663e4e36e4cbb3499d82f080aa0ee69ff3896322afa9591f6dfa02a1626",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/6e210663e4e36e4cbb3499d82f080aa0ee69ff3896322afa9591f6dfa02a1626"
   }
 ]
