@@ -15,7 +15,7 @@ performed yet.
 | `scripts/` | `deploy.sh`: build, upload, deploy, record | contracts |
 | `deployments/` | Per-network manifests with contract IDs and WASM hashes | contracts |
 | `docs/` | Backend ↔ contracts interface document and one doc per contract | contracts |
-| `sdk/` | TypeScript adapters (stubs) | BWB team |
+| `sdk/` | `@bwb/stellar-sdk`: wallet provisioning, sponsored reserves, channel-sourced and fee-bumped envelopes, treasury multisigs, offering deployment ([docs](sdk/README.md)) | BWB team |
 | `audit/` | Placeholder for audit reports | BWB team |
 
 `indexer/` is reserved for the contract-event indexer in a later tranche.
