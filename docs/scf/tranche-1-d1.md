@@ -60,7 +60,7 @@ The suites run against a stubbed Stellar RPC, so they need neither network acces
 
 | | |
 |---|---|
-| Video | [▶ Treasury and signers on Stellar](../../assets/treasury-and-signers.webm) (2:54) |
+| Video | [▶ Treasury and signers on Stellar](https://youtu.be/vgZ2SPrYcqI) (2:54) |
 | Treasury | [`GCDF7SCT…NQXDSGHZ`](https://stellar.expert/explorer/testnet/account/GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ): officers at weight 1, every threshold at the treasury's, master key weight 0 |
 | Creation | [`cd1e1ae7…`](https://stellar.expert/explorer/testnet/tx/cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b): sponsored account, USDC trustline, officers as signers, master key disabled. It predates the fee-bump, so a channel account paid its fee |
 | Signer added, thresholds raised to 2 | [`1aff29a2…`](https://stellar.expert/explorer/testnet/tx/1aff29a25dab254fdf37a7dff36fd8bbcbd160fd2ba231a50578fc246db94dc5): the new signer's reserve sponsored, signed by the one officer |
@@ -70,7 +70,7 @@ The suites run against a stubbed Stellar RPC, so they need neither network acces
 
 | | |
 |---|---|
-| Video | [▶ Deploying a tokenized offering on Stellar](../../assets/deploying-an-offering.webm) (2:04) |
+| Video | [▶ Deploying a tokenized offering on Stellar](https://youtu.be/A3-pImhUwvg) (2:04) |
 | Token | [`CD2YEHIT…EIOWQLAM`](https://stellar.expert/explorer/testnet/contract/CD2YEHIT7LIYNYQCJJO5B4JSGLGVHCX2WYRNNCQMH4ESKD44EIOWQLAM), `offer-token` WASM `a2091175…`, deployed by [`5748fcb6…`](https://stellar.expert/explorer/testnet/tx/5748fcb603aaf92eea2095908826ad12bdedbf2ba353d39e636e8cadc6c9ecff) |
 | Sale | [`CAWO54S2…VNPFRJPN7`](https://stellar.expert/explorer/testnet/contract/CAWO54S2WVVMLIIRXR4VY2F7JW5SOO4QTA2U5BEAHQVDCDXVNPFRJPN7), `offer-sale` WASM `49edfc27…`, deployed by [`bdaf3a23…`](https://stellar.expert/explorer/testnet/tx/bdaf3a23a2b53a9f1d0891f32a23bdb5bb7c350b9b376f610a3e7a5d2512c1af) |
 | Allowlist grant, activation | [`dcdf5f01…`](https://stellar.expert/explorer/testnet/tx/dcdf5f016490300286a794e5ee09642505f5febcdb551b297684b0ae2ab6491e), [`6e210663…`](https://stellar.expert/explorer/testnet/tx/6e210663e4e36e4cbb3499d82f080aa0ee69ff3896322afa9591f6dfa02a1626) |
