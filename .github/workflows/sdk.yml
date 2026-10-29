@@ -16,24 +16,25 @@ jobs:
   sdk:
     name: SDK (TypeScript)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: sdk/package-lock.json
+          bun-version: 1.4.4
 
       - name: Install SDK deps
-        run: npm ci --prefix sdk
+        run: bun install --frozen-lockfile
 
       - name: Typecheck SDK
-        run: npm run typecheck --prefix sdk
+        run: bun run typecheck
 
       - name: Build SDK
-        run: npm run build --prefix sdk
+        run: bun run build
 
       - name: Test SDK
-        run: npm test --prefix sdk
+        run: bun run test

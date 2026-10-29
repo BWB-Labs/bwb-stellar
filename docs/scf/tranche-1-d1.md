@@ -35,10 +35,10 @@ Three parties sign. An investor or an officer signs in the browser with their Pr
 
 ### How to verify
 
-Check out the release commit and run, with Node 22:
+Check out the release commit and run, with Bun 1.4.4:
 
 ```bash
-npm ci --prefix sdk && npm run typecheck --prefix sdk && npm test --prefix sdk
+cd sdk && bun install --frozen-lockfile && bun run typecheck && bun run test
 ```
 
 The suites run against a stubbed Stellar RPC, so they need neither network access nor keys.
@@ -134,4 +134,4 @@ This document is the evidence index: each of the four criteria above, with its c
 
 ### How to verify
 
-`npm test --prefix sdk` runs the suite. The CI run linked above shows it passing on GitHub's runners.
+`bun run test`, from `sdk/`, runs the suite. The CI run linked above shows it passing on GitHub's runners.
