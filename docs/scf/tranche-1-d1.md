@@ -31,7 +31,7 @@ Three parties sign. An investor or an officer signs in the browser with their Pr
 | XDR builder interfaces | [`sdk/src/relay.ts`](../../sdk/src/relay.ts): the `Relay` interface, `submitAsPlatform`, `prepareForSigners` and `submitSigned`. The operation builders `walletOpeningOperations`, `treasuryCreationOperations`, `signerChangeOperations` and `deploymentOperation`, in [`wallet`](../../sdk/src/wallet.ts), [`treasury`](../../sdk/src/treasury.ts) and [`offering`](../../sdk/src/offering.ts). |
 | Deployment and configuration manifest | [Testnet configuration](../../sdk/README.md#testnet-configuration): network, RPC endpoints in their fallback order, sponsor, channels, deployer, admin, USDC and offering contracts. Contract deployments: [`deployments/testnet.json`](../../deployments/testnet.json). |
 | Reproduction instructions | [SDK README, Reproduce](../../sdk/README.md#reproduce) |
-| Public CI | the [SDK workflow](../../.github/workflows/sdk.yml): typecheck, build and the test suite, [run on the release](TODO(run link)) |
+| Public CI | the [SDK workflow](../../.github/workflows/sdk.yml): typecheck, build and the test suite, [run on this branch](https://github.com/BWB-Labs/bwb-stellar/actions/runs/40923689913) |
 
 ### How to verify
 
@@ -114,7 +114,7 @@ Open the transaction on the explorer. The header names the fee-bump and its fee 
 
 ### Evidence
 
-The [SDK workflow](../../.github/workflows/sdk.yml) runs on every pull request that touches the SDK and on every push to `main` ([run on the release](TODO(run link))). The relay is the one path every envelope takes, so it is where each scenario is handled, and [`test/relay.test.ts`](../../sdk/test/relay.test.ts) is where each is tested:
+The [SDK workflow](../../.github/workflows/sdk.yml) runs on every pull request that touches the SDK and on every push to `main` ([run on this branch](https://github.com/BWB-Labs/bwb-stellar/actions/runs/40923689913)). The relay is the one path every envelope takes, so it is where each scenario is handled, and [`test/relay.test.ts`](../../sdk/test/relay.test.ts) is where each is tested:
 
 | Scenario | Tests | Code |
 |---|---|---|
