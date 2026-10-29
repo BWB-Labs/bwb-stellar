@@ -12,9 +12,45 @@
     "explorer_url": "https://stellar.expert/explorer/testnet/tx/638c687434e10b0d92324b6c55b1b2d795991feed3245b059b241fe4556a4e9a"
   },
   {
+    "file": "signer-addition.json",
+    "what": "Treasury signer added under sponsorship, thresholds raised to 2, fee-bumped",
+    "hash": "1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8"
+  },
+  {
     "file": "signer-removal.json",
-    "what": "Treasury signer removed, thresholds lowered to 1, fee-bumped",
-    "hash": "3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a",
-    "explorer_url": "https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a"
+    "what": "Treasury signer removed with both officers' signatures, thresholds lowered to 1, fee-bumped",
+    "hash": "587d2907e74fc4ea9e413d12fac6266f3edb053ef19f226c140889f667d26074",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/587d2907e74fc4ea9e413d12fac6266f3edb053ef19f226c140889f667d26074"
+  },
+  {
+    "file": "treasury-creation.json",
+    "what": "KMGN Holding's treasury created: sponsored account, USDC trustline, officer as signer, master key disabled",
+    "hash": "cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/cd1e1ae73474660d02c1fbf5d933139909f5fbb0ca48ee0a2b9aa35d94cce22b"
+  },
+  {
+    "file": "offering-token.json",
+    "what": "Offering token deployed (offer-token, Deliverable 2 WASM), fee-bumped",
+    "hash": "f6170155c99319e5396df7dc95d203d92f689914f9ba9dd09808f563f76c71d5",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/f6170155c99319e5396df7dc95d203d92f689914f9ba9dd09808f563f76c71d5"
+  },
+  {
+    "file": "offering-sale.json",
+    "what": "Offering sale deployed (offer-sale, Deliverable 2 WASM), fee-bumped",
+    "hash": "4c6a0d17343ffe91141d82ff3ed9b9661423a02ca958790bc3541eda1f588484",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/4c6a0d17343ffe91141d82ff3ed9b9661423a02ca958790bc3541eda1f588484"
+  },
+  {
+    "file": "offering-grant.json",
+    "what": "Allowlist grants the sale its role, fee-bumped",
+    "hash": "5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c"
+  },
+  {
+    "file": "offering-activation.json",
+    "what": "Sale activated, fee-bumped",
+    "hash": "3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32",
+    "explorer_url": "https://stellar.expert/explorer/testnet/tx/3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32"
   }
 ]

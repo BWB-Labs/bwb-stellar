@@ -1,0 +1,66 @@
+{
+  "what": "Allowlist grants the sale its role, fee-bumped",
+  "hash": "5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c",
+  "horizon": {
+    "successful": true,
+    "ledger": 5454199,
+    "created_at": "2026-10-29T17:23:55Z",
+    "source_account": "GCVR7GJGE3UQJJYJO5CTWXLSL2RTH6BEWNZYOXV743H7KUW4KDHYECNT",
+    "fee_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+    "fee_charged": "389196",
+    "max_fee": "450961",
+    "operation_count": 1,
+    "envelope_xdr": "AAAABQAAAABsAhbtzzo5ry0c0cpj3XX0F9sQ8xA5n6iXLzhuLLVPDwAAAAAABuGRAAAAAgAAAACrH5kmJukEpwl3RTtdcl6jM/gks3OHXr/mz/VS3FDPggAG4S0ATb6PAAAAPgAAAAEAAAAAAAAAAAAAAABq44FjAAAAAAAAAAEAAAABAAAAAKVpNIyHzBmEA7HdtUbNAe6gtL9NpOG6sX5slxYMa+rUAAAAGAAAAAAAAAAB58MQCe3JmhtO6vJ/G9mqWDuL6t2RMeUw4WiI6ZlqiHcAAAAKZ3JhbnRfcm9sZQAAAAAAAwAAABIAAAABRrLFL5Yr4wypYdyPMDdeLDgoV+DAyzMq4F3Fwo1SWogAAAAPAAAABHNhbGUAAAASAAAAAAAAAAClaTSMh8wZhAOx3bVGzQHuoLS/TaThurF+bJcWDGvq1AAAAAEAAAAAAAAAAAAAAAHnwxAJ7cmaG07q8n8b2apYO4vq3ZEx5TDhaIjpmWqIdwAAAApncmFudF9yb2xlAAAAAAADAAAAEgAAAAFGssUvlivjDKlh3I8wN14sOChX4MDLMyrgXcXCjVJaiAAAAA8AAAAEc2FsZQAAABIAAAAAAAAAAKVpNIyHzBmEA7HdtUbNAe6gtL9NpOG6sX5slxYMa+rUAAAAAAAAAAEAAAAAAAAABAAAAAYAAAAB58MQCe3JmhtO6vJ/G9mqWDuL6t2RMeUw4WiI6ZlqiHcAAAAQAAAAAQAAAAMAAAAPAAAAB0hhc1JvbGUAAAAAEgAAAAAAAAAApWk0jIfMGYQDsd21Rs0B7qC0v02k4bqxfmyXFgxr6tQAAAAPAAAACWFsbG9jYXRvcgAAAAAAAAEAAAAGAAAAAefDEAntyZobTuryfxvZqlg7i+rdkTHlMOFoiOmZaoh3AAAAEAAAAAEAAAACAAAADwAAAAlSb2xlQWRtaW4AAAAAAAAPAAAABHNhbGUAAAABAAAABgAAAAHnwxAJ7cmaG07q8n8b2apYO4vq3ZEx5TDhaIjpmWqIdwAAABQAAAABAAAABzAtDxz8W6mG85VRqvhrmVxD8M+TJ/31ooKPdV/KHsEBAAAAAwAAAAYAAAAB58MQCe3JmhtO6vJ/G9mqWDuL6t2RMeUw4WiI6ZlqiHcAAAAQAAAAAQAAAAMAAAAPAAAAB0hhc1JvbGUAAAAAEgAAAAFGssUvlivjDKlh3I8wN14sOChX4MDLMyrgXcXCjVJaiAAAAA8AAAAEc2FsZQAAAAEAAAAGAAAAAefDEAntyZobTuryfxvZqlg7i+rdkTHlMOFoiOmZaoh3AAAAEAAAAAEAAAACAAAADwAAAAxSb2xlQWNjb3VudHMAAAARAAAAAQAAAAIAAAAPAAAABWluZGV4AAAAAAAAAwAAAAkAAAAPAAAABHJvbGUAAAAPAAAABHNhbGUAAAABAAAABgAAAAHnwxAJ7cmaG07q8n8b2apYO4vq3ZEx5TDhaIjpmWqIdwAAABAAAAABAAAAAgAAAA8AAAARUm9sZUFjY291bnRzQ291bnQAAAAAAAAPAAAABHNhbGUAAAABABCR7QAAAAAAAAHAAAAAAAAG4MkAAAAC3FDPggAAAECPMVqKBhwVxVFpKgSqwfU5aX1M6r7r1pzyxAiJOFLnFb0w3JdKxmt98GqT6onDtQt3xLNgVYohYM7Bu9o/tA8DDGvq1AAAAED4QEn5pJzeeDsNWnfDKkutwXiaPybZI3+1Ryeqb7l4N2SVLtHaQjMGjVlNzG4SDBLVNPnzoQZAQMHA4y86nosPAAAAAAAAAAEstU8PAAAAQIVjxoqJGVzF3nJXye/I1fLQ4tlv05yBOO5LIGM21qqeFy0D9sSJp/RcoMDVuRaH6ALD8tHzKknzl1AlqHyp3QA=",
+    "result_xdr": "AAAAAAAF8EwAAAAB9VXgMk11hHf5nHpXLcjQfCWiKprY1bUzCnG1u9faIAcAAAAAAAAAAAAAAAAAAAABAAAAAAAAABgAAAAA344lyh7DUzu9Hgr8A136LGQwRcqC5cT4NRMB3DJByAIAAAAAAAAAAA=="
+  },
+  "fee_bump": {
+    "hash": "5da57e9996359878c31098ae8e83643327b98e78cd6ca30573660dadd7530e3c",
+    "signatures": [
+      "hWPGiokZXMXeclfJ78jV8tDi2W/TnIE47ksgYzbWqp4XLQP2xImn9FygwNW5FofoAsPy0fMqSfOXUCWofKndAA=="
+    ]
+  },
+  "inner_transaction": {
+    "hash": "f555e0324d758477f99c7a572dc8d07c25a22a9ad8d5b5330a71b5bbd7da2007",
+    "signatures": [
+      "jzFaigYcFcVRaSoEqsH1OWl9TOq+69ac8sQIiThS5xW9MNyXSsZrffBqk+qJw7ULd8SzYFWKIWDOwbvaP7QPAw==",
+      "+EBJ+aSc3ng7DVp3wypLrcF4mj8m2SN/tUcnqm+5eDdklS7R2kIzBo1ZTcxuEgwS1TT586EGQEDBwOMvOp6LDw=="
+    ],
+    "max_fee": "450861"
+  },
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GCSWSNEMQ7GBTBADWHO3KRWNAHXKBNF7JWSODOVRPZWJOFQMNPVNI73Z",
+      "type": "invoke_host_function",
+      "type_i": 24,
+      "created_at": "2026-10-29T17:23:55Z",
+      "function": "HostFunctionTypeHostFunctionTypeInvokeContract",
+      "parameters": [
+        {
+          "value": "AAAAEgAAAAHnwxAJ7cmaG07q8n8b2apYO4vq3ZEx5TDhaIjpmWqIdw==",
+          "type": "Address"
+        },
+        {
+          "value": "AAAADwAAAApncmFudF9yb2xlAAA=",
+          "type": "Sym"
+        },
+        {
+          "value": "AAAAEgAAAAFGssUvlivjDKlh3I8wN14sOChX4MDLMyrgXcXCjVJaiA==",
+          "type": "Address"
+        },
+        {
+          "value": "AAAADwAAAARzYWxl",
+          "type": "Sym"
+        },
+        {
+          "value": "AAAAEgAAAAAAAAAApWk0jIfMGYQDsd21Rs0B7qC0v02k4bqxfmyXFgxr6tQ=",
+          "type": "Address"
+        }
+      ],
+      "address": "",
+      "salt": "",
+      "asset_balance_changes": null
+    }
+  ]
+}

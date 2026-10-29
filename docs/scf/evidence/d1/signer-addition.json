@@ -1,0 +1,71 @@
+{
+  "what": "Treasury signer added under sponsorship, thresholds raised to 2, fee-bumped",
+  "hash": "1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8",
+  "horizon": {
+    "successful": true,
+    "ledger": 5454159,
+    "created_at": "2026-10-29T17:20:35Z",
+    "source_account": "GCVR7GJGE3UQJJYJO5CTWXLSL2RTH6BEWNZYOXV743H7KUW4KDHYECNT",
+    "fee_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+    "fee_charged": "500",
+    "max_fee": "500",
+    "operation_count": 4,
+    "envelope_xdr": "AAAABQAAAABsAhbtzzo5ry0c0cpj3XX0F9sQ8xA5n6iXLzhuLLVPDwAAAAAAAAH0AAAAAgAAAACrH5kmJukEpwl3RTtdcl6jM/gks3OHXr/mz/VS3FDPggAAAZAATb6PAAAAOgAAAAEAAAAAAAAAAAAAAABq44dbAAAAAAAAAAQAAAABAAAAAGwCFu3POjmvLRzRymPddfQX2xDzEDmfqJcvOG4stU8PAAAAEAAAAACGX8hTdkpJDONqr0nJ1a+S/B4PgP+DlKU4bcSYIWwuOQAAAAEAAAAAhl/IU3ZKSQzjaq9JydWvkvweD4D/g5SlOG3EmCFsLjkAAAAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJhEMssMAP6Cgc1bRQ7F1l2ES0GhcT6NjNE9g3kHu7qlAAAAAQAAAAEAAAAAhl/IU3ZKSQzjaq9JydWvkvweD4D/g5SlOG3EmCFsLjkAAAARAAAAAQAAAACGX8hTdkpJDONqr0nJ1a+S/B4PgP+DlKU4bcSYIWwuOQAAAAUAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAEAAAACAAAAAQAAAAIAAAABAAAAAgAAAAAAAAAAAAAAAAAAAAOolBXDAAAAQPeu81Bf3MdVwKo61LthVNcswaG+dZZZYn+V+DPqYqitBcbXl0Yd7Idvxh/xqacPJTl1WOZddI7u9Kr+u8mHQQHcUM+CAAAAQPTYuzjoKdF5Drk1SkFw3DBymZnIXRu1sM3u0AbPSUgUAHspZlpc7DdD6+OjPmb0J5/bFa8ctwouAcxrShIqmQIstU8PAAAAQN1bNk5dK90QjgYn7kNz3Sm6eP/TrsdvhfAxwRjiM/GRNN3itBvYtdhfitA90F67OadKa8Ynr7wMxVTQaezJMAQAAAAAAAAAASy1Tw8AAABAN/ecGT1+yVEZ0RpFX7lKVok+SAqrF31CicFnrphh/gEF27ogHJRAlTkThA5Ic2RtjqoPS6FMyTTPMl6eGfbCCA==",
+    "result_xdr": "AAAAAAAAAfQAAAAB7giOUfkPY3wzOzMVtZouvohcqopMPz09zWCBLyJkGRYAAAAAAAAAAAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAABEAAAAAAAAAAAAAAAUAAAAAAAAAAAAAAAA="
+  },
+  "fee_bump": {
+    "hash": "1bd9cecc80035bd82294639a302f5e8a0b634b26e5175d3322c966859788e8f8",
+    "signatures": [
+      "N/ecGT1+yVEZ0RpFX7lKVok+SAqrF31CicFnrphh/gEF27ogHJRAlTkThA5Ic2RtjqoPS6FMyTTPMl6eGfbCCA=="
+    ]
+  },
+  "inner_transaction": {
+    "hash": "ee088e51f90f637c333b3315b59a2ebe885caa8a4c3f3d3dcd60812f22641916",
+    "signatures": [
+      "967zUF/cx1XAqjrUu2FU1yzBob51lllif5X4M+piqK0FxteXRh3sh2/GH/Gppw8lOXVY5l10ju70qv67yYdBAQ==",
+      "9Ni7OOgp0XkOuTVKQXDcMHKZmchdG7Wwze7QBs9JSBQAeylmWlzsN0Pr46M+ZvQnn9sVrxy3Ci4BzGtKEiqZAg==",
+      "3Vs2Tl0r3RCOBifuQ3PdKbp4/9Oux2+F8DHBGOIz8ZE03eK0G9i12F+K0D3QXrs5p0prxievvAzFVNBp7MkwBA=="
+    ],
+    "max_fee": "400"
+  },
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "type": "begin_sponsoring_future_reserves",
+      "type_i": 16,
+      "created_at": "2026-10-29T17:20:35Z",
+      "sponsored_id": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "set_options",
+      "type_i": 5,
+      "created_at": "2026-10-29T17:20:35Z",
+      "sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+      "signer_key": "GCMEIMWLBQAP5AUBZVNUKDWF2ZOYIS2BUFYT5DMM2E6YG6IHXO5KK4FW",
+      "signer_weight": 1
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "end_sponsoring_future_reserves",
+      "type_i": 17,
+      "created_at": "2026-10-29T17:20:35Z",
+      "begin_sponsor": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ"
+    },
+    {
+      "transaction_successful": true,
+      "source_account": "GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ",
+      "type": "set_options",
+      "type_i": 5,
+      "created_at": "2026-10-29T17:20:35Z",
+      "master_key_weight": 0,
+      "low_threshold": 2,
+      "med_threshold": 2,
+      "high_threshold": 2
+    }
+  ]
+}

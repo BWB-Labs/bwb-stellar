@@ -69,8 +69,8 @@ A channel is leased to one envelope at a time, so concurrent envelopes never sha
 | Platform admin (pauser, upgrader) | [`GC7CI4BAER3PTFCAG6WRJ7WZI4DOWBN27RZQXDBFHBRRCCXQBSY4ZUHZ`](https://stellar.expert/explorer/testnet/account/GC7CI4BAER3PTFCAG6WRJ7WZI4DOWBN27RZQXDBFHBRRCCXQBSY4ZUHZ) |
 | USDC | Circle's testnet USDC, issuer `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, contract `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
 | Offer allowlist | [`CDT4GEAJ5XEZUG2O5LZH6G6ZVJMDXC7K3WITDZJQ4FUIR2MZNKEHO6BE`](https://stellar.expert/explorer/testnet/contract/CDT4GEAJ5XEZUG2O5LZH6G6ZVJMDXC7K3WITDZJQ4FUIR2MZNKEHO6BE) |
-| `offer-token` WASM hash | `5e4b5c74143e5434597efcfb6f2d3c5b7ab45a5ad6bef9405e8e710e5c3caf25` |
-| `offer-sale` WASM hash | `3abb426caf7d60217c29f96bd2dd73acf60fd636f88c67f686967613acfa34d9` |
+| `offer-token` WASM hash | `a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0` |
+| `offer-sale` WASM hash | `49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd` |
 | Signing window | 180 seconds for a user's signature |
 
 The sponsor, the channels and the deployer are keys Privy holds. BWB stores none of them.

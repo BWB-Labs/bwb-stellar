@@ -1,0 +1,54 @@
+{
+  "what": "Sale activated, fee-bumped",
+  "hash": "3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32",
+  "horizon": {
+    "successful": true,
+    "ledger": 5454200,
+    "created_at": "2026-10-29T17:24:00Z",
+    "source_account": "GCVR7GJGE3UQJJYJO5CTWXLSL2RTH6BEWNZYOXV743H7KUW4KDHYECNT",
+    "fee_account": "GBWAEFXNZ45DTLZNDTI4UY65OX2BPWYQ6MIDTH5IS4XTQ3RMWVHQ7NXZ",
+    "fee_charged": "6005",
+    "max_fee": "10673",
+    "operation_count": 1,
+    "envelope_xdr": "AAAABQAAAABsAhbtzzo5ry0c0cpj3XX0F9sQ8xA5n6iXLzhuLLVPDwAAAAAAACmxAAAAAgAAAACrH5kmJukEpwl3RTtdcl6jM/gks3OHXr/mz/VS3FDPggAAKU0ATb6PAAAAPwAAAAEAAAAAAAAAAAAAAABq44FoAAAAAAAAAAEAAAABAAAAAKVpNIyHzBmEA7HdtUbNAe6gtL9NpOG6sX5slxYMa+rUAAAAGAAAAAAAAAABRrLFL5Yr4wypYdyPMDdeLDgoV+DAyzMq4F3Fwo1SWogAAAAIYWN0aXZhdGUAAAAAAAAAAAAAAAEAAAAAAAAABwAAAAYAAAABVN/5iuYZANcb6nOduvectsDysrKajHJmPawyaXyC3ykAAAAQAAAAAQAAAAIAAAAPAAAAB0JhbGFuY2UAAAAAEgAAAAFGssUvlivjDKlh3I8wN14sOChX4MDLMyrgXcXCjVJaiAAAAAEAAAAGAAAAAVTf+YrmGQDXG+pznbr3nLbA8rKymoxyZj2sMml8gt8pAAAAFAAAAAEAAAAGAAAAAefDEAntyZobTuryfxvZqlg7i+rdkTHlMOFoiOmZaoh3AAAAEAAAAAEAAAADAAAADwAAAAdIYXNSb2xlAAAAABIAAAABRrLFL5Yr4wypYdyPMDdeLDgoV+DAyzMq4F3Fwo1SWogAAAAPAAAABHNhbGUAAAABAAAABgAAAAHnwxAJ7cmaG07q8n8b2apYO4vq3ZEx5TDhaIjpmWqIdwAAABQAAAABAAAABzAtDxz8W6mG85VRqvhrmVxD8M+TJ/31ooKPdV/KHsEBAAAAB0nt/CdWMIgs4B6aGQqE8PgzrT5IGD3dF+okh0Y7Cva9AAAAB6IJEXUB1kNjihtDSzil2LsgM5S9uY2qhnjoK24jHK3QAAAAAQAAAAYAAAABRrLFL5Yr4wypYdyPMDdeLDgoV+DAyzMq4F3Fwo1SWogAAAAUAAAAAQAyDjUAAAAAAAAEEAAAAAAAACjpAAAAAtxQz4IAAABAD54qHpg2GSy+RIiyCXWU33ODBqOttXkj0hTT3jA9w4OEC8STzmmhAF9EG9LEgmFf2LMZ5p9PaFh1IdC8G+wLBgxr6tQAAABARmGVFR7YlE1vz+aQYEIq2N+ZviGt0+aPeKnhI1oBhAygChNf883Il5Bt3Izfv/ym/J9KIpejNTt5ACaQdv9LAgAAAAAAAAABLLVPDwAAAEACM6i7NpQvqVMeB2snz1eDYzf/PVTiiHoRFLngzup2J8fQfx2bduPMalmXj1PHufneYKTa0YntP+Otw06Yx2IP",
+    "result_xdr": "AAAAAAAAF3UAAAABlUszoa+h+A/mztvk2ovSq8t7hY+p0789RmxcBhEJZVsAAAAAAAAAAAAAAAAAAAABAAAAAAAAABgAAAAALvRLbKAHvvJZ4y+BEDP46goEvnrvQ61Bb1Hwclqu00IAAAAAAAAAAA=="
+  },
+  "fee_bump": {
+    "hash": "3af91469d3d48383b123f46cebf6dca297d487cd1b0a7eb7fd5c189617a6dc32",
+    "signatures": [
+      "AjOouzaUL6lTHgdrJ89Xg2M3/z1U4oh6ERS54M7qdifH0H8dm3bjzGpZl49Tx7n53mCk2tGJ7T/jrcNOmMdiDw=="
+    ]
+  },
+  "inner_transaction": {
+    "hash": "954b33a1afa1f80fe6cedbe4da8bd2abcb7b858fa9d3bf3d466c5c061109655b",
+    "signatures": [
+      "D54qHpg2GSy+RIiyCXWU33ODBqOttXkj0hTT3jA9w4OEC8STzmmhAF9EG9LEgmFf2LMZ5p9PaFh1IdC8G+wLBg==",
+      "RmGVFR7YlE1vz+aQYEIq2N+ZviGt0+aPeKnhI1oBhAygChNf883Il5Bt3Izfv/ym/J9KIpejNTt5ACaQdv9LAg=="
+    ],
+    "max_fee": "10573"
+  },
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GCSWSNEMQ7GBTBADWHO3KRWNAHXKBNF7JWSODOVRPZWJOFQMNPVNI73Z",
+      "type": "invoke_host_function",
+      "type_i": 24,
+      "created_at": "2026-10-29T17:24:00Z",
+      "function": "HostFunctionTypeHostFunctionTypeInvokeContract",
+      "parameters": [
+        {
+          "value": "AAAAEgAAAAFGssUvlivjDKlh3I8wN14sOChX4MDLMyrgXcXCjVJaiA==",
+          "type": "Address"
+        },
+        {
+          "value": "AAAADwAAAAhhY3RpdmF0ZQ==",
+          "type": "Sym"
+        }
+      ],
+      "address": "",
+      "salt": "",
+      "asset_balance_changes": null
+    }
+  ]
+}
