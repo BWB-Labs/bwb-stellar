@@ -1,7 +1,7 @@
 {
   "source": "README.md, section \"L4 demonstration\"",
   "network": "testnet",
-  "captured_at": "2026-10-28T19:43:30Z",
+  "captured_at": "2026-10-29T18:32:36Z",
   "transactions": [
     {
       "file": "step-01.json",
@@ -271,6 +271,46 @@
       "successful": true,
       "ledger": 5422311,
       "created_at": "2026-10-27T21:06:35Z",
+      "contract_error": null
+    },
+    {
+      "file": "step-23.json",
+      "step": 23,
+      "what": "Anyone finalizes: 800 of 1,000 sold, the 200 unsold tokens are burned; the offering moves to Successful",
+      "hash": "72c1fc24aa46ea35ecfb4f6d12fbd4dec2ac9a0644eac8fb8826ba37cbd0ee88",
+      "successful": true,
+      "ledger": 5453348,
+      "created_at": "2026-10-29T16:13:00Z",
+      "contract_error": null
+    },
+    {
+      "file": "step-24.json",
+      "step": 24,
+      "what": "Release: anyone delivers the tokens to investors A (300) and B (500)",
+      "hash": "40808bac73c623af3d4963c805843f9d6e9321df1fa55017fc55f9eb9580a4c6",
+      "successful": true,
+      "ledger": 5453350,
+      "created_at": "2026-10-29T16:13:10Z",
+      "contract_error": null
+    },
+    {
+      "file": "step-25.json",
+      "step": 25,
+      "what": "Late cooling-off by investor A: rejected, the offering is decided (6225 NotOpen)",
+      "hash": "6835046308df8845fa65d73e37cd224ef2301ad6ad526b985a2c7876f1be3055",
+      "successful": false,
+      "ledger": 5453430,
+      "created_at": "2026-10-29T16:19:50Z",
+      "contract_error": 6225
+    },
+    {
+      "file": "step-26.json",
+      "step": 26,
+      "what": "The owner withdraws the 8,000 USDC raised, in two legs: 7,000 to the treasury, 1,000 to investor B",
+      "hash": "04659f8b71f9386b4f87b3ca3332e443eed23153c00f6e54e9316640c1d9464d",
+      "successful": true,
+      "ledger": 5453432,
+      "created_at": "2026-10-29T16:20:00Z",
       "contract_error": null
     }
   ]

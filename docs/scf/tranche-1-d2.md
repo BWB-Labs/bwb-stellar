@@ -67,7 +67,7 @@ The demonstration script, [`scripts/demo-offer-sale.sh`](../../scripts/demo-offe
 | Cancellation | 20 | [`7ab128c2…`](https://stellar.expert/explorer/testnet/tx/7ab128c2b8b7ee3a13a8f838a5eb70d7c7ccf87578e68ecc7e614acf85c1fa6a) | `cancelled`, then `state_changed` Active → Failed |
 | Refund | 21 | [`42a52035…`](https://stellar.expert/explorer/testnet/tx/42a52035d494e23b636bb9f4b2b25fedefd8465b1827d340df880fddf6eadef7) | `refunded` with reason `failed`, the investor is paid back, and the allowlist room is restored |
 
-The same run also put on chain the activation of each offering (steps 2 and 17), further purchases (12, 18), close and reopen (13), a purchase after close refused (14), a finalize before the cooling-off windows ran out refused (15), a cancel by a non-owner refused (19), and the owner taking back a cancelled offering's tokens (22). It then settled the successful offering: finalize with the burn of the unsold supply, release of the tokens, payout, and a late cooling-off refused (23–26; `TODO(stage 2)`).
+The same run also put on chain the activation of each offering (steps 2 and 17), further purchases (12, 18), close and reopen (13), a purchase after close refused (14), a finalize before the cooling-off windows ran out refused (15), a cancel by a non-owner refused (19), and the owner taking back a cancelled offering's tokens (22). Stage 2, on 2026-10-29 once the last cooling-off window had run out, settled the successful offering: finalize burned the 200 unsold tokens and moved it to Successful (23, [`72c1fc24…`](https://stellar.expert/explorer/testnet/tx/72c1fc24aa46ea35ecfb4f6d12fbd4dec2ac9a0644eac8fb8826ba37cbd0ee88): the token's `burn`, then `finalized` and `state_changed` Closing → Successful); release delivered 300 tokens to investor A and 500 to investor B (24, [`40808bac…`](https://stellar.expert/explorer/testnet/tx/40808bac73c623af3d4963c805843f9d6e9321df1fa55017fc55f9eb9580a4c6): `transfer` and `released` per investor); a late cooling-off by investor A was refused with `6225 NotOpen` (25, [`68350463…`](https://stellar.expert/explorer/testnet/tx/6835046308df8845fa65d73e37cd224ef2301ad6ad526b985a2c7876f1be3055)); and the owner withdrew the 8,000 USDC in two legs, 7,000 to the treasury and 1,000 to investor B (26, [`04659f8b…`](https://stellar.expert/explorer/testnet/tx/04659f8b71f9386b4f87b3ca3332e443eed23153c00f6e54e9316640c1d9464d): `payment_withdrawn` per leg). A first attempt at step 25, [`f80ed1ca…`](https://stellar.expert/explorer/testnet/tx/f80ed1ca92e5058a01881866f58b743a382f28694ac7097194706f1b19d162c1), failed with a footprint trap because the manifest still named the sale's pre-upgrade WASM; it is not the 6225 evidence.
 
 RPC keeps transactions and their events for about seven days, and testnet resets from time to time, so the decoded result and events of every step are committed under [`evidence/demo/`](evidence/demo/), one JSON file per transaction with an [index](evidence/demo/index.json), captured by [`scripts/capture-evidence.sh`](../../scripts/capture-evidence.sh).
 
@@ -89,15 +89,15 @@ Here, AUM is every token an investor has bought and not been refunded for, in ev
 SOURCE=<any-testnet-identity> scripts/aum.sh --json docs/scf/evidence/aum.json t1-demo-4 t1-demo-5
 ```
 
-At ledger `TODO(ledger)`, `TODO(date)`, after the demonstration's settlement:
+At ledger 5455006, 2026-10-29 18:31:16 UTC, after the demonstration's settlement:
 
 | Offering | State | Counted | Supply | Sold (units) | Price | Value (USDC) |
 |---|---|---|---|---|---|---|
-| Offering that succeeds (`t1-demo-4`) | Successful | yes | 800 | 800 | 10.00 | 8,000.00 |
+| Offering that succeeds (`t1-demo-4`) | Successful | yes | 1,000 | 800 | 10.00 | 8,000.00 |
 | Offering that is cancelled (`t1-demo-5`) | Failed | no | 1,000 | 0 | 10.00 | 0.00 |
 | **Total** | | 1 of 2 | | **800** | | **8,000.00** |
 
-The successful offering's supply reads 800 because finalize burned the 200 unsold tokens. The committed output is [`evidence/aum.json`](evidence/aum.json), with the ledger and timestamp it was taken at.
+The supply column is the offering's supply as the sale's accounting keeps it; the successful offering's token itself now has a `total_supply` of 800, because finalize burned the 200 unsold tokens. The committed output is [`evidence/aum.json`](evidence/aum.json), with the ledger and timestamp it was taken at.
 
 ### How to verify
 
