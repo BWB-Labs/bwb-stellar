@@ -1,0 +1,106 @@
+{
+  "step": 5,
+  "what": "Allocation rejection: investor A buys 400 tokens, 4,000 USDC over a 3,000 cap (6101 AllocationExceeded)",
+  "hash": "da1ac6bf4aa09f9e2d1b657878ae119771c1892c1c8143e884d5420dafd3ec97",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/da1ac6bf4aa09f9e2d1b657878ae119771c1892c1c8143e884d5420dafd3ec97",
+  "horizon": {
+    "successful": false,
+    "ledger": 5422283,
+    "created_at": "2026-10-27T21:04:15Z",
+    "source_account": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR",
+    "fee_charged": "22745"
+  },
+  "contract_error": 6101,
+  "result": {
+    "fee_charged": "22745",
+    "result": {
+      "tx_failed": [
+        {
+          "op_inner": {
+            "invoke_host_function": "trapped"
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "5000100"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "-4977355"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "rolled_back_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "transfer"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              },
+              {
+                "string": "USDC:GDGBRCFAMOQMYW5TWLTKSXW6VTAYELUYXXLAEKLLVLBXSU5BLT5NXIXA"
+              }
+            ],
+            "data": {
+              "i128": "40000000000"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

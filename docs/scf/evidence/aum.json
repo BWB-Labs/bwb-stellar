@@ -1,0 +1,65 @@
+{
+  "network": "testnet",
+  "passphrase": "Test SDF Network ; September 2015",
+  "ledger": {
+    "sequence": 5455006,
+    "id": "0356f55086281166305e49b58c75779b672d0de5e94e60b5a6213f7a7f6c0cf8",
+    "protocol_version": 29
+  },
+  "queried_at": "2026-10-29T18:31:16Z",
+  "definition": "Tokenized AUM is the sum, over the sale contracts whose state is not Failed, of sold_tokens (units) and of sold_tokens x config.price (value, in base units of the payment asset, 7 decimals); raised is cross-checked against it.",
+  "payment_decimals": 7,
+  "offerings": [
+    {
+      "id": "t1-demo-4",
+      "sale_contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+      "wasm_hash": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd",
+      "state": "Successful",
+      "counted": true,
+      "supply": "1000",
+      "sold_tokens": "800",
+      "released_tokens": "800",
+      "price": "100000000",
+      "raised": "80000000000",
+      "withdrawn": "80000000000",
+      "value": "80000000000",
+      "value_human": "8000.0000000",
+      "raised_matches": true,
+      "warning": null,
+      "config": {
+        "price": "100000000",
+        "cooling_off_secs": 86400,
+        "min_success_percent": 75
+      }
+    },
+    {
+      "id": "t1-demo-5",
+      "sale_contract_id": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
+      "wasm_hash": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd",
+      "state": "Failed",
+      "counted": false,
+      "supply": "1000",
+      "sold_tokens": "0",
+      "released_tokens": "0",
+      "price": "100000000",
+      "raised": "0",
+      "withdrawn": "0",
+      "value": "0",
+      "value_human": "0.0000000",
+      "raised_matches": true,
+      "warning": null,
+      "config": {
+        "price": "100000000",
+        "cooling_off_secs": 86400,
+        "min_success_percent": 75
+      }
+    }
+  ],
+  "totals": {
+    "counted_offerings": 1,
+    "offerings": 2,
+    "units": "800",
+    "value": "80000000000",
+    "value_human": "8000.0000000"
+  }
+}

@@ -1,0 +1,224 @@
+{
+  "step": 21,
+  "what": "Refund: anyone refunds investor A; the money and the allowlist room come back",
+  "hash": "42a52035d494e23b636bb9f4b2b25fedefd8465b1827d340df880fddf6eadef7",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/42a52035d494e23b636bb9f4b2b25fedefd8465b1827d340df880fddf6eadef7",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422309,
+    "created_at": "2026-10-27T21:06:25Z",
+    "source_account": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+    "fee_charged": "15207"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "15207",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "4cec3583bf6c570c2e0aaafb814f697fffa69c321782ec06e6e68ef76450f16a"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "allocation_restored"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              },
+              {
+                "address": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "amount"
+                  },
+                  "val": {
+                    "i128": "10000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "consumed"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "period"
+                  },
+                  "val": {
+                    "u32": 24321
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "receipt"
+                  },
+                  "val": {
+                    "u32": 0
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "transfer"
+              },
+              {
+                "address": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              },
+              {
+                "string": "USDC:GDGBRCFAMOQMYW5TWLTKSXW6VTAYELUYXXLAEKLLVLBXSU5BLT5NXIXA"
+              }
+            ],
+            "data": {
+              "i128": "10000000000"
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "refunded"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "paid"
+                  },
+                  "val": {
+                    "i128": "10000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "raised"
+                  },
+                  "val": {
+                    "i128": "0"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reason"
+                  },
+                  "val": {
+                    "symbol": "failed"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "sold_tokens"
+                  },
+                  "val": {
+                    "i128": "0"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "tokens"
+                  },
+                  "val": {
+                    "i128": "100"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "20355"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "-5148"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

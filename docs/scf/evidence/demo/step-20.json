@@ -1,0 +1,149 @@
+{
+  "step": 20,
+  "what": "The owner cancels the offering",
+  "hash": "7ab128c2b8b7ee3a13a8f838a5eb70d7c7ccf87578e68ecc7e614acf85c1fa6a",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/7ab128c2b8b7ee3a13a8f838a5eb70d7c7ccf87578e68ecc7e614acf85c1fa6a",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422308,
+    "created_at": "2026-10-27T21:06:20Z",
+    "source_account": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
+    "fee_charged": "4501"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "4501",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "21d69dfc7446817131c4465874bcb7678bd9cec0e2f5bd629c18db5060f1681e"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "state_changed"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "from"
+                  },
+                  "val": {
+                    "symbol": "active"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "to"
+                  },
+                  "val": {
+                    "symbol": "failed"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "cancelled"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "raised"
+                  },
+                  "val": {
+                    "i128": "10000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "sold_tokens"
+                  },
+                  "val": {
+                    "i128": "100"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                }
+              ],
+              "data": {
+                "i128": "9452"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                }
+              ],
+              "data": {
+                "i128": "-4951"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

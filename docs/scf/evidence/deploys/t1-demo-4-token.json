@@ -1,0 +1,213 @@
+{
+  "step": "t1-demo-4-token",
+  "what": "Deploy: t1-demo-4 token CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+  "hash": "a9f4dd7cc2882ccb4ac0d82e50232cc5a653cc534eae7803fcd6513ad1eece2a",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/a9f4dd7cc2882ccb4ac0d82e50232cc5a653cc534eae7803fcd6513ad1eece2a",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422249,
+    "created_at": "2026-10-27T21:01:25Z",
+    "source_account": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+    "fee_charged": "2604789"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "2604789",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "2fc534aeb01e5a122793f4a9130817d2e2962c282d39b9c56ed9a3ec117fbe81"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "initialized"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "admin"
+                  },
+                  "val": {
+                    "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "initial_holder"
+                  },
+                  "val": {
+                    "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "offer_uri"
+                  },
+                  "val": {
+                    "string": "ipfs://bwb-t1-demo-4"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "pauser"
+                  },
+                  "val": {
+                    "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "supply"
+                  },
+                  "val": {
+                    "i128": "1000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "upgrader"
+                  },
+                  "val": {
+                    "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "xfer_admin"
+                  },
+                  "val": {
+                    "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "mint"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "amount"
+                  },
+                  "val": {
+                    "i128": "1000"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "whitelist_updated"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "allowed"
+                  },
+                  "val": {
+                    "bool": true
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "2999001"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "-394212"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

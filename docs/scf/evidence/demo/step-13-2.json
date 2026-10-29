@@ -1,0 +1,157 @@
+{
+  "step": 13,
+  "what": "The owner closes buying, reopens, and closes again",
+  "hash": "8bd3c43a7a6c5484e63127e72b82f851947e7a48d752feeb83524fab3aee6d18",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/8bd3c43a7a6c5484e63127e72b82f851947e7a48d752feeb83524fab3aee6d18",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422296,
+    "created_at": "2026-10-27T21:05:20Z",
+    "source_account": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G",
+    "fee_charged": "4590"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "4590",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "2c4ab1b37999951845f75670e48fbf57723e293f76bbd76ec5f2478ca2a4e904"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "state_changed"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "from"
+                  },
+                  "val": {
+                    "symbol": "closing"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "to"
+                  },
+                  "val": {
+                    "symbol": "active"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "reopened"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "raised"
+                  },
+                  "val": {
+                    "i128": "80000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reason"
+                  },
+                  "val": {
+                    "symbol": "owner"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "sold_tokens"
+                  },
+                  "val": {
+                    "i128": "800"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                }
+              ],
+              "data": {
+                "i128": "9552"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G"
+                }
+              ],
+              "data": {
+                "i128": "-4962"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

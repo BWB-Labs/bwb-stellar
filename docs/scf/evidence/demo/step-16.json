@@ -1,0 +1,113 @@
+{
+  "step": 16,
+  "what": "The allocator grants the sale contract the allowlist's sale role",
+  "hash": "835bd3956b5254ae820aa0cbaad4b1e8ac41f60a5f236fb5a6cad1d639ad4a53",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/835bd3956b5254ae820aa0cbaad4b1e8ac41f60a5f236fb5a6cad1d639ad4a53",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422302,
+    "created_at": "2026-10-27T21:05:50Z",
+    "source_account": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+    "fee_charged": "388822"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "388822",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "d61bf9c52d299b6618f587dc4dcb37372d32df6d7379dd79c63cd03158467ecf"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "role_granted"
+              },
+              {
+                "symbol": "sale"
+              },
+              {
+                "address": "CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "caller"
+                  },
+                  "val": {
+                    "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "450857"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "-62035"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

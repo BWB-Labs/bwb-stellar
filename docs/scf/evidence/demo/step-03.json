@@ -1,0 +1,126 @@
+{
+  "step": 3,
+  "what": "The allocator allows investor A up to 3,000 USDC this month",
+  "hash": "9e9c86c006aaccaa0ed55031b6a489cc9fa74978b5d8c6d705e5c1e15e074bb8",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/9e9c86c006aaccaa0ed55031b6a489cc9fa74978b5d8c6d705e5c1e15e074bb8",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422281,
+    "created_at": "2026-10-27T21:04:05Z",
+    "source_account": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+    "fee_charged": "5166"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "5166",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "06a6d4adebb356743c68ea5202183f726e242f9c7fee0e14d43783ff22b7f0b6"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "allocation_set"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "caller"
+                  },
+                  "val": {
+                    "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "enabled"
+                  },
+                  "val": {
+                    "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "max"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "10097"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI"
+                }
+              ],
+              "data": {
+                "i128": "-4931"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

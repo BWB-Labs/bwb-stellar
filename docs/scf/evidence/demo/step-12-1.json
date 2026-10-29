@@ -1,0 +1,248 @@
+{
+  "step": 12,
+  "what": "Purchases: investor A buys 300 tokens; the allocator allows investor B, who buys 500",
+  "hash": "4ad53f5c3438a13a08ff0bb7ffa22227f11295b40995e983e0a847ea993a70ad",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/4ad53f5c3438a13a08ff0bb7ffa22227f11295b40995e983e0a847ea993a70ad",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422291,
+    "created_at": "2026-10-27T21:04:55Z",
+    "source_account": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR",
+    "fee_charged": "1559207"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "1559207",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "aa8aa91f092247291aaed106749981898383184d3d41c97dbbe008c8d127de24"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "transfer"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              },
+              {
+                "string": "USDC:GDGBRCFAMOQMYW5TWLTKSXW6VTAYELUYXXLAEKLLVLBXSU5BLT5NXIXA"
+              }
+            ],
+            "data": {
+              "i128": "30000000000"
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "allocation_consumed"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              },
+              {
+                "address": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "amount"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "consumed"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "period"
+                  },
+                  "val": {
+                    "u32": 24321
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "receipt"
+                  },
+                  "val": {
+                    "u32": 1
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "purchased"
+              },
+              {
+                "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "at"
+                  },
+                  "val": {
+                    "u64": "1793135095"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "paid"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "raised"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "receipt"
+                  },
+                  "val": {
+                    "u32": 1
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reserved_paid"
+                  },
+                  "val": {
+                    "i128": "30000000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reserved_tokens"
+                  },
+                  "val": {
+                    "i128": "300"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "sold_tokens"
+                  },
+                  "val": {
+                    "i128": "300"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "tokens"
+                  },
+                  "val": {
+                    "i128": "300"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "1795775"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "-236568"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

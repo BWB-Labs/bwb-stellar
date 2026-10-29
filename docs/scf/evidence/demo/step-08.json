@@ -1,0 +1,78 @@
+{
+  "step": 8,
+  "what": "Purchase while paused: rejected (1000 EnforcedPause)",
+  "hash": "e5ca35a6225c7795f1ef2360046548730293f7b689c55662b0d12cf2225f9d3a",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/e5ca35a6225c7795f1ef2360046548730293f7b689c55662b0d12cf2225f9d3a",
+  "horizon": {
+    "successful": false,
+    "ledger": 5422286,
+    "created_at": "2026-10-27T21:04:30Z",
+    "source_account": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR",
+    "fee_charged": "22745"
+  },
+  "contract_error": 1000,
+  "result": {
+    "fee_charged": "22745",
+    "result": {
+      "tx_failed": [
+        {
+          "op_inner": {
+            "invoke_host_function": "trapped"
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "5000100"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GCSPLERDJ2XU6BUHRT7V5P224W4TPKDDSTZYSMF6AMWLGEOHSXX4DEUR"
+                }
+              ],
+              "data": {
+                "i128": "-4977355"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

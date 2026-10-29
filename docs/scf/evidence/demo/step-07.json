@@ -1,0 +1,127 @@
+{
+  "step": 7,
+  "what": "The platform pauses the sale",
+  "hash": "47d1debb3855e60e43915ef0bf49929d41a3d98c3e69a7c76ef40ae18bd56513",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/47d1debb3855e60e43915ef0bf49929d41a3d98c3e69a7c76ef40ae18bd56513",
+  "horizon": {
+    "successful": true,
+    "ledger": 5422285,
+    "created_at": "2026-10-27T21:04:25Z",
+    "source_account": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
+    "fee_charged": "94336"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "94336",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "c2421cb6120a811c54a6fa49e953f8bfeac77e4f5b156676bb080145f4d2005d"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "paused"
+              }
+            ],
+            "data": {
+              "map": []
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "pause_changed"
+              },
+              {
+                "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "paused"
+                  },
+                  "val": {
+                    "bool": true
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                }
+              ],
+              "data": {
+                "i128": "112762"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                }
+              ],
+              "data": {
+                "i128": "-18426"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

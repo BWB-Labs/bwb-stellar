@@ -1,0 +1,78 @@
+{
+  "step": 19,
+  "what": "Investor B tries to cancel the offering: rejected (6222 NotOwner)",
+  "hash": "b6c2da8dbd381c7884b1d3bd8e1e5643920fbc94ef0b2571dcaa55909c44b0e1",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/b6c2da8dbd381c7884b1d3bd8e1e5643920fbc94ef0b2571dcaa55909c44b0e1",
+  "horizon": {
+    "successful": false,
+    "ledger": 5422307,
+    "created_at": "2026-10-27T21:06:15Z",
+    "source_account": "GDNZNRTBQFYIJWIM55KNY6WEGSFLOIZ6CCQ7DP4OJBDWCVMWDTTXAETC",
+    "fee_charged": "9952"
+  },
+  "contract_error": 6222,
+  "result": {
+    "fee_charged": "9952",
+    "result": {
+      "tx_failed": [
+        {
+          "op_inner": {
+            "invoke_host_function": "trapped"
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GDNZNRTBQFYIJWIM55KNY6WEGSFLOIZ6CCQ7DP4OJBDWCVMWDTTXAETC"
+                }
+              ],
+              "data": {
+                "i128": "5000100"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GDNZNRTBQFYIJWIM55KNY6WEGSFLOIZ6CCQ7DP4OJBDWCVMWDTTXAETC"
+                }
+              ],
+              "data": {
+                "i128": "-4990148"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "step": "t1-demo-4-sale-upgrade",
+  "what": "Upgrade: t1-demo-4 sale to 49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd",
+  "hash": "779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1",
+  "horizon": {
+    "successful": true,
+    "ledger": 5436454,
+    "created_at": "2026-10-28T16:45:10Z",
+    "source_account": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2",
+    "fee_charged": "5000"
+  },
+  "contract_error": null,
+  "result": {
+    "fee_charged": "5000",
+    "result": {
+      "tx_success": [
+        {
+          "op_inner": {
+            "invoke_host_function": {
+              "success": "44c76d8d6a247c59720a345fff08c597030e72bc8501839b68462d2d97e1ec6d"
+            }
+          }
+        }
+      ]
+    },
+    "ext": "v0"
+  },
+  "events": {
+    "contract_events": [
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "upgraded"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "from_schema_version"
+                  },
+                  "val": {
+                    "u32": 2
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "new_wasm_hash"
+                  },
+                  "val": {
+                    "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT",
+        "type": "system",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "executable_update"
+              },
+              {
+                "vec": [
+                  {
+                    "symbol": "Wasm"
+                  },
+                  {
+                    "bytes": "7a6d8026e35d8eae256c40c357778adeb2fa8158d98ceb5fcb15d95d7506f6a3"
+                  }
+                ]
+              },
+              {
+                "vec": [
+                  {
+                    "symbol": "Wasm"
+                  },
+                  {
+                    "bytes": "49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd"
+                  }
+                ]
+              }
+            ],
+            "data": {
+              "vec": []
+            }
+          }
+        }
+      }
+    ],
+    "transaction_events": [
+      {
+        "stage": "before_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                }
+              ],
+              "data": {
+                "i128": "9987"
+              }
+            }
+          }
+        }
+      },
+      {
+        "stage": "after_all_txs",
+        "event": {
+          "ext": "v0",
+          "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fee"
+                },
+                {
+                  "address": "GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2"
+                }
+              ],
+              "data": {
+                "i128": "-4987"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
