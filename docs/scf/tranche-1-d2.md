@@ -2,7 +2,7 @@
 
 **Deliverable 2 — Soroban Regulated Offering Asset Lifecycle Layer.** This document takes each of D2's four completion criteria, as written in the [awarded submission](https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA), and places next to it the code, tests, contracts and transactions that meet it. Each piece of evidence is linked, and each criterion ends with the command that reproduces it.
 
-Everything runs on Stellar testnet. The source release is tag `t1` on `main`, commit `TODO(commit)`.
+Everything runs on Stellar testnet. The source release is tag [`t1`](https://github.com/BWB-Labs/bwb-stellar/tree/t1).
 
 ## The contracts
 
