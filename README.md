@@ -56,7 +56,7 @@ Superseded offerings, kept in the manifest: `t1-demo-1` and `t1-demo-3`, the fir
 
 ### L4 demonstration
 
-`scripts/demo-offer-sale.sh` runs the grant's demonstration on the two offerings above, each step a transaction with its explorer link; rejected calls are submitted anyway, so each rejection is a failed transaction on the ledger with its error code. Stage 1 ran on 2026-10-27 (steps 1–15 on `t1-demo-4`, the success path up to the close; 16–22 on `t1-demo-5`, the failure path); the demo USDC issuer first topped the investors up ([`28fc5e8b…`](https://stellar.expert/explorer/testnet/tx/28fc5e8b99dd9c64415b907b9771d13939acd47b3830a79cd1f8f0a605afe604), [`ec444bf5…`](https://stellar.expert/explorer/testnet/tx/ec444bf5238b470a8fe6b4d2ca8f292e96c1a3bc1de72d7420646ec1b4bee74f)). Stage 1 ran on the sale contracts' first WASM, `7a6d8026…`; on 2026-10-28, before stage 2, both sale contracts were upgraded in place to the branch head's `49edfc27…` with their storage kept ([`779a16b6…`](https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1) for `t1-demo-4`, [`65e74d91…`](https://stellar.expert/explorer/testnet/tx/65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade) for `t1-demo-5`). Stage 2 (`STAGE=2`: finalize with the burn, release, the payout and a refused late cooling-off) runs once `t1-demo-4`'s last cooling-off window has run out, from 2026-10-28 21:05:06 UTC (`finalizable_at` 1793221506, also on the `closed` event); its hashes are added then.
+`scripts/demo-offer-sale.sh` runs the grant's demonstration on the two offerings above, each step a transaction with its explorer link; rejected calls are submitted anyway, so each rejection is a failed transaction on the ledger with its error code. Stage 1 ran on 2026-10-27 (steps 1–15 on `t1-demo-4`, the success path up to the close; 16–22 on `t1-demo-5`, the failure path); the demo USDC issuer first topped the investors up ([`28fc5e8b…`](https://stellar.expert/explorer/testnet/tx/28fc5e8b99dd9c64415b907b9771d13939acd47b3830a79cd1f8f0a605afe604), [`ec444bf5…`](https://stellar.expert/explorer/testnet/tx/ec444bf5238b470a8fe6b4d2ca8f292e96c1a3bc1de72d7420646ec1b4bee74f)). Stage 1 ran on the sale contracts' first WASM, `7a6d8026…`; on 2026-10-28, before stage 2, both sale contracts were upgraded in place to the branch head's `49edfc27…` with their storage kept ([`779a16b6…`](https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1) for `t1-demo-4`, [`65e74d91…`](https://stellar.expert/explorer/testnet/tx/65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade) for `t1-demo-5`). Stage 2 (`STAGE=2`, steps 23–26 on `t1-demo-4`: finalize with the burn of the 200 unsold tokens, release, a refused late cooling-off and the payout) ran on 2026-10-29, after `t1-demo-4`'s last cooling-off window ran out on 2026-10-28 21:05:06 UTC (`finalizable_at` 1793221506, also on the `closed` event). The offering ended Successful: 800 of 1,000 tokens sold for 8,000 USDC, 200 burned, 800 released to the two investors, and the 8,000 USDC paid out in two legs, 7,000 to the treasury and 1,000 to investor B. One stray transaction sits between steps 24 and 25: [`f80ed1ca…`](https://stellar.expert/explorer/testnet/tx/f80ed1ca92e5058a01881866f58b743a382f28694ac7097194706f1b19d162c1) is a first attempt at step 25 that failed with a footprint trap (`trying to access contract code outside of the footprint`) because the manifest on `main` still named the pre-upgrade WASM `7a6d8026…`, which the helper put in the footprint; it is not the 6225 evidence. The step was rerun once the manifest carried `49edfc27…`.
 
 | Step | What | Transaction |
 |---|---|---|
@@ -82,6 +82,10 @@ Superseded offerings, kept in the manifest: `t1-demo-1` and `t1-demo-3`, the fir
 | 20 | The owner cancels the offering | [`7ab128c2…`](https://stellar.expert/explorer/testnet/tx/7ab128c2b8b7ee3a13a8f838a5eb70d7c7ccf87578e68ecc7e614acf85c1fa6a) |
 | 21 | Refund: anyone refunds investor A; the money and the allowlist room come back | [`42a52035…`](https://stellar.expert/explorer/testnet/tx/42a52035d494e23b636bb9f4b2b25fedefd8465b1827d340df880fddf6eadef7) |
 | 22 | The owner withdraws the tokens of the failed offering | [`2d6740b7…`](https://stellar.expert/explorer/testnet/tx/2d6740b753e66e8ffb072c2f0c3c31ec34904af62d52c892339bfdee900fd6cc) |
+| 23 | Anyone finalizes: 800 of 1,000 sold, the 200 unsold tokens are burned; the offering moves to Successful | [`72c1fc24…`](https://stellar.expert/explorer/testnet/tx/72c1fc24aa46ea35ecfb4f6d12fbd4dec2ac9a0644eac8fb8826ba37cbd0ee88) |
+| 24 | Release: anyone delivers the tokens to investors A (300) and B (500) | [`40808bac…`](https://stellar.expert/explorer/testnet/tx/40808bac73c623af3d4963c805843f9d6e9321df1fa55017fc55f9eb9580a4c6) |
+| 25 | Late cooling-off by investor A: rejected, the offering is decided (6225 NotOpen) | [`68350463…`](https://stellar.expert/explorer/testnet/tx/6835046308df8845fa65d73e37cd224ef2301ad6ad526b985a2c7876f1be3055) |
+| 26 | The owner withdraws the 8,000 USDC raised, in two legs: 7,000 to the treasury, 1,000 to investor B | [`04659f8b…`](https://stellar.expert/explorer/testnet/tx/04659f8b71f9386b4f87b3ca3332e443eed23153c00f6e54e9316640c1d9464d) |
 
 ## Build and test
 
@@ -143,8 +147,10 @@ environment otherwise wins.
 `OFFERING=<offering-id> scripts/demo-offer-token.sh` then exercises a deployed
 token on testnet: transfers allowed and rejected by the whitelist, pause,
 admin transfer, unauthorized calls and burn. `STAGE=1 scripts/demo-offer-sale.sh`
-and, after the cooling-off window, `STAGE=2`, exercise the two demo sale
-contracts end to end. Rejected calls are submitted anyway, so each rejection is
+and, once the cooling-off window has run out, `STAGE=2` exercise the two demo
+sale contracts end to end; both stages ran on testnet (2026-10-27 and
+2026-10-29), their hashes are under L4 demonstration above. Rejected calls
+are submitted anyway, so each rejection is
 a failed transaction on the ledger with its error code
 (`scripts/lib/send_rejected.py`): a call that touches only its own storage
 names its keys; a call that reaches other contracts, such as a purchase,
