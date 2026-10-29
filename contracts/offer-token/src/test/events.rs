@@ -147,6 +147,18 @@ fn forced_transfer_emits_a_standard_transfer_and_admin_transfer() {
 }
 
 #[test]
+fn burn_emits_only_the_standard_burn() {
+    let s = setup();
+    s.client.burn(&s.sale, &5);
+    assert_eq!(names(&s.e, &s.id), syms(&s.e, &["burn"]));
+    let ev = stellar_tokens::fungible::burnable::Burn {
+        from: s.sale.clone(),
+        amount: 5,
+    };
+    assert_eq!(emitted(&s.e, &s.id), [ev.to_xdr(&s.e, &s.id)]);
+}
+
+#[test]
 fn ordinary_transfer_emits_only_the_standard_transfer() {
     let s = setup();
     s.client.transfer(&s.alice, &s.listed, &1);

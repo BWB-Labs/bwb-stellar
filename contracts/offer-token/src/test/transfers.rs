@@ -147,10 +147,19 @@ fn forced_transfer_can_move_tokens_out_of_the_sale() {
 }
 
 #[test]
-fn supply_never_changes() {
+fn only_a_burn_changes_the_supply() {
     let s = setup();
     s.client.transfer(&s.alice, &s.listed, &10);
     s.client
         .admin_transfer(&s.bob, &s.alice, &10, &s.xfer_admin);
     assert_eq!(s.client.total_supply(), SUPPLY);
+    // The initial holder burns its own balance: the supply falls by exactly
+    // that, nobody else's balance moves.
+    s.client.burn(&s.sale, &100);
+    assert_eq!(s.client.total_supply(), SUPPLY - 100);
+    assert_eq!(s.client.balance(&s.sale), SUPPLY - 300);
+    assert_eq!(s.client.balance(&s.alice), 100);
+    s.client.burn(&s.sale, &(SUPPLY - 300));
+    assert_eq!(s.client.balance(&s.sale), 0);
+    assert_eq!(s.client.total_supply(), 200);
 }

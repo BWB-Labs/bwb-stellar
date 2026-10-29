@@ -35,7 +35,6 @@ use stellar_contract_utils::upgradeable::{self, Upgradeable};
 use stellar_macros::only_role;
 
 pub use crate::errors::OfferAllowlistError;
-use crate::events::{AllocationConsumed, AllocationRestored, AllocationSet, Initialized, Upgraded};
 pub use crate::types::{Allocation, AllocationEntry, AllocationView, Receipt, ReceiptBook};
 
 // Contract metadata that goes on the compiled file.
@@ -96,7 +95,7 @@ impl OfferAllowlist {
         }
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         storage::extend_instance_ttl(e);
-        Initialized { admin, allocators }.publish(e);
+        events::Initialized { admin, allocators }.publish(e);
     }
 
     /// Writes each investor's cap and enabled flag, at most `MAX_BATCH`
@@ -121,7 +120,7 @@ impl OfferAllowlist {
                     enabled: entry.enabled,
                 },
             );
-            AllocationSet {
+            events::AllocationSet {
                 investor: entry.investor,
                 caller: caller.clone(),
                 enabled: entry.enabled,
@@ -174,7 +173,7 @@ impl OfferAllowlist {
         storage::set_receipt_book(e, &caller, &investor, &book);
         storage::extend_allocation_ttl(e, &investor);
         extend_caller_role_ttl(e, &caller, SALE);
-        AllocationConsumed {
+        events::AllocationConsumed {
             investor,
             caller,
             amount,
@@ -225,7 +224,7 @@ impl OfferAllowlist {
             let consumed = used - receipt.amount;
             storage::set_usage(e, &investor, receipt.period, consumed);
             book.receipts.remove(number);
-            AllocationRestored {
+            events::AllocationRestored {
                 investor: investor.clone(),
                 caller: caller.clone(),
                 amount: receipt.amount,
@@ -438,7 +437,7 @@ impl Upgradeable for OfferAllowlist {
         }
         operator.require_auth();
         storage::extend_instance_ttl(e);
-        Upgraded {
+        events::Upgraded {
             from_schema_version: upgradeable::get_schema_version(e),
             new_wasm_hash: new_wasm_hash.clone(),
         }

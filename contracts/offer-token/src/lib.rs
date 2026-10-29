@@ -16,8 +16,10 @@
 //! code swap can do anything, so it must be the strongest key. Which account
 //! holds each is decided per deployment.
 //!
-//! There is no burn and no later mint: `burn` and `burn_from` exist for the
-//! SEP-41 shape and always fail.
+//! There is no later mint, and only the initial holder burns, and only its
+//! own balance: the sale contract destroys the unsold quotas when the
+//! offering succeeds. For everyone else `burn` fails, and `burn_from` always
+//! does; both exist for the SEP-41 shape.
 #![no_std]
 
 mod errors;
@@ -35,12 +37,11 @@ use stellar_contract_utils::{
     upgradeable::{self, Upgradeable},
 };
 use stellar_macros::when_not_paused;
-use stellar_tokens::fungible::{emit_transfer, Base, ContractOverrides, FungibleToken};
+use stellar_tokens::fungible::{
+    burnable::emit_burn, emit_transfer, Base, ContractOverrides, FungibleToken,
+};
 
 pub use crate::errors::OfferTokenError;
-use crate::events::{
-    AdminTransfer, Initialized, OfferUriUpdated, PauseChanged, Upgraded, WhitelistUpdated,
-};
 pub use crate::types::{OfferingMetadata, PowerHolders};
 use crate::whitelist::Whitelisted;
 
@@ -59,8 +60,9 @@ pub struct OfferToken;
 
 #[contractimpl]
 impl OfferToken {
-    /// Sets the four powers, mints the whole supply to `initial_holder` and
-    /// whitelists it together with `whitelist` (duplicates ignored).
+    /// Sets the four powers, mints the whole supply to `initial_holder`,
+    /// remembers it as the only account that may burn, and whitelists it
+    /// together with `whitelist` (duplicates ignored).
     pub fn __constructor(
         e: &Env,
         power_holders: PowerHolders,
@@ -78,6 +80,7 @@ impl OfferToken {
             panic_with_error!(e, OfferTokenError::InvalidSupply);
         }
         storage::set_powers(e, &power_holders);
+        storage::set_initial_holder(e, &initial_holder);
         set_uri_checked(e, &offer_uri);
         upgradeable::set_schema_version(e, SCHEMA_VERSION);
         Base::set_metadata(e, 0, name, symbol);
@@ -89,7 +92,7 @@ impl OfferToken {
             pauser,
             upgrader,
         } = power_holders;
-        Initialized {
+        events::Initialized {
             admin,
             xfer_admin,
             pauser,
@@ -120,14 +123,14 @@ impl OfferToken {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         storage::set_whitelisted(e, &account, allowed);
         storage::extend_instance_ttl(e);
-        WhitelistUpdated { account, allowed }.publish(e);
+        events::WhitelistUpdated { account, allowed }.publish(e);
     }
 
     pub fn set_offer_uri(e: &Env, uri: String, caller: Address) {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         set_uri_checked(e, &uri);
         storage::extend_instance_ttl(e);
-        OfferUriUpdated { uri }.publish(e);
+        events::OfferUriUpdated { uri }.publish(e);
     }
 
     /// Moves `amount` from `from` to `to`, ignoring pause and the whitelist:
@@ -147,15 +150,29 @@ impl OfferToken {
         storage::extend_balance_ttl(e, &to);
         storage::extend_instance_ttl(e);
         emit_transfer(e, &from, &to, None, amount);
-        AdminTransfer { from, to, amount }.publish(e);
+        events::AdminTransfer { from, to, amount }.publish(e);
     }
 
-    /// SEP-41 shape only: the supply is fixed.
-    pub fn burn(e: &Env, _from: Address, _amount: i128) {
-        panic_with_error!(e, OfferTokenError::BurnDisabled);
+    /// Destroys `amount` of `from`'s own balance, lowering the supply. Only
+    /// the initial holder (the sale contract) may, so the unsold quotas of a
+    /// successful offering cease to exist while no investor can burn a
+    /// security; everyone else fails with `BurnDisabled`, as does everyone
+    /// on a token constructed before 0.2.0, which stored no holder. `from`
+    /// authorizes, which the sale contract does as the direct caller.
+    /// Blocked by pause like a transfer. Emits OpenZeppelin's `burn`.
+    #[when_not_paused]
+    pub fn burn(e: &Env, from: Address, amount: i128) {
+        from.require_auth();
+        if storage::initial_holder(e).as_ref() != Some(&from) {
+            panic_with_error!(e, OfferTokenError::BurnDisabled);
+        }
+        Base::update(e, Some(&from), None, amount);
+        storage::extend_balance_ttl(e, &from);
+        storage::extend_instance_ttl(e);
+        emit_burn(e, &from, amount);
     }
 
-    /// SEP-41 shape only: the supply is fixed.
+    /// SEP-41 shape only: nobody burns on another's behalf.
     pub fn burn_from(e: &Env, _spender: Address, _from: Address, _amount: i128) {
         panic_with_error!(e, OfferTokenError::BurnDisabled);
     }
@@ -187,6 +204,12 @@ impl OfferToken {
         storage::upgrader(e)
     }
 
+    /// The account the supply was minted to, the only one that may burn.
+    /// Void on a token constructed before 0.2.0.
+    pub fn initial_holder(e: &Env) -> Option<Address> {
+        storage::initial_holder(e)
+    }
+
     pub fn schema_version(e: &Env) -> u32 {
         upgradeable::get_schema_version(e)
     }
@@ -202,7 +225,7 @@ fn set_uri_checked(e: &Env, uri: &String) {
 fn whitelist_if_new(e: &Env, account: &Address) {
     if !storage::is_whitelisted(e, account) {
         storage::set_whitelisted(e, account, true);
-        WhitelistUpdated {
+        events::WhitelistUpdated {
             account: account.clone(),
             allowed: true,
         }
@@ -244,7 +267,7 @@ impl Pausable for OfferToken {
         storage::require_power(e, &caller, &holders, OfferTokenError::NotPauser);
         pausable::pause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: true,
         }
@@ -256,7 +279,7 @@ impl Pausable for OfferToken {
         storage::require_power(e, &caller, &[storage::admin(e)], OfferTokenError::NotAdmin);
         pausable::unpause(e);
         storage::extend_instance_ttl(e);
-        PauseChanged {
+        events::PauseChanged {
             caller,
             paused: false,
         }
@@ -276,7 +299,7 @@ impl Upgradeable for OfferToken {
             OfferTokenError::NotUpgrader,
         );
         storage::extend_instance_ttl(e);
-        Upgraded {
+        events::Upgraded {
             new_wasm_hash: new_wasm_hash.clone(),
             from_schema_version: upgradeable::get_schema_version(e),
         }
