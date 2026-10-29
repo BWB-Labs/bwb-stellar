@@ -64,6 +64,12 @@ function signedByOfficer(hash: string) {
 
 const PLATFORM = [keypairSigner(CHANNEL), keypairSigner(SPONSOR)]
 
+function onlySent(requests: Parameters<typeof sentEnvelopes>[0]) {
+  const [bump, ...more] = sentEnvelopes(requests)
+  if (bump === undefined || more.length > 0) throw new Error('Expected exactly one envelope sent')
+  return bump
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
@@ -75,13 +81,13 @@ describe('submitAsPlatform', () => {
 
     const submitted = await submitTreasuryCreation()
 
-    const [bump] = sentEnvelopes(requests)
-    const envelope = bump!.innerTransaction
+    const bump = onlySent(requests)
+    const envelope = bump.innerTransaction
     expect(submitted).toEqual({
       success: true,
       data: {
         transactionHash: toHex(envelope.hash()),
-        feeBumpHash: toHex(bump!.hash()),
+        feeBumpHash: toHex(bump.hash()),
         ledger: 9,
         settledAt: 1_793_000_000_000,
       },
@@ -95,9 +101,9 @@ describe('submitAsPlatform', () => {
         envelope.signatures.some(({ signature }) => keypair.verify(envelope.hash(), signature)),
       ),
     ).toEqual([true, true, true])
-    expect(bump!.feeSource).toBe(SPONSOR.publicKey())
-    expect(Number(bump!.fee)).toBe(Number(envelope.fee) + Number(BASE_FEE))
-    expect(bump!.signatures.map(({ signature }) => SPONSOR.verify(bump!.hash(), signature))).toEqual([true])
+    expect(bump.feeSource).toBe(SPONSOR.publicKey())
+    expect(Number(bump.fee)).toBe(Number(envelope.fee) + Number(BASE_FEE))
+    expect(bump.signatures.map(({ signature }) => SPONSOR.verify(bump.hash(), signature))).toEqual([true])
   })
 
   it('simulates a contract call and submits it with the resources the network asked for', async () => {
@@ -111,8 +117,8 @@ describe('submitAsPlatform', () => {
     })
 
     expect(submitted.success).toBe(true)
-    const [bump] = sentEnvelopes(requests)
-    expect(Number(bump!.innerTransaction.fee)).toBe(Number(BASE_FEE) + 1234)
+    const bump = onlySent(requests)
+    expect(Number(bump.innerTransaction.fee)).toBe(Number(BASE_FEE) + 1234)
   })
 
   it('reads the sequence again and resubmits when the chain refuses a stale one', async () => {
@@ -215,10 +221,10 @@ describe('submitSigned', () => {
     const submitted = await relay().submitSigned({ envelope, signatures: [signedByOfficer(hash)], platformSigners: PLATFORM })
 
     expect(submitted.success).toBe(true)
-    const [bump] = sentEnvelopes(requests)
-    const sent = bump!.innerTransaction
+    const bump = onlySent(requests)
+    const sent = bump.innerTransaction
     expect([OFFICER, CHANNEL].map((keypair) => sent.signatures.some(({ signature }) => keypair.verify(sent.hash(), signature)))).toEqual([true, true])
-    expect(bump!.feeSource).toBe(SPONSOR.publicKey())
+    expect(bump.feeSource).toBe(SPONSOR.publicKey())
   })
 
   it('sends nothing and reports the outcome when the envelope already landed', async () => {

@@ -1,4 +1,4 @@
-# TypeScript SDK checks. Owned by the BWB team; moved here unchanged from the
+# TypeScript SDK checks: typecheck, build and the test suite of @bwb/stellar-sdk.
 name: sdk
 
 on:

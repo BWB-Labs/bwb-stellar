@@ -73,7 +73,7 @@ A channel is leased to one envelope at a time, so concurrent envelopes never sha
 | `offer-sale` WASM hash | `3abb426caf7d60217c29f96bd2dd73acf60fd636f88c67f686967613acfa34d9` |
 | Signing window | 180 seconds for a user's signature |
 
-Every key above is held by Privy. None is stored by BWB.
+The sponsor, the channels and the deployer are keys Privy holds. BWB stores none of them.
 
 ## Reproduce
 

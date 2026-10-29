@@ -6,7 +6,7 @@ Everything runs on Stellar testnet. The source release is tag `t1` on `main`, co
 
 ## The SDK
 
-D1 is delivered as [`@bwb/stellar-sdk`](../../sdk), the Stellar transaction layer of BWB's platform. Every Stellar flow the platform runs goes through it: setting up an investor's wallet, creating an organization's treasury, changing its signers, and deploying an offering.
+D1 is delivered as [`@bwb/stellar-sdk`](../../sdk), the Stellar transaction layer of BWB's platform. Four flows go through it: setting up an investor's wallet, creating an organization's treasury, changing its signers, and deploying an offering.
 
 | Scope part | Module | What it does |
 |---|---|---|
@@ -17,7 +17,7 @@ D1 is delivered as [`@bwb/stellar-sdk`](../../sdk), the Stellar transaction laye
 | Treasury signers | [`treasury`](../../sdk/src/treasury.ts) | Adds and removes a treasury's officers and moves its thresholds, through envelopes the current officers sign. |
 | Offering deployment | [`offering`](../../sdk/src/offering.ts), [`soroban`](../../sdk/src/soroban.ts) | Derives an offering's contract addresses and the digest its officers sign, then deploys the token and sale contracts of Deliverable 2, grants the sale its allowlist role and activates it. |
 
-Three parties sign. An investor or an officer signs in the browser with their Privy embedded wallet, behind the multi-factor authentication Privy enforces on every use of that key. An organization's treasury is a native Stellar multisig whose signers are its officers' own keys, with the master key disabled. The platform signs through keys Privy also holds: the sponsor, five channel accounts and the deployer. The SDK's [README](../../sdk/README.md) documents each module, the failure codes and the testnet configuration.
+Three parties sign. An investor or an officer signs in the browser with their Privy embedded wallet. Once a user has enrolled in multi-factor authentication, Privy enforces it on every use of that key, and the platform requires enrollment before any treasury action. An organization's treasury is a native Stellar multisig whose signers are its officers' own keys, with the master key disabled. The platform signs through keys Privy also holds: the sponsor, five channel accounts and the deployer. The SDK's [README](../../sdk/README.md) documents each module, the failure codes and the testnet configuration.
 
 ## Criterion 1 — met ✅
 
@@ -62,7 +62,7 @@ The suites run against a stubbed Stellar RPC, so they need neither network acces
 | | |
 |---|---|
 | Video | `TODO(video 1: treasury provisioning)` |
-| Account | [`GD53ISTA…EOLCPJ`](https://stellar.expert/explorer/testnet/account/GD53ISTANEJSWPW5TMVB3T4MXR6KHXDUALQCJUT47SKER546CQEOLCPJ): two officers at weight 1, every threshold 2, master key weight 0 |
+| Account | `TODO(treasury from video 1)`: its officers at weight 1, every threshold at the treasury's, master key weight 0 |
 | Creation | `TODO(creation hash from video 1)` |
 
 **Treasury signers.** An officer proposes a signer change, the current officers sign its envelope, and it executes once the threshold is met.
@@ -70,8 +70,10 @@ The suites run against a stubbed Stellar RPC, so they need neither network acces
 | | |
 |---|---|
 | Video | `TODO(video 2: managing signers)` |
+| Treasury | `TODO(treasury from video 2)` |
 | Signer added, thresholds raised | `TODO(hash from video 2)` |
-| Signer removed, thresholds lowered to 1 | [`3190667e…`](https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a) |
+| Signer removed, thresholds lowered | `TODO(hash from video 2)` |
+| An earlier signer removal | [`3190667e…`](https://stellar.expert/explorer/testnet/tx/3190667ed8ef835d64ad8f07c46356f325e1edc2e9efdfe0d2be15afd019626a), on treasury [`GCDF7SCT…NQXDSGHZ`](https://stellar.expert/explorer/testnet/account/GCDF7SCTOZFESDHDNKXUTSOVV6JPYHQPQD7YHFFFHBW4JGBBNQXDSGHZ), back to one officer at threshold 1 |
 
 **Offering deployment.** The treasury's officers sign the digest of an offering's terms, and the platform deploys its contracts under those terms in four transactions: token, sale, allowlist grant and activation.
 
