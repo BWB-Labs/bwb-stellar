@@ -26,6 +26,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATASET_VERSION = "1.2.0"
 CONTRACT_ID = re.compile(r"\bC[A-Z2-7]{55}\b")
+LABEL = re.compile(r"[A-Za-z0-9_. -]+")
 EVENTS_PATH = "/webhooks/goldsky/events"
 HEARTBEAT_PATH = "/webhooks/goldsky/heartbeat"
 
@@ -92,8 +93,13 @@ def collect_contracts(manifest):
     seen = {}
 
     def add(contract_id, kind, label):
-        if contract_id and contract_id not in seen:
-            seen[contract_id] = (kind, label)
+        if not contract_id or contract_id in seen:
+            return
+        if not CONTRACT_ID.fullmatch(contract_id):
+            sys.exit(f"{label}: {contract_id!r} is not a contract id")
+        if not LABEL.fullmatch(label):
+            sys.exit(f"manifest key {label!r} has characters the rendered YAML cannot carry")
+        seen[contract_id] = (kind, label)
 
     for offering, parts in manifest.get("offerings", {}).items():
         for part, contract in parts.items():
