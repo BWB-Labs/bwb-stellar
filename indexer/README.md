@@ -53,8 +53,9 @@ The backend answers:
 | 500 | token not configured, or the write failed | retries forever |
 
 A row the decoder cannot read is still stored, with its raw topics and data and
-the reason, and counted as `undecodable` on the delivery; the backend repairs
-it with a migration once the decoder is fixed. The pipeline never has to replay
+the reason, and counted as `undecodable` on the delivery; once the decoder is
+fixed, `bunx convex run contractEvents:redecode` on the deployment re-reads
+every row below the current decoder version. The pipeline never has to replay
 for a decoder defect.
 
 ## Setup
@@ -124,20 +125,21 @@ A `live` feed whose last heartbeat ledger is far behind the chain is still
 backfilling. The backend logs one error line, `contract event feed is stale`,
 when the feed goes stale, and one warning when it comes back.
 
-In the Convex dashboard, `contractEvents` holds the rows, and
-`contractEventDeliveries` one row per batch with the ledger range it covered,
-which is how to check for gaps after an incident.
+The rows live in the `contractEvents` component of the deployment (dashboard:
+switch to that component): `events` holds the rows, `deliveries` one row per
+batch with the ledger range it covered, which is how to check for gaps after an
+incident, and `feeds` the liveness record the health route reports.
 
 ## Verify a deploy
 
 1. `goldsky turbo list` shows the pipeline `Running`.
 2. The health route reports a heartbeat within an hour of the pipeline reaching
    the chain head; during a backfill the heartbeat ledger climbs.
-3. Row count: the `contractEvents` table holds one row per event the contracts
+3. Row count: the component's `events` table holds one row per event the contracts
    emitted in the range. For the first testnet run the count at ledger 5453432
    was 163 events on the 15 contracts the POC filtered, plus the events of the
    three addresses the manifest references only in constructor arguments.
-4. Duplicates: `contractEventDeliveries` rows show `duplicates` only when
+4. Duplicates: `deliveries` rows show `duplicates` only when
    Goldsky redelivered, and the sum of `inserted` equals the table's row count.
    `undecodable` should be 0 on every row; a non-zero count is a decoder gap to
    fix in the backend, not a pipeline problem.
@@ -184,9 +186,9 @@ testnet contract events describe a chain that no longer exists.
 2. After the reset, redeploy the contracts with `scripts/deploy.sh`; the
    manifest `deployments/testnet.json` is rewritten with the new ids.
 3. On the testnet Convex deployment, from the backend repository's `app/`,
-   run `bunx convex run contractEvents:clearTestnet` until it reports
-   `finished: true` (it deletes in batches and reschedules itself; it refuses
-   to run on a mainnet deployment). The rows have no value once their contracts
+   run `bunx convex run contractEvents:clearTestnet` (it deletes in batches,
+   rescheduling itself until `done: true`; it refuses to run on a mainnet
+   deployment). The rows have no value once their contracts
    are gone; nothing else references them.
 4. Re-render with `--start-at` just before the first new deploy ledger (or
    `earliest`), validate, then `goldsky turbo apply` and
