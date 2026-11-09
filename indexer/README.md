@@ -49,8 +49,13 @@ The backend answers:
 | 200 | batch written (or already held) | moves the checkpoint |
 | 401 | bad or missing token | fails the pipeline |
 | 400 | body is not rows | fails the pipeline |
-| 422 | wrong chain environment, or a row the decoder cannot read | fails the pipeline |
+| 422 | wrong chain environment | fails the pipeline |
 | 500 | token not configured, or the write failed | retries forever |
+
+A row the decoder cannot read is still stored, with its raw topics and data and
+the reason, and counted as `undecodable` on the delivery; the backend repairs
+it with a migration once the decoder is fixed. The pipeline never has to replay
+for a decoder defect.
 
 ## Setup
 
@@ -134,6 +139,8 @@ which is how to check for gaps after an incident.
    three addresses the manifest references only in constructor arguments.
 4. Duplicates: `contractEventDeliveries` rows show `duplicates` only when
    Goldsky redelivered, and the sum of `inserted` equals the table's row count.
+   `undecodable` should be 0 on every row; a non-zero count is a decoder gap to
+   fix in the backend, not a pipeline problem.
 5. Checkpoint: re-run `render` with no change and `apply` again; `goldsky turbo
    get` shows the same state, and no delivery covers ledgers already held.
 
@@ -176,10 +183,11 @@ testnet contract events describe a chain that no longer exists.
 1. Pause the pipeline before the reset: `goldsky turbo pause bwb-stellar-testnet`.
 2. After the reset, redeploy the contracts with `scripts/deploy.sh`; the
    manifest `deployments/testnet.json` is rewritten with the new ids.
-3. On the testnet Convex deployment, clear the three tables `contractEvents`,
-   `contractEventDeliveries` and `contractEventFeeds` (dashboard, or
-   `bunx convex import --table <name> --replace` with an empty file). The rows
-   have no value once their contracts are gone; nothing else references them.
+3. On the testnet Convex deployment, from the backend repository's `app/`,
+   run `bunx convex run contractEvents:clearTestnet` until it reports
+   `finished: true` (it deletes in batches and reschedules itself; it refuses
+   to run on a mainnet deployment). The rows have no value once their contracts
+   are gone; nothing else references them.
 4. Re-render with `--start-at` just before the first new deploy ledger (or
    `earliest`), validate, then `goldsky turbo apply` and
    `goldsky turbo restart bwb-stellar-testnet --clear-state`.
