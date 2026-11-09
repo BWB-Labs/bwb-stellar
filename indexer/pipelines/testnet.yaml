@@ -81,7 +81,7 @@ sinks:
   convex_events:
     type: webhook
     from: bwb_contract_events
-    url: https://placeholder.convex.site/webhooks/goldsky/events
+    url: https://tacit-salamander-999.convex.site/webhooks/goldsky/events
     secret_name: BWB_GOLDSKY_WEBHOOK
     one_row_per_request: false
     batch_size: 100
@@ -89,7 +89,7 @@ sinks:
   convex_heartbeat:
     type: webhook
     from: heartbeat
-    url: https://placeholder.convex.site/webhooks/goldsky/heartbeat
+    url: https://tacit-salamander-999.convex.site/webhooks/goldsky/heartbeat
     secret_name: BWB_GOLDSKY_WEBHOOK
     one_row_per_request: false
     batch_size: 10
