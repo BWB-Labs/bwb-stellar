@@ -17,8 +17,9 @@ performed yet.
 | `docs/` | Backend ↔ contracts interface document and one doc per contract | contracts |
 | `sdk/` | `@bwb/stellar-sdk`: wallet provisioning, sponsored reserves, channel-sourced and fee-bumped envelopes, treasury multisigs, offering deployment ([docs](sdk/README.md)) | BWB team |
 | `audit/` | Placeholder for audit reports | BWB team |
+| `indexer/` | Contract event pipeline: render script, rendered YAML per network, deploy guide ([docs](indexer/README.md)) | BWB team |
 
-`indexer/` is reserved for the contract-event indexer in a later tranche.
+`indexer/` holds the Goldsky pipeline that delivers the contracts' events to the backend, and its operating guide ([docs](indexer/README.md)).
 
 ### Contracts
 
