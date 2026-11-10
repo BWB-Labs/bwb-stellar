@@ -22,7 +22,10 @@ with the reasoning in that repository's ADR 0022 and ADR 0023.
 
 ## How it works
 
-One pipeline per network, two streams in it, one worker, one checkpoint:
+One pipeline per network, two streams in it, one worker, and one checkpoint
+that moves only when both sinks have acknowledged. The two streams read the
+chain at their own pace, so the heartbeat reaching the chain head does not by
+itself mean the events have:
 
 - **Contract events.** `stellar_<network>.events` filtered in SQL to the
   contracts the manifest references: every deployed offering token and sale,
@@ -43,8 +46,9 @@ manager passes it on with the body, unchanged.
 
 **What Goldsky sees.** Only the manager. It answers 200 as soon as a batch is
 queued, and the pipeline's checkpoint moves then, before any backend holds the
-rows. A wrong hook secret in the address answers 401, which fails the pipeline;
-a manager that is down is retried forever.
+rows. The manager answers 401 to a wrong hook secret in the address and 404 to
+a path it does not know; Goldsky fails the pipeline on any 4xx except 408 and
+429, and that stops both streams. A manager that is down is retried forever.
 
 **What the manager sees.** Each backend deployment answers:
 
@@ -73,7 +77,8 @@ for a decoder defect.
 Done once per network. Accounts, cards and team membership are a person's to
 create; the rest is CLI.
 
-1. **Goldsky.** Install the CLI (`curl https://goldsky.com | sh`), `goldsky login`
+1. **Goldsky.** Install the CLI (`curl https://goldsky.com | sh`) and its Turbo
+   extension (`curl https://install-turbo.goldsky.com | sh`), then `goldsky login`
    with the team's token. The Starter plan runs one pipeline at a time, size
    `xs` or `s`, within 750 free worker-hours a month; `xs` uses half a worker.
    `goldsky project list` shows the active project.
@@ -135,9 +140,15 @@ file with only the address replaced. Anyone with access to the Goldsky project
 can read the address from the pipeline's definition, so that access is as
 sensitive as the hook secret.
 
-`--start-at` is a ledger sequence, `earliest` or `latest`. Goldsky keeps the
-dataset's full history, so a ledger number backfills from there; 5177900 is
-just before the first testnet deploy (ledger 5177957, 13 Oct 2026).
+`--start-at` is a ledger sequence, `earliest` or `latest`, and rendering
+requires it. Goldsky keeps the dataset's full history, so a ledger number
+backfills from there; 5177900 is just before the first testnet deploy (ledger
+5177957, 13 Oct 2026). It is also where a replay starts, so every re-render
+passes the value the committed file already has, unless the replay origin is
+meant to move.
+
+`--fill` only copies the committed file: it refuses to be combined with a
+render flag, and it writes only to a path ending in `.local.yaml`.
 
 `apply` is an upsert: applying a changed YAML under the same `name` keeps the
 pipeline's checkpoint and continues from it. Only `restart --clear-state`
@@ -145,11 +156,17 @@ replays. Flags of the render script: `--heartbeat-every` (ledgers between
 heartbeats, 720), `--resource-size` (`xs`), `--name` (`bwb-stellar-<network>`),
 `--secret-name` (`BWB_GOLDSKY_WEBHOOK`), `--out`, and `--fill`.
 
+Goldsky keys the checkpoint on the pipeline's name and the names of its two
+sources. Never rename them: a rename is a replay from `start_at`. If
+`goldsky turbo list` still shows `error` after an apply, run
+`goldsky turbo restart bwb-stellar-testnet`.
+
 ## Watch
 
 ```bash
-goldsky turbo list                         # STATUS column: Running, Paused, Failed
-goldsky turbo get bwb-stellar-testnet      # definition and state
+goldsky turbo list                         # STATUS column: running, paused, error
+goldsky turbo get bwb-stellar-testnet      # the definition as applied
+goldsky turbo state list bwb-stellar-testnet   # where each source's checkpoint is
 goldsky turbo logs bwb-stellar-testnet     # errors reaching the manager appear here
 curl https://<deployment>.convex.site/webhooks/goldsky/health
 bunx convex logs                           # from the backend's webhooks-manager/: batches a backend did not take
@@ -176,9 +193,11 @@ incident, and `feeds` the liveness record the health route reports.
 
 ## Verify a deploy
 
-1. `goldsky turbo list` shows the pipeline `Running`.
+1. `goldsky turbo list` shows the pipeline `running`.
 2. The health route reports a heartbeat within an hour of the pipeline reaching
-   the chain head; during a backfill the heartbeat ledger climbs.
+   the chain head; during a backfill the heartbeat ledger climbs. The heartbeat
+   follows the ledgers stream only: the events stream has caught up when
+   `goldsky turbo state list` shows both sources near the chain head.
 3. Row count: the component's `events` table holds one row per event the contracts
    emitted in the range. For the first testnet run the count at ledger 5453432
    was 163 events on the 15 contracts the POC filtered, plus the events of the
@@ -188,7 +207,8 @@ incident, and `feeds` the liveness record the health route reports.
    `undecodable` should be 0 on every row; a non-zero count is a decoder gap to
    fix in the backend, not a pipeline problem.
 5. Checkpoint: re-run `render` with no change and `apply` again; `goldsky turbo
-   get` shows the same state, and no delivery covers ledgers already held.
+   state list` shows the same positions, and no delivery covers ledgers already
+   held.
 
 ## When a batch did not land
 
@@ -207,11 +227,21 @@ the listener's name, and keeps the batch seven days.
 
 ## Redeploy a contract
 
-After `scripts/deploy.sh` writes the new contract to the manifest: re-render,
-commit, fill, validate, apply. The checkpoint is kept; the new contract's events are picked
-up from the pipeline's current position, which is at the chain head once the
-backfill is done. A contract deployed and used before the pipeline next reads
-the chain is still covered: Goldsky reads every ledger in order.
+After `scripts/deploy.sh` writes the new contract to the manifest: re-render
+with the committed file's `--start-at`, commit, fill, validate, apply. The
+checkpoint is kept, so the new filter applies only from the pipeline's current
+position. A pipeline that has caught up already read the deploy ledger with the
+old filter, so the new contract's first events were not delivered: the ones its
+constructor emits, and anything it did before the apply.
+
+Recover them with a replay, right after the apply:
+
+```bash
+goldsky turbo restart bwb-stellar-testnet --clear-state
+```
+
+It reads again from `start_at`. Every listener keeps the rows it lacks and
+counts the rest as duplicates, so the replay is safe.
 
 ## Pause, resume, replay, stop
 
