@@ -55,10 +55,10 @@ a path it does not know; Goldsky fails the pipeline on any 4xx except 408 and
 | Status | Meaning | Manager |
 |---|---|---|
 | 200 | batch written (or already held) | done |
-| 401 | bad or missing token | retries, then keeps the batch |
+| 401 | bad or missing token, or the backend has no token configured | retries, then keeps the batch |
 | 400 | body is not rows | retries, then keeps the batch |
 | 422 | wrong chain environment | retries, then keeps the batch |
-| 500 | token not configured, or the write failed | retries, then keeps the batch |
+| 500 | the write failed | retries, then keeps the batch |
 
 The manager retries a backend 11 times over about 17 minutes. After that the
 batch is logged and kept seven days as a failed delivery, to be replayed by hand
@@ -103,7 +103,7 @@ create; the rest is CLI.
    repository's ADR 0011): `mainnet` on production, `testnet` everywhere else.
    Confirm the routes answer: `curl https://<deployment>.convex.site/webhooks/goldsky/health`
    returns 503 with `"live": false` until the first delivery, which is correct.
-   A listener without the token answers 500 to every batch and fills the
+   A listener without the token answers 401 to every batch and fills the
    manager's failed deliveries.
 5. `rm /tmp/goldsky-token`, and keep the token in the team's password manager:
    every new listener needs it.
