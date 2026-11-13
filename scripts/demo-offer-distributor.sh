@@ -9,8 +9,9 @@
 # The distributor of offering `t1-demo-4` from deployments/testnet.json.
 # The run walks: a distribution to two investors, the read that says it was
 # paid, the same id refused, a stranger refused, a correction under a new
-# id, a pause with a refused distribution, and a list with a recipient that
-# has no trustline, which fails in simulation and pays nobody.
+# id, a pause with a refused distribution, a list with a recipient that has
+# no trustline, which fails in simulation and pays nobody, and a payout to
+# the asset's own contract, refused.
 #
 # A distribution id is paid once for the life of the contract, so every run
 # derives fresh ids from RUN (the current time by default), the way the
@@ -145,6 +146,7 @@ FIRST="$(dist_id 1)"
 CORRECTION="$(dist_id 2)"
 PAUSED="$(dist_id 3)"
 NO_TRUSTLINE="$(dist_id 4)"
+TO_ASSET="$(dist_id 5)"
 
 echo "offering $OFFERING: distributor $DISTRIBUTOR ($EXPLORER/contract/$DISTRIBUTOR), run $RUN"
 read_fn "$DISTRIBUTOR" powers
@@ -205,6 +207,11 @@ fi
 grep -q 'Error(Contract, #13)' <<<"$out" || { echo "$out" >&2; exit 1; }
 echo "simulation failed with Error(Contract, #13) TrustlineMissingError; nothing was sent"
 expect_paid "$NO_TRUSTLINE" false
+
+step "10. A payout to the asset's own contract would be stranded there (6306 InvalidRecipient)"
+rejected bwb-testnet-treasury 6306 distribute --id "$TO_ASSET" --asset "$USDC" \
+  --payouts "$(payouts "$INV_A" 1 "$USDC" 1)" --caller "$TREASURY" \
+  -- "$(paid_key "$TO_ASSET")"
 
 step "After the run"
 balances
