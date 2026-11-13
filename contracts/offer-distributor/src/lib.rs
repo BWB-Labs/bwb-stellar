@@ -77,8 +77,9 @@ impl OfferDistributor {
     /// owner's own account, in this call or not at all. Owner only (6300).
     /// The list holds 1 to `MAX_PAYOUTS` payouts (6303, 6304), `id` was
     /// never paid before (6307), each amount is positive (6305), no payout
-    /// goes to the distributor itself (6306) and the amounts fit an `i128`
-    /// together (6308). The same recipient may be listed more than once.
+    /// goes to the distributor itself or to the asset's own contract (6306)
+    /// and the amounts fit an `i128` together (6308). The same recipient
+    /// may be listed more than once.
     ///
     /// The owner's authorization must cover this call and each `transfer`
     /// the asset makes in its name; a recipient the asset refuses fails
@@ -108,7 +109,7 @@ impl OfferDistributor {
             if payout.amount <= 0 {
                 panic_with_error!(e, OfferDistributorError::NonPositiveAmount);
             }
-            if payout.recipient == me {
+            if payout.recipient == me || payout.recipient == asset {
                 panic_with_error!(e, OfferDistributorError::InvalidRecipient);
             }
             total = match total.checked_add(payout.amount) {

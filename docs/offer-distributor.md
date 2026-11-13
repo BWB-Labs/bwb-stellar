@@ -73,7 +73,7 @@ There is nothing else to configure: no asset, no name, no limits. The constructi
 2. `caller` signed and is the owner (6300).
 3. The list is not empty (6303) and holds at most 30 payouts (6304).
 4. `id` was never paid (6307).
-5. Every amount is positive (6305), no payout goes to the distributor itself (6306), and the amounts fit an `i128` together (6308).
+5. Every amount is positive (6305), no payout goes to the distributor itself or to the asset's own contract (6306), and the amounts fit an `i128` together (6308).
 
 Then it records the id and makes the transfers. A transfer the asset refuses fails the call with the asset's own code and undoes everything, the id's record included, so the same id can be sent again once the list is fixed.
 
@@ -131,7 +131,7 @@ Also emitted, by the asset the distributor calls: one `transfer` from the owner 
 | 6303 | `EmptyBatch` | A distribution with no payouts |
 | 6304 | `BatchTooLarge` | More than 30 payouts |
 | 6305 | `NonPositiveAmount` | A payout of zero or less |
-| 6306 | `InvalidRecipient` | A payout to the distributor itself |
+| 6306 | `InvalidRecipient` | A payout to the distributor itself, or to the asset's own contract, where it would be stranded |
 | 6307 | `AlreadyPaid` | The id was already paid |
 | 6308 | `AmountOverflow` | The amounts add up to more than an `i128` holds |
 
@@ -160,7 +160,7 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 | Module | Covers |
 |---|---|
 | `authorization` | A signed wrong caller per privileged call gets the power's code, a funded stranger included, with the pauser and the upgrader as different accounts so neither passes for the other; an unsigned call fails at authorization; the reads with no auths at all; the owner's exact authorization with one `transfer` per payout; a signature for one list does not pay another; a signature without the transfers, or missing one, moves nothing; an asset that asks for more than was signed gets nothing, and gets paid under a recorded tree |
-| `boundary` | 30 payouts and the 31st; an empty list; zero and negative amounts, `i128::MIN` included; one stroop; the largest amounts, which reach the asset and fail there; a payout to the distributor itself; a recipient listed twice; the owner listing itself; an id of all zeros; amounts that overflow together; the distributor's balance stays zero; a full distribution to classic accounts measured against the network limits, with its 33 write entries |
+| `boundary` | 30 payouts and the 31st; an empty list; zero and negative amounts, `i128::MIN` included; one stroop; the largest amounts, which reach the asset and fail there; a payout to the distributor itself or to the asset's own contract; a recipient listed twice; the owner listing itself; an id of all zeros; amounts that overflow together; the distributor's balance stays zero; a full distribution to classic accounts measured against the network limits, with its 33 write entries |
 | `pause` | A paused distributor blocks `distribute` until the owner unpauses; the owner may pause too; the reads answer while paused; OpenZeppelin's 1000 and 1001 |
 | `idempotency` | The same distribution sent twice pays once; a paid id is refused with another list or asset; a correction as a new id; a failed call and a refused call leave their id unpaid; ids are separate per distributor; an id stays paid and refused after its entry's lifetime ran out |
 | `failure` | A frozen recipient, a recipient without a trustline and a recipient account that does not exist each fail the whole distribution with the asset's code, and it passes once the list is fixed; an owner without enough balance and a frozen owner pay nobody; an asset address with no token behind it, the distributor's own included; an asset that moves nothing still records the distribution; an asset that calls back into the distributor; the first rule broken is the one reported; one distributor paying in two assets |

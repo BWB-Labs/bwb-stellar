@@ -19,7 +19,8 @@ pub enum OfferDistributorError {
     BatchTooLarge = 6304,
     /// A payout whose amount is not positive.
     NonPositiveAmount = 6305,
-    /// A payout to the distributor itself: it never holds money.
+    /// A payout to the distributor itself, which never holds money, or to
+    /// the asset's own contract, where the amount would be stranded.
     InvalidRecipient = 6306,
     /// The distribution id was already paid. A correction is a new
     /// distribution with a new id.

@@ -96,6 +96,20 @@ fn the_distributor_itself_cannot_be_a_recipient() {
     assert_eq!(s.usdc.balance(&s.alice), 0);
 }
 
+/// An amount paid to the asset's own contract would sit there for good,
+/// which no distribution means.
+#[test]
+fn the_asset_contract_cannot_be_a_recipient() {
+    let s = setup();
+    assert_eq!(
+        err(s.try_distribute(1, &[(&s.alice, USDC), (&s.usdc.address, USDC)])),
+        OfferDistributorError::InvalidRecipient.into()
+    );
+    assert_eq!(s.usdc.balance(&s.usdc.address), 0);
+    assert_eq!(s.usdc.balance(&s.alice), 0);
+    assert!(!s.client.is_paid(&s.dist(1)));
+}
+
 #[test]
 fn a_recipient_listed_twice_is_paid_twice() {
     let s = setup();
