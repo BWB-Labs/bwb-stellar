@@ -10,12 +10,13 @@
 #             Defaults to bwb-testnet-deployer on testnet only; every other
 #             network requires it explicitly.
 #   OFFERING  offering identifier, required for the per-offering crates
-#             (offer-token, offer-sale). The contract is deployed at the
-#             address derived from SOURCE and a salt built from it (see
-#             scripts/lib/offering.sh), and recorded under
-#             offerings.<id> in the manifest together with its sibling's
-#             precomputed address. Global crates (offer-allowlist) take no
-#             OFFERING and are recorded under contracts.
+#             (offer-token, offer-sale, offer-distributor). The contract is
+#             deployed at the address derived from SOURCE and a salt built
+#             from it (see scripts/lib/offering.sh), and recorded under
+#             offerings.<id> in the manifest; a token or a sale is recorded
+#             together with its sibling's precomputed address. Global crates
+#             (offer-allowlist) take no OFFERING and are recorded under
+#             contracts.
 #
 # Example, an offering's token minting to its sale's future address:
 #   SALE=$(scripts/offering-addresses.sh aurora-01 | jq -r .sale.contract_id)
@@ -86,11 +87,17 @@ cli() {
 cd "$ROOT"
 
 if [[ -n "$SALT" ]]; then
-  SIBLING_ROLE="$([[ "$ROLE" == token ]] && echo sale || echo token)"
-  SIBLING_SALT="$(offering_salt "$OFFERING" "$SIBLING_ROLE")"
   EXPECTED_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SALT")"
-  SIBLING_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SIBLING_SALT")"
-  echo ">> offering $OFFERING: $ROLE at $EXPECTED_ID, $SIBLING_ROLE at $SIBLING_ID"
+  SIBLING_ROLE="$(sibling_role "$ROLE")"
+  SIBLING_SALT=""
+  SIBLING_ID=""
+  if [[ -n "$SIBLING_ROLE" ]]; then
+    SIBLING_SALT="$(offering_salt "$OFFERING" "$SIBLING_ROLE")"
+    SIBLING_ID="$(cli offering_address "$NETWORK" "$SOURCE" "$SIBLING_SALT")"
+    echo ">> offering $OFFERING: $ROLE at $EXPECTED_ID, $SIBLING_ROLE at $SIBLING_ID"
+  else
+    echo ">> offering $OFFERING: $ROLE at $EXPECTED_ID"
+  fi
 
   # The manifest is the memory of what this offering's addresses are. If it
   # already names this role's address or the sibling's and we compute a
@@ -102,6 +109,8 @@ path, offering, role, cid, sib_role, sib_id = sys.argv[1:]
 m = json.load(open(path)) if os.path.exists(path) else {}
 o = m.get("offerings", {}).get(offering, {})
 for r, expected in ((role, cid), (sib_role, sib_id)):
+    if not r:
+        continue  # a role with no sibling
     recorded = o.get(r, {}).get("contract_id")
     if recorded and recorded != expected:
         print(f"mismatch {r} recorded {recorded} computed {expected}"); sys.exit(0)
@@ -233,7 +242,7 @@ if env["M_OFFERING"]:
     offering = m.setdefault("offerings", {}).setdefault(env["M_OFFERING"], {})
     offering[env["M_ROLE"]] = {"status": "deployed", "salt": env["M_SALT"], **record}
     sibling = offering.get(env["M_SIBLING_ROLE"])
-    if not sibling or sibling.get("status") != "deployed":
+    if env["M_SIBLING_ROLE"] and (not sibling or sibling.get("status") != "deployed"):
         offering[env["M_SIBLING_ROLE"]] = {
             "status": "precomputed",
             "salt": env["M_SIBLING_SALT"],

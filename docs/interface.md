@@ -2,16 +2,17 @@
 
 | | |
 |---|---|
-| Version | 1.0 |
-| Status | Tranche 1 delivered; under review ([#26](https://github.com/BWB-Labs/bwb-stellar/issues/26)) |
-| Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1) |
-| Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
+| Version | 1.1 |
+| Status | Tranche 1 delivered; under review ([#26](https://github.com/BWB-Labs/bwb-stellar/issues/26)). `offer-distributor` added in Tranche 2 ([#28](https://github.com/BWB-Labs/bwb-stellar/issues/28)) |
+| Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1); `offer-distributor` (Tranche 2) |
+| Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2; mainnet on protocol 29, testnet on 30 |
 
 This document defines how the BWB backend works with the Soroban contracts that carry BWB's offerings on Stellar. Each contract has its own document with its calls, events and errors:
 
 - [offer-token.md](offer-token.md): the investor's quota token, one per offering.
 - [offer-allowlist.md](offer-allowlist.md): who may invest and up to how much, one for the whole platform.
 - [offer-sale.md](offer-sale.md): escrow and lifecycle of one offering.
+- [offer-distributor.md](offer-distributor.md): a list of recipients paid in one call from the owner's account, one per offering (Tranche 2).
 
 ## Contents
 
@@ -142,9 +143,10 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 | admin (stored address) | `offer-token` | tokenizer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
 | `xfer_admin` (stored address, fixed at construction) | `offer-token` | tokenizer's treasury | move tokens between any two accounts, even while paused |
 | owner (stored address) | `offer-sale` | tokenizer's treasury | close, reopen, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
+| owner (stored address) | `offer-distributor` | the treasury that pays, chosen at deploy | distribute from its own account, pause and unpause |
 | access-control admin | `offer-allowlist` | platform multisig | grant and revoke the roles below; it is also the only upgrader (ADR 0008), and it can never renounce |
-| `pauser` (stored address) | `offer-token`, `offer-sale` | platform multisig | pause only, never unpause (ADR 0003, flagged for the team) |
-| `upgrader` (stored address) | `offer-token`, `offer-sale`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
+| `pauser` (stored address) | `offer-token`, `offer-sale`, `offer-distributor` | platform multisig | pause only, never unpause (ADR 0003, flagged for the team) |
+| `upgrader` (stored address) | `offer-token`, `offer-sale`, `offer-distributor`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
 | `allocator` | `offer-allowlist` | platform hot key | write allocations; grant and revoke `sale`. Granted only by the admin |
 | `sale` | `offer-allowlist` | each offering's `offer-sale` | consume room, nothing else. Restoring its own receipts needs no role, so revoking `sale` stops a sale contract's purchases, never its refunds |
 
@@ -221,7 +223,7 @@ The Base backend's layer, part by part, and what each part becomes.
 | Part | Base today | Stellar | Verdict |
 |---|---|---|---|
 | Who signs, who submits | The investor's Privy wallet signs a UserOp hash and the platform relays it through Notus; the investor pays gas in BRLA. A treasury's signers sign a Safe hash and the platform executes. | The investor or treasury signs a Soroban authorization, and BWB submits: pattern (B), recommended ([4.1](#41-two-patterns)). BWB pays every fee. | Same shape, new fee model |
-| Deploying an offering | One atomic batch of 11 calls through factories (token, sale and a per-offering TokenDistributor, plus seeding, wiring and three ownership transfers), approved in-app by the tokenizer's officers and driven by the backend | T1: the repository's deploy script, and the backend only registers addresses. T2: one call to the L8 factory, driven by the backend ([5.1](#51-deploying-an-offering)). Base's TokenDistributor has no counterpart in T1. | Changes |
+| Deploying an offering | One atomic batch of 11 calls through factories (token, sale and a per-offering TokenDistributor, plus seeding, wiring and three ownership transfers), approved in-app by the tokenizer's officers and driven by the backend | T1: the repository's deploy script, and the backend only registers addresses. T2: one call to the L8 factory, driven by the backend ([5.1](#51-deploying-an-offering)). Base's TokenDistributor has no counterpart in T1; T2 adds [`offer-distributor`](offer-distributor.md), deployed with each offering once the L8 factory exists. | Changes |
 | Allowlist writes | `setAllocations` after KYC, `resetConsumed` monthly | `set_allocations` after KYC and when compliance changes a limit. No reset and no periodic job: usage is counted per UTC month inside the contract (ADR 0007). The cap is in USDC stroops. Who converts it from the BRL limit, or whether a separate dollar limit applies, is pending the team ([3](#3-premises), [11](#11-open-points)). | Reset removed, new unit |
 | Investing | `approve` + `buyWithBrla` | One `buy`. The investor's authorization covers the USDC transfer inside it. | Simpler |
 | Finalize | `finalizeSale`, by the owner, at once | `close` by the owner (or the sell-out purchase), a Closing state while the cooling-off windows run out, then `finalize` by anyone into Successful; `close` needs the minimum, `cancel` is the only way to Failed; `reopen` from Closing | Changes |
@@ -444,8 +446,9 @@ The batch limits come from events, not storage. A transaction may carry at most 
 | `set_allocations` | one allowlist event | 30 |
 | `restore` (inside a cooling-off refund) | one `allocation_restored` per receipt | 20 receipts of one investor; an investor holds at most 20 live purchases |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 30 |
+| `distribute` (`offer-distributor`) | asset `transfer` + `distributed`, per payout, and one `distribution_completed` | 30 |
 
-The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 read on testnet ([R7](#r7-network-limits)); the SDK's bundled table of mainnet limits says 50, under which a refund fits about 12 one-purchase investors ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
+The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 both networks allow ([R7](#r7-network-limits)); the SDK's bundled table still says 50, which is out of date ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
 
 Each investor keeps their own event so that the backend's ledger can record one leg per account, which is how its `operations` table is shaped. Base's ledger has no intent kind for release, refund or cooling-off today; the backend team adds them.
 
@@ -571,10 +574,10 @@ Decided later. Each one changes this document through the changelog. The first r
 ## 12. Risks
 
 - **soroban-sdk 26.x is outside the SDK's security window.** The SDK patches only its two newest major versions, which are 27 and 28. The contracts stay on 26.1 because OpenZeppelin 0.7.2, the latest stable release, requires it. The no-optional-fields rule and the versioned persistent structs keep the move to sdk 28 cheap.
-- **Both networks run protocol 29.** Network settings quoted here were read live on 2026-10-02 and re-read on 2026-10-06, and can change by network vote. Protocol constants change only with a protocol upgrade, and RPC defaults vary by provider ([R7](#r7-network-limits)). The current values are at [lab.stellar.org/network-limits](https://lab.stellar.org/network-limits).
+- **Mainnet runs protocol 29 and testnet 30** (2026-11-13). Network settings quoted here were read live on 2026-10-02 and re-read on 2026-10-06, the per-transaction limits again on 2026-11-13, and can change by network vote. Protocol constants change only with a protocol upgrade, and RPC defaults vary by provider ([R7](#r7-network-limits)). The current values are at [lab.stellar.org/network-limits](https://lab.stellar.org/network-limits).
 - **USDC is `AUTH_REVOCABLE`.** Circle's issuer account (mainnet and testnet) has `auth_revocable` set and clawback disabled. The Stellar Asset Contract applies issuer authorization to contract balances too, so Circle can deauthorize the sale contract's own USDC balance, not just an investor's. Refunds, cooling-off and payouts then fail with `Error(Contract, #11)` until it is reauthorized. Clawback is disabled today.
 - **The yield plan may press on the single-payment-asset premise.** The kickoff's option (a) for yield lets an offering pick an already-yielding token as its payment asset. The global cap in USDC stroops can't mix assets ([3](#3-premises)). Whether "swap de token" means paying with a yield token or swapping into USDC is pending André, Ariel and Matheus; confirm with Bruno.
-- **The SDK's bundled mainnet limits are stricter than the testnet settings this document quotes.** soroban-sdk 26.1's test host enforces 50 write entries and 100 footprint entries per invocation as mainnet's values; R7 quotes 200 and 400, read from testnet on 2026-10-20. If mainnet is at 50, a `refund` fits about 12 one-purchase investors and a `release` about 24, below the contract's limits of 16 and 30. The limits are upper bounds; the backend sizes every batch by simulation against the live network, and the measuring tests assert the documented values ([6.4](#64-batch-sizes)).
+- **Closed on 2026-11-13: mainnet's per-transaction limits are the testnet's.** `stellar network settings` on both networks gives 200 write entries, 200 disk-read entries, 400 footprint entries, 400 M instructions and 16,384 B of events. The risk recorded here in 1.0 was that soroban-sdk 26.1's test host enforces 50 write entries and 100 footprint entries as mainnet's values; that table is out of date, not the network stricter. The measuring tests still lift the host's check and assert the documented values, and the backend still sizes every batch by simulation ([6.4](#64-batch-sizes)).
 - **Dropping `snapshot` removes Base's planned NF-03 mitigation.** The audit response relies on `snapshot()` / `balanceOfAt()` as the record-date mechanism for holdings distributions, to be wired before any investor wallet is whitelisted. The Base app never calls them and the Stellar token has none. Any future pull distributor on Stellar needs its own record-date design.
 
 ---
@@ -659,6 +662,8 @@ A transaction may carry at most 16,384 bytes of events, including the call's ret
 | `released` | 188 B |
 | `refunded` `{paid, raised, reason, sold_tokens, tokens}` | 300 B (`cooling_off`), 296 B (`failed`) |
 | `payment_withdrawn` | 168 B |
+| `distributed` (3 topics) `{amount, asset}` | 260 B to a classic account, 256 B to a contract |
+| `distribution_completed` `{asset, count, total}` | 252 B |
 | `allocation_restored` (3 topics) `{amount, consumed, period, receipt}` | 292 B |
 | `allocation_consumed` (3 topics) `{amount, consumed, period, receipt}` | 292 B |
 | `allocation_set` `{caller, enabled, max}` | 240 B |
@@ -672,8 +677,9 @@ Per call:
 | `restore` (inside a cooling-off refund) | one `allocation_restored` per receipt | 292 B per receipt | 20 | 5,840 B | 64% |
 | `set_allocations` | one allowlist event | 240 B | 30 | about 7.2 KB | 56% |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 412 B | 30 | 12,360 B | 25% |
+| `distribute` | USDC `transfer` + `distributed`, per payout; `distribution_completed` once | 504 B, plus 252 B once | 30 | 15,372 B | 6% |
 
-The refund unit rule is sound because an investor's own two events (540 B) weigh less than two units (584 B), so a call's events never exceed 292 B × 48. The margins leave room for the additive rule ([6.1](#61-rules)).
+The refund unit rule is sound because an investor's own two events (540 B) weigh less than two units (584 B), so a call's events never exceed 292 B × 48. The margins leave room for the additive rule ([6.1](#61-rules)). `distribute` is the exception: its 30 is a cap accepted with little room, because going over the limit fails the call in simulation and loses nothing, and a field added to `distributed` lowers the cap in the same release ([offer-distributor.md](offer-distributor.md#calls)).
 
 ### R6. Error codes
 
@@ -684,6 +690,7 @@ Each contract's block:
 | `offer-token` | 6000–6099 |
 | `offer-allowlist` | 6100–6199 |
 | `offer-sale` | 6200–6299 |
+| `offer-distributor` | 6300–6399 |
 
 OpenZeppelin codes the backend will meet:
 
@@ -697,7 +704,7 @@ OpenZeppelin codes the backend will meet:
 | 2000 | `Unauthorized` | the caller lacks the role (contracts with OpenZeppelin access control) |
 | 2007 | `RoleNotHeld` | revoking a role the account doesn't hold (same) |
 
-`offer-token` and `offer-sale` never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token and 6222–6224 on the sale ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
+`offer-token`, `offer-sale` and `offer-distributor` never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token, 6222–6224 on the sale and 6300–6302 on the distributor ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors), [offer-distributor.md](offer-distributor.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
 
 USDC (Stellar Asset Contract) codes the backend will meet. They come back unchanged as `Error(Contract, #n)` and don't collide with the blocks above:
 
@@ -710,7 +717,7 @@ USDC (Stellar Asset Contract) codes the backend will meet. They come back unchan
 
 ### R7. Network limits
 
-Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-risks)). Three kinds of limit, which change in different ways.
+Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29; the per-transaction limits were re-read on mainnet and testnet on 2026-11-13 and are the same on both ([12](#12-risks)). Three kinds of limit, which change in different ways.
 
 **Network settings** (changed by validator vote):
 
@@ -754,6 +761,17 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **Offerings and the allowlist:** [`deployments/testnet.json`](../deployments/testnet.json). These IDs change with every testnet redeploy.
 
 ## Changelog
+
+**1.1, 2026-11-13.** `offer-distributor` delivered (L6), the first Tranche 2 contract. Changes here:
+
+- **A distributor per offering.** The owner sends an id, an asset and at most 30 payouts, and `distribute` moves each amount from the owner's account straight to its recipient in that one call. The contract holds no balance, unlike Base's `TokenDistributor`, which is funded first and pays from its own balance: a Stellar transaction carries one contract call, so Base's two steps would leave money parked between two transactions (ADR 0009). Every recipient is paid or nobody is.
+- **An id is paid at most once** (6307). The backend chooses the 32-byte id as a hash of its own record; a correction is a new distribution with a new id; `is_paid(id)` answers whether a call went through.
+- **Powers** are stored addresses as on the token and the sale: `owner` (the treasury that pays, chosen at deploy), `pauser` and `upgrader` (the platform multisig). A paused distributor blocks `distribute` only ([1](#1-parties-roles-and-keys)).
+- **Events:** `distributed` per payout after the asset's `transfer`, then `distribution_completed`; both carry the id as a topic. Sizes measured and pinned: 260 B and 252 B. A full distribution emits 15,372 B, a cap accepted with less room than the other batches ([6.4](#64-batch-sizes), [R5](#r5-event-sizes)).
+- **Errors:** block 6300–6399 ([R6](#r6-error-codes), [offer-distributor.md](offer-distributor.md#errors)). A payout to the distributor itself or to the asset's own contract is refused (6306), since either would strand the amount.
+- **What the treasury signs.** The backend builds or checks the authorization tree of a distribution, the root and one `transfer` on the named asset per payout, and never passes on a tree as a simulation recorded it; a corrected list that replaces an unsent one keeps its id ([offer-distributor.md](offer-distributor.md#authorization)).
+- **Network limits re-read.** Mainnet's per-transaction limits are the testnet's, so the risk about the SDK's stricter table is closed; testnet is on protocol 30 ([12](#12-risks), [R7](#r7-network-limits)).
+- **Not in this version:** wiring the sale to the distributor or restricting where a raise may go ([#57](https://github.com/BWB-Labs/bwb-stellar/issues/57)); which contract pays returns to investors ([#60](https://github.com/BWB-Labs/bwb-stellar/issues/60)); deploying a distributor with each offering, which waits for the L8 factory.
 
 **1.0, 2026-10-22.** `offer-sale` delivered (L4). Its document now describes the deployed contract, and Tranche 1's three contracts are complete. Changes here:
 
