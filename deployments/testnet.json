@@ -343,6 +343,29 @@
         },
         "upgrade_tx": "779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1",
         "upgraded_at": "2026-10-28T16:45:10Z"
+      },
+      "distributor": {
+        "status": "deployed",
+        "salt": "0e546ad9fba9b1a30df470a7b7c1af886103192a62e5b5648a3feb5f542c6bf4",
+        "crate": "offer-distributor",
+        "contract_id": "CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE",
+        "wasm_hash": "e488d1f6e566cfbcc28a58299b6a4cf39f0cd934023c5b4368381d4d58cdb68a",
+        "deploy_tx": "3c3b73b0a955306e599bb38cb3117075352d6b7782cbcb0c2517b125812b601d",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-11-13T17:34:01Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"owner\":\"GCHHQESGCGARAAX3BIHUEHEKHSAFAHBZ3TI5O3L72ONJVTX2UAWJQ62G\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE",
+          "tx": "https://stellar.expert/explorer/testnet/tx/3c3b73b0a955306e599bb38cb3117075352d6b7782cbcb0c2517b125812b601d"
+        }
       }
     },
     "t1-demo-5": {

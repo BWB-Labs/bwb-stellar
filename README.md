@@ -39,13 +39,14 @@ The holdings distributor and the factories follow in Tranche 2.
 
 ### Testnet
 
-From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22`; on 2026-10-28 both sale contracts were upgraded in place to the WASM of the branch head, so `stellar contract build` of the head gives every hash below. The two sales still report `schema_version` 2: the constructor stored it under the earlier build, and the head's constant is 1; nothing else differs.
+From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract, and `t1-demo-4` also has a distributor. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22`; on 2026-10-28 both sale contracts were upgraded in place to the WASM of the branch head, so `stellar contract build` of the head gives every hash below. The two sales still report `schema_version` 2: the constructor stored it under the earlier build, and the head's constant is 1; nothing else differs.
 
 | Contract | Contract ID | WASM hash | Deploy |
 |---|---|---|---|
 | `offer-allowlist` 0.6.0 | [`CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ`](https://stellar.expert/explorer/testnet/contract/CAVI4RROECISQXR4BR3O2BYH6NJFE7WI6NU6UTTHZKX3VCR6J6PWEDRQ) | `577b1c184ec72a065d1a7e5dcc462de0343ac63af49de8c758fdb0d77f7e5597` | [`826dd754…`](https://stellar.expert/explorer/testnet/tx/826dd75483610ff9a91c4fb488447b1c69fe0cd5cbcd8ecccf885d8d3603b517) |
 | `offer-token` t1-demo-4 (0.2.0) | [`CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT`](https://stellar.expert/explorer/testnet/contract/CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT) | `a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0` | [`a9f4dd7c…`](https://stellar.expert/explorer/testnet/tx/a9f4dd7cc2882ccb4ac0d82e50232cc5a653cc534eae7803fcd6513ad1eece2a) |
 | `offer-sale` t1-demo-4 (0.2.0) | [`CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT`](https://stellar.expert/explorer/testnet/contract/CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT) | `49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd` (upgraded in place from `7a6d8026…`, [tx](https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1)) | [`a9855097…`](https://stellar.expert/explorer/testnet/tx/a985509755d5127c6256d38e38c2ae83e2d1e750ad9c0f97989efe2d56522631) |
+| `offer-distributor` t1-demo-4 (0.1.0) | [`CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE`](https://stellar.expert/explorer/testnet/contract/CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE) | `e488d1f6e566cfbcc28a58299b6a4cf39f0cd934023c5b4368381d4d58cdb68a` | [`3c3b73b0…`](https://stellar.expert/explorer/testnet/tx/3c3b73b0a955306e599bb38cb3117075352d6b7782cbcb0c2517b125812b601d) |
 | `offer-token` t1-demo-5 (0.2.0) | [`CDSY2PJZUBY5EQCYEP2QGZE7GP3NF3IUFRQ2A7CTJLZQHN2Y7F343653`](https://stellar.expert/explorer/testnet/contract/CDSY2PJZUBY5EQCYEP2QGZE7GP3NF3IUFRQ2A7CTJLZQHN2Y7F343653) | `a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0` | [`80fccdd7…`](https://stellar.expert/explorer/testnet/tx/80fccdd77e86435110c654ce909b0613f37151f424c5bbe894472b0c160e2a32) |
 | `offer-sale` t1-demo-5 (0.2.0) | [`CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER`](https://stellar.expert/explorer/testnet/contract/CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER) | `49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd` (upgraded in place from `7a6d8026…`, [tx](https://stellar.expert/explorer/testnet/tx/65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade)) | [`4ea3f9a8…`](https://stellar.expert/explorer/testnet/tx/4ea3f9a8e90919308d15d6b63eea91eec0168a7d0abc5081e3244bdda659b1a1) |
 | demo USDC (payment asset) | [`CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY`](https://stellar.expert/explorer/testnet/contract/CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY) | a Stellar Asset Contract for `USDC:GDGBRCFA…`, issued by the `bwb-testnet-usdc` identity; not Circle's | — |
@@ -87,6 +88,24 @@ Superseded offerings, kept in the manifest: `t1-demo-1` and `t1-demo-3`, the fir
 | 24 | Release: anyone delivers the tokens to investors A (300) and B (500) | [`40808bac…`](https://stellar.expert/explorer/testnet/tx/40808bac73c623af3d4963c805843f9d6e9321df1fa55017fc55f9eb9580a4c6) |
 | 25 | Late cooling-off by investor A: rejected, the offering is decided (6225 NotOpen) | [`68350463…`](https://stellar.expert/explorer/testnet/tx/6835046308df8845fa65d73e37cd224ef2301ad6ad526b985a2c7876f1be3055) |
 | 26 | The owner withdraws the 8,000 USDC raised, in two legs: 7,000 to the treasury, 1,000 to investor B | [`04659f8b…`](https://stellar.expert/explorer/testnet/tx/04659f8b71f9386b4f87b3ca3332e443eed23153c00f6e54e9316640c1d9464d) |
+
+### L6 demonstration
+
+`scripts/demo-offer-distributor.sh` exercises the distributor of `t1-demo-4`: the treasury (its owner) pays from its own account, and the distributor's balance stays zero throughout. Rejected calls are submitted anyway, as in the L4 demonstration. Run on 2026-11-13 against the contract deployed from `6e8deb5` (`offer-distributor` 0.1.0):
+
+| Step | What | Transaction |
+|---|---|---|
+| 1 | The treasury distributes 150 USDC: 100 to investor A, 50 to investor B | [`2c363e7d…`](https://stellar.expert/explorer/testnet/tx/2c363e7dac4ee1c8a3122d4fc6b1771b81d9ad98e57a041b2a308430040a64d3) |
+| 2 | The reads: the id is paid, the next one is not, and the distributor holds nothing | simulated reads |
+| 3 | Idempotency: the same distribution sent again (6307 AlreadyPaid) | [`b27cb677…`](https://stellar.expert/explorer/testnet/tx/b27cb677c9f82a0c1e28637aadbc95cde553ed51a16b10bf06021d69e567cb44) |
+| 4 | Authorization: investor A, with money of its own, is not the owner (6300 NotOwner) | [`adc9a9d1…`](https://stellar.expert/explorer/testnet/tx/adc9a9d1e93b67467bf81b240ea7c510c818d73ce293d1ec5bc281df53652181) |
+| 5 | A correction is a new distribution: 25 USDC more to investor B under a new id | [`b78aa65b…`](https://stellar.expert/explorer/testnet/tx/b78aa65b9dceb7d46368d1203b949906d3b48672a9974c8ead551d5324274ff8) |
+| 6 | The platform pauses the distributor | [`f5f53092…`](https://stellar.expert/explorer/testnet/tx/f5f530927e8e72b41802a7cc9dbe1edf9b2d140b4d2da95bcf920f2e782a3ca7) |
+| 7 | Pause: a distribution while paused (1000 EnforcedPause) | [`3143a4a6…`](https://stellar.expert/explorer/testnet/tx/3143a4a6f6ab6421f5d82afc412af3ff7677b26b3a64f1ead8436ce56fbd9556) |
+| 8 | Only the owner unpauses | [`642597fd…`](https://stellar.expert/explorer/testnet/tx/642597fd4685e7d47d0c87a70575613d452fc392d1c77a52c431b376ab3302fe) |
+| 9 | All or nothing: a list with a recipient that has no USDC trustline fails in simulation (asset code 13); nothing is signed or sent | simulation only |
+
+Distribution ids of the run: `d5970826…10da` (step 1) and `5483fae6…3874` (step 5). Balances moved from 7,000 / 3,000 / 2,000 USDC (treasury, A, B) to 6,825 / 3,100 / 2,075.
 
 ## Build and test
 
