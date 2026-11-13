@@ -1165,6 +1165,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "offer-distributor"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-contract-utils",
+ "stellar-macros",
+]
+
+[[package]]
+name = "offer-distributor-upgrade-fixture"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-contract-utils",
+]
+
+[[package]]
 name = "offer-sale"
 version = "0.2.0"
 dependencies = [

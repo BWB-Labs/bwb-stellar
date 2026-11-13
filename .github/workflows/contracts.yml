@@ -50,8 +50,8 @@ jobs:
           version: 28.1.0
 
       # The same script developers run: it builds the upgrade fixtures of
-      # offer-token, offer-allowlist and offer-sale (second WASMs their upgrade tests
-      # swap to), then runs cargo test. --locked: fail if Cargo.lock does not match Cargo.toml,
+      # offer-token, offer-allowlist, offer-sale and offer-distributor (second
+      # WASMs their upgrade tests swap to), then runs cargo test. --locked: fail if Cargo.lock does not match Cargo.toml,
       # instead of silently re-resolving. The committed lock is what makes a
       # tagged release rebuild to the same WASM hash.
       - name: Test
