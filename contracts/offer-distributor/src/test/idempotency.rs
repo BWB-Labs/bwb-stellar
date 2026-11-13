@@ -1,11 +1,14 @@
 //! A distribution id is paid at most once. Repeating a call pays nothing
 //! more, a correction is a new id, and a call that failed leaves its id
 //! free to be sent again.
-use soroban_sdk::testutils::Address as _;
+use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::Address;
 
-use super::{err, setup, FUNDS, USDC};
+use super::{code, err, setup, FUNDS, USDC};
 use crate::{OfferDistributor, OfferDistributorClient, OfferDistributorError};
+
+/// The asset contract's code for a balance its issuer froze.
+const BALANCE_DEAUTHORIZED: u32 = 11;
 
 #[test]
 fn the_same_distribution_sent_twice_pays_once() {
@@ -62,9 +65,10 @@ fn a_correction_is_a_new_distribution() {
 fn a_failed_distribution_leaves_its_id_unpaid() {
     let s = setup();
     s.usdc_admin.set_authorized(&s.bob, &false);
-    assert!(s
-        .try_distribute(42, &[(&s.alice, USDC), (&s.bob, USDC)])
-        .is_err());
+    assert_eq!(
+        err(s.try_distribute(42, &[(&s.alice, USDC), (&s.bob, USDC)])),
+        code(BALANCE_DEAUTHORIZED)
+    );
     assert!(!s.client.is_paid(&s.dist(42)));
     assert_eq!(s.usdc.balance(&s.alice), 0);
     s.distribute(42, &[(&s.alice, USDC)]);
@@ -100,4 +104,23 @@ fn ids_are_separate_per_distributor() {
         &s.owner,
     );
     assert_eq!(s.usdc.balance(&s.alice), 2 * USDC);
+}
+
+/// Nobody keeps old ids alive. Long after its entry's lifetime ran out,
+/// the id still reads as paid and is still refused: an expired persistent
+/// entry is archived, not deleted, and cannot be written again.
+#[test]
+fn an_id_stays_paid_after_its_entry_expires() {
+    let s = setup();
+    s.distribute(42, &[(&s.alice, USDC)]);
+    let max_ttl = s.e.as_contract(&s.id, || s.e.storage().max_ttl());
+    s.e.ledger()
+        .with_mut(|l| l.sequence_number += max_ttl + 1_000);
+    assert!(s.client.is_paid(&s.dist(42)));
+    assert_eq!(
+        err(s.try_distribute(42, &[(&s.alice, USDC)])),
+        OfferDistributorError::AlreadyPaid.into()
+    );
+    assert_eq!(s.usdc.balance(&s.alice), USDC);
+    assert_eq!(s.usdc.balance(&s.owner), FUNDS - USDC);
 }

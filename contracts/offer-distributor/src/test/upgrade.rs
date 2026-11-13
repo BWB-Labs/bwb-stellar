@@ -13,7 +13,10 @@ fn upgrade_fixture_is_built() {
 
 #[cfg(not(fixture_missing))]
 mod with_fixture {
-    use soroban_sdk::{testutils::Events as _, BytesN, Event as _};
+    use soroban_sdk::{
+        testutils::{storage::Instance as _, Events as _, Ledger as _},
+        BytesN, Event as _,
+    };
 
     use super::super::{err, setup, USDC};
     use crate::events::Upgraded;
@@ -30,10 +33,10 @@ mod with_fixture {
         let s = setup();
         s.distribute(1, &[(&s.alice, USDC)]);
         s.distribute(2, &[(&s.bob, USDC)]);
-        s.client.pause(&s.platform);
+        s.client.pause(&s.pauser);
 
         let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
-        s.client.upgrade(&hash, &s.platform);
+        s.client.upgrade(&hash, &s.upgrader);
         let ev = Upgraded {
             new_wasm_hash: hash.clone(),
             from_schema_version: 1,
@@ -47,8 +50,8 @@ mod with_fixture {
         assert_eq!(v2.v2_marker(), 2);
         let powers = v2.powers();
         assert_eq!(powers.owner, s.owner);
-        assert_eq!(powers.pauser, s.platform);
-        assert_eq!(powers.upgrader, s.platform);
+        assert_eq!(powers.pauser, s.pauser);
+        assert_eq!(powers.upgrader, s.upgrader);
         assert!(v2.is_paid(&s.dist(1)));
         assert!(v2.is_paid(&s.dist(2)));
         assert!(!v2.is_paid(&s.dist(3)));
@@ -60,13 +63,13 @@ mod with_fixture {
     fn the_upgraded_code_can_still_upgrade() {
         let s = setup();
         let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
-        s.client.upgrade(&hash, &s.platform);
+        s.client.upgrade(&hash, &s.upgrader);
         let v2 = v2::Client::new(&s.e, &s.id);
         assert_eq!(
             err(v2.try_upgrade(&hash, &s.owner)),
             OfferDistributorError::NotUpgrader.into()
         );
-        v2.upgrade(&hash, &s.platform);
+        v2.upgrade(&hash, &s.upgrader);
         assert_eq!(v2.v2_marker(), 2);
     }
 
@@ -75,17 +78,38 @@ mod with_fixture {
     fn upgrading_to_a_hash_that_was_never_uploaded_fails() {
         let s = setup();
         s.client
-            .upgrade(&BytesN::from_array(&s.e, &[7; 32]), &s.platform);
+            .upgrade(&BytesN::from_array(&s.e, &[7; 32]), &s.upgrader);
     }
 
+    /// The owner and the pauser both hold a power here and neither may
+    /// swap the code; the old code keeps running, so the new binary's
+    /// function is not there to call.
     #[test]
     fn a_non_upgrader_cannot_swap_the_code() {
         let s = setup();
         let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
-        assert_eq!(
-            err(s.client.try_upgrade(&hash, &s.owner)),
-            OfferDistributorError::NotUpgrader.into()
-        );
-        assert_eq!(s.client.schema_version(), 1);
+        for caller in [&s.owner, &s.pauser] {
+            assert_eq!(
+                err(s.client.try_upgrade(&hash, caller)),
+                OfferDistributorError::NotUpgrader.into()
+            );
+        }
+        assert!(v2::Client::new(&s.e, &s.id).try_v2_marker().is_err());
+    }
+
+    /// An upgrade is a state-changing call like the others: it tops the
+    /// instance up after a quiet month.
+    #[test]
+    fn an_upgrade_tops_the_instance_up() {
+        let s = setup();
+        let hash = s.e.deployer().upload_contract_wasm(v2::WASM);
+        s.e.ledger().with_mut(|l| l.sequence_number += 40 * 17_280);
+        let ttl = || {
+            s.e.as_contract(&s.id, || s.e.storage().instance().get_ttl())
+        };
+        let max = s.e.as_contract(&s.id, || s.e.storage().max_ttl());
+        assert!(ttl() < max);
+        s.client.upgrade(&hash, &s.upgrader);
+        assert_eq!(ttl(), max);
     }
 }

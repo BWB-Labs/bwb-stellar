@@ -50,6 +50,18 @@ fn a_distribution_after_a_quiet_month_tops_the_instance_up_again() {
     assert_eq!(instance_ttl(&s.e, &s.id), max_ttl(&s.e, &s.id));
 }
 
+/// The top-up waits until the instance has fallen a month below the
+/// maximum: a call ten days after the last one extends nothing.
+#[test]
+fn a_distribution_within_the_month_does_not_extend_the_instance() {
+    let s = setup();
+    advance(&s.e, 10);
+    let before = instance_ttl(&s.e, &s.id);
+    assert_eq!(before, max_ttl(&s.e, &s.id) - 10 * DAY);
+    s.distribute(1, &[(&s.alice, USDC)]);
+    assert_eq!(instance_ttl(&s.e, &s.id), before);
+}
+
 #[test]
 fn a_paid_id_is_recorded_with_the_maximum_ttl() {
     let s = setup();
@@ -62,7 +74,7 @@ fn a_paid_id_is_recorded_with_the_maximum_ttl() {
 fn pause_and_unpause_top_the_instance_up() {
     let s = setup();
     advance(&s.e, 40);
-    s.client.pause(&s.platform);
+    s.client.pause(&s.pauser);
     assert_eq!(instance_ttl(&s.e, &s.id), max_ttl(&s.e, &s.id));
     advance(&s.e, 40);
     s.client.unpause(&s.owner);

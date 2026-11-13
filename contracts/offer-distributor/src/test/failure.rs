@@ -4,7 +4,8 @@
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::Address;
 
-use super::{code, err, setup, FUNDS, USDC};
+use super::{code, err, setup, trapped, InertToken, ReentrantToken, FUNDS, USDC};
+use crate::OfferDistributorError;
 
 /// The asset contract's own codes, which surface unchanged.
 const BALANCE: u32 = 10;
@@ -82,22 +83,99 @@ fn a_frozen_owner_pays_nobody() {
     assert_eq!(s.usdc.balance(&s.alice), 0);
 }
 
-/// The asset is whatever address the owner passes. One that is no token
-/// contract fails the call and marks nothing.
+/// The asset is whatever address the owner passes. An address with no
+/// contract behind it fails the call and marks nothing; so does the
+/// distributor's own address, which would be a call into itself.
 #[test]
-fn an_asset_that_is_not_a_token_fails_the_distribution() {
+fn an_asset_address_with_no_token_behind_it_fails_the_distribution() {
     let s = setup();
-    let not_a_token = Address::generate(&s.e);
-    assert!(s
-        .client
-        .try_distribute(
+    for not_a_token in [Address::generate(&s.e), s.id.clone()] {
+        assert_eq!(
+            err(s.client.try_distribute(
+                &s.dist(1),
+                &not_a_token,
+                &s.payouts(&[(&s.alice, USDC)]),
+                &s.owner
+            )),
+            trapped()
+        );
+    }
+    assert!(!s.client.is_paid(&s.dist(1)));
+}
+
+/// The distributor cannot tell a real asset from a contract that answers
+/// `transfer` and moves nothing: the id is recorded and the events are
+/// emitted, with no money moved. Naming the asset is the owner's act, and
+/// the owner's signature is what names it.
+#[test]
+fn an_asset_that_moves_nothing_still_records_the_distribution() {
+    let s = setup();
+    let inert = s.e.register(InertToken, ());
+    s.client.distribute(
+        &s.dist(1),
+        &inert,
+        &s.payouts(&[(&s.alice, USDC)]),
+        &s.owner,
+    );
+    assert!(s.client.is_paid(&s.dist(1)));
+    assert_eq!(s.usdc.balance(&s.alice), 0);
+    assert_eq!(s.usdc.balance(&s.owner), FUNDS);
+}
+
+/// An asset that calls back into the distributor during `transfer` is
+/// stopped by the network, which refuses re-entry, and the whole
+/// distribution fails.
+#[test]
+fn an_asset_that_calls_back_into_the_distributor_fails_the_distribution() {
+    let s = setup();
+    let reentrant = s.e.register(ReentrantToken, (s.id.clone(),));
+    assert_eq!(
+        err(s.client.try_distribute(
             &s.dist(1),
-            &not_a_token,
+            &reentrant,
             &s.payouts(&[(&s.alice, USDC)]),
             &s.owner
-        )
-        .is_err());
+        )),
+        trapped()
+    );
     assert!(!s.client.is_paid(&s.dist(1)));
+}
+
+/// The checks run in the documented order, so the first rule broken is the
+/// one reported: pause before the caller, the caller before the list, the
+/// list's size before the id, the id before the amounts.
+#[test]
+fn the_first_rule_broken_is_the_one_reported() {
+    let s = setup();
+    s.distribute(1, &[(&s.alice, USDC)]);
+    // A paid id with an empty list: the size comes first.
+    assert_eq!(
+        err(s.try_distribute(1, &[])),
+        OfferDistributorError::EmptyBatch.into()
+    );
+    // A paid id with a zero amount: the id comes first.
+    assert_eq!(
+        err(s.try_distribute(1, &[(&s.alice, 0)])),
+        OfferDistributorError::AlreadyPaid.into()
+    );
+    // A stranger sending an empty list: the caller comes first.
+    assert_eq!(
+        err(s
+            .client
+            .try_distribute(&s.dist(2), &s.usdc.address, &s.payouts(&[]), &s.stranger)),
+        OfferDistributorError::NotOwner.into()
+    );
+    // Paused, and a stranger: the pause comes first.
+    s.client.pause(&s.pauser);
+    assert_eq!(
+        err(s.client.try_distribute(
+            &s.dist(2),
+            &s.usdc.address,
+            &s.payouts(&[(&s.alice, USDC)]),
+            &s.stranger
+        )),
+        code(1000)
+    );
 }
 
 /// The same distributor pays any asset: the asset is chosen per

@@ -18,9 +18,10 @@ mod upgrade;
 use std::rc::Rc;
 
 use soroban_sdk::{
+    contract, contractimpl, contracttype,
     testutils::{Address as _, IssuerFlags, StellarAssetContract},
     token::{StellarAssetClient, TokenClient},
-    xdr, Address, BytesN, Env, InvokeError, TryFromVal, Vec,
+    xdr, Address, BytesN, Env, IntoVal, InvokeError, Symbol, TryFromVal, Vec,
 };
 
 use crate::{OfferDistributor, OfferDistributorClient, Payout, PowerHolders};
@@ -42,8 +43,11 @@ pub struct Setup<'a> {
     pub usdc_admin: StellarAssetClient<'a>,
     /// The treasury that pays.
     pub owner: Address,
-    /// The platform multisig: pauser and upgrader.
-    pub platform: Address,
+    /// The platform's pauser. A different account from the upgrader, so a
+    /// test can tell the two powers apart.
+    pub pauser: Address,
+    /// The platform's upgrader.
+    pub upgrader: Address,
     /// An account with no power here, funded like the owner.
     pub stranger: Address,
     pub alice: Address,
@@ -54,7 +58,8 @@ pub fn setup<'a>() -> Setup<'a> {
     let e = Env::default();
     e.mock_all_auths();
     let owner = Address::generate(&e);
-    let platform = Address::generate(&e);
+    let pauser = Address::generate(&e);
+    let upgrader = Address::generate(&e);
     let stranger = Address::generate(&e);
     let issuer = Address::generate(&e);
     let alice = Address::generate(&e);
@@ -68,8 +73,8 @@ pub fn setup<'a>() -> Setup<'a> {
         OfferDistributor,
         (PowerHolders {
             owner: owner.clone(),
-            pauser: platform.clone(),
-            upgrader: platform.clone(),
+            pauser: pauser.clone(),
+            upgrader: upgrader.clone(),
         },),
     );
     let usdc_admin = StellarAssetClient::new(&e, &usdc_id);
@@ -83,7 +88,8 @@ pub fn setup<'a>() -> Setup<'a> {
         id,
         e,
         owner,
-        platform,
+        pauser,
+        upgrader,
         stranger,
         alice,
         bob,
@@ -216,4 +222,75 @@ pub fn err<T, C: core::fmt::Debug>(
         Err(Err(InvokeError::Abort)) => panic!("call aborted without an error code"),
         Ok(_) => panic!("call succeeded but was expected to fail"),
     }
+}
+
+/// An "asset" whose `transfer` does nothing at all: no signature asked, no
+/// balance moved. The distributor cannot tell it from a real one.
+#[contract]
+pub struct InertToken;
+
+#[contractimpl]
+impl InertToken {
+    pub fn transfer(_e: &Env, _from: Address, _to: Address, _amount: i128) {}
+}
+
+/// An "asset" whose `transfer` calls back into the distributor that is
+/// calling it.
+#[contract]
+pub struct ReentrantToken;
+
+#[contracttype]
+pub enum HostileKey {
+    Distributor,
+    Usdc,
+    Thief,
+}
+
+#[contractimpl]
+impl ReentrantToken {
+    pub fn __constructor(e: &Env, distributor: Address) {
+        e.storage()
+            .instance()
+            .set(&HostileKey::Distributor, &distributor);
+    }
+
+    pub fn transfer(e: &Env, _from: Address, _to: Address, _amount: i128) {
+        let distributor: Address = e
+            .storage()
+            .instance()
+            .get(&HostileKey::Distributor)
+            .unwrap();
+        let id = BytesN::from_array(e, &[0; 32]);
+        let _: bool =
+            e.invoke_contract(&distributor, &Symbol::new(e, "is_paid"), (id,).into_val(e));
+    }
+}
+
+/// An "asset" whose `transfer` also moves real USDC from the sender to a
+/// thief: what a wrong asset address could try with the owner's signature.
+#[contract]
+pub struct GreedyToken;
+
+#[contractimpl]
+impl GreedyToken {
+    pub fn __constructor(e: &Env, usdc: Address, thief: Address) {
+        e.storage().instance().set(&HostileKey::Usdc, &usdc);
+        e.storage().instance().set(&HostileKey::Thief, &thief);
+    }
+
+    pub fn transfer(e: &Env, from: Address, _to: Address, amount: i128) {
+        let usdc: Address = e.storage().instance().get(&HostileKey::Usdc).unwrap();
+        let thief: Address = e.storage().instance().get(&HostileKey::Thief).unwrap();
+        TokenClient::new(e, &usdc).transfer(&from, &thief, &amount);
+    }
+}
+
+/// What a `try_` call carries when a call the distributor makes fails
+/// without a contract code: a refused authorization inside the asset, a
+/// re-entry, an address with no contract.
+pub fn trapped() -> soroban_sdk::Error {
+    soroban_sdk::Error::from_type_and_code(
+        xdr::ScErrorType::Context,
+        xdr::ScErrorCode::InvalidAction,
+    )
 }

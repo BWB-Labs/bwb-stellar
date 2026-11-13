@@ -8,7 +8,7 @@ const EXPECTED_PAUSE: u32 = 1001;
 #[test]
 fn paused_blocks_distribute_until_the_owner_unpauses() {
     let s = setup();
-    s.client.pause(&s.platform);
+    s.client.pause(&s.pauser);
     assert_eq!(
         err(s.try_distribute(1, &[(&s.alice, USDC)])),
         code(ENFORCED_PAUSE)
@@ -34,7 +34,7 @@ fn the_owner_can_pause_its_own_distributor() {
 fn the_reads_answer_while_paused() {
     let s = setup();
     s.distribute(1, &[(&s.alice, USDC)]);
-    s.client.pause(&s.platform);
+    s.client.pause(&s.pauser);
     assert!(s.client.is_paid(&s.dist(1)));
     assert!(!s.client.is_paid(&s.dist(2)));
     assert_eq!(s.client.powers().owner, s.owner);
@@ -46,7 +46,7 @@ fn the_reads_answer_while_paused() {
 fn pause_twice_and_unpause_a_live_distributor_fail_with_open_zeppelins_codes() {
     let s = setup();
     assert_eq!(err(s.client.try_unpause(&s.owner)), code(EXPECTED_PAUSE));
-    s.client.pause(&s.platform);
+    s.client.pause(&s.pauser);
     assert_eq!(err(s.client.try_pause(&s.owner)), code(ENFORCED_PAUSE));
     assert!(s.client.paused());
 }

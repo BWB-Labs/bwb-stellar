@@ -50,7 +50,7 @@ const SCHEMA_VERSION: u32 = 1;
 /// full distribution of USDC to classic accounts emits 30 × (the asset's
 /// `transfer` 244 B + `distributed` 260 B) + `distribution_completed`
 /// 252 B = 15,372 B, 94% of that. An asset whose own event is larger than
-/// 284 B does not fit 30; the call then fails whole in simulation, before
+/// 276 B does not fit 30; the call then fails whole in simulation, before
 /// anyone signs, and the backend sends a shorter list. Adding a field to
 /// `distributed` means lowering this in the same release.
 pub const MAX_PAYOUTS: u32 = 30;
@@ -119,6 +119,10 @@ impl OfferDistributor {
         // Recorded before the transfers. A failed transfer undoes the whole
         // call, this write included, so an id is marked only when paid.
         storage::mark_paid(e, &id);
+        // The asset is whatever contract the owner named. It can do in the
+        // owner's name only what the owner's authorization lists, which is
+        // why that authorization should hold these transfers and nothing
+        // else (the distributor document, Authorization).
         let payment = token::TokenClient::new(e, &asset);
         for payout in payouts.iter() {
             payment.transfer(&caller, &payout.recipient, &payout.amount);

@@ -5,8 +5,11 @@ use soroban_sdk::{
     xdr, Address, Env, Event as _, TryFromVal,
 };
 
-use super::{setup, USDC};
+use stellar_contract_utils::pausable::{Paused, Unpaused};
+
+use super::{err, setup, USDC};
 use crate::events::{Configured, Distributed, DistributionCompleted, PauseChanged};
+use crate::OfferDistributorError;
 
 extern crate std;
 use std::vec::Vec;
@@ -24,8 +27,8 @@ fn construction_emits_configured() {
     let id = s.e.register(crate::OfferDistributor, (s.client.powers(),));
     let configured = Configured {
         owner: s.owner.clone(),
-        pauser: s.platform.clone(),
-        upgrader: s.platform.clone(),
+        pauser: s.pauser.clone(),
+        upgrader: s.upgrader.clone(),
     };
     assert_eq!(emitted(&s.e, &id), [configured.to_xdr(&s.e, &id)]);
 }
@@ -85,21 +88,25 @@ fn each_distributed_follows_the_assets_transfer() {
 #[test]
 fn a_refused_distribution_emits_nothing() {
     let s = setup();
-    assert!(s.try_distribute(7, &[(&s.alice, 0)]).is_err());
+    assert_eq!(
+        err(s.try_distribute(7, &[(&s.alice, 0)])),
+        OfferDistributorError::NonPositiveAmount.into()
+    );
     assert!(emitted(&s.e, &s.id).is_empty());
 }
 
+/// OpenZeppelin's own event first, then `pause_changed`, which says who.
 #[test]
 fn pause_and_unpause_emit_pause_changed_with_the_caller() {
     let s = setup();
-    s.client.pause(&s.platform);
+    s.client.pause(&s.pauser);
     let paused = PauseChanged {
-        caller: s.platform.clone(),
+        caller: s.pauser.clone(),
         paused: true,
     };
     assert_eq!(
-        emitted(&s.e, &s.id).last().unwrap(),
-        &paused.to_xdr(&s.e, &s.id)
+        emitted(&s.e, &s.id),
+        [Paused {}.to_xdr(&s.e, &s.id), paused.to_xdr(&s.e, &s.id)]
     );
     s.client.unpause(&s.owner);
     let resumed = PauseChanged {
@@ -107,8 +114,8 @@ fn pause_and_unpause_emit_pause_changed_with_the_caller() {
         paused: false,
     };
     assert_eq!(
-        emitted(&s.e, &s.id).last().unwrap(),
-        &resumed.to_xdr(&s.e, &s.id)
+        emitted(&s.e, &s.id),
+        [Unpaused {}.to_xdr(&s.e, &s.id), resumed.to_xdr(&s.e, &s.id)]
     );
 }
 
