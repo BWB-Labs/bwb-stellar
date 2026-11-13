@@ -5,7 +5,7 @@
 | Version | 1.1 |
 | Status | Tranche 1 delivered; under review ([#26](https://github.com/BWB-Labs/bwb-stellar/issues/26)). `offer-distributor` added in Tranche 2 ([#28](https://github.com/BWB-Labs/bwb-stellar/issues/28)) |
 | Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1); `offer-distributor` (Tranche 2) |
-| Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2, protocol 29 |
+| Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2; mainnet on protocol 29, testnet on 30 |
 
 This document defines how the BWB backend works with the Soroban contracts that carry BWB's offerings on Stellar. Each contract has its own document with its calls, events and errors:
 
@@ -448,7 +448,7 @@ The batch limits come from events, not storage. A transaction may carry at most 
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 30 |
 | `distribute` (`offer-distributor`) | asset `transfer` + `distributed`, per payout, and one `distribution_completed` | 30 |
 
-The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 read on testnet ([R7](#r7-network-limits)); the SDK's bundled table of mainnet limits says 50, under which a refund fits about 12 one-purchase investors ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
+The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 both networks allow ([R7](#r7-network-limits)); the SDK's bundled table still says 50, which is out of date ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
 
 Each investor keeps their own event so that the backend's ledger can record one leg per account, which is how its `operations` table is shaped. Base's ledger has no intent kind for release, refund or cooling-off today; the backend team adds them.
 
@@ -574,10 +574,10 @@ Decided later. Each one changes this document through the changelog. The first r
 ## 12. Risks
 
 - **soroban-sdk 26.x is outside the SDK's security window.** The SDK patches only its two newest major versions, which are 27 and 28. The contracts stay on 26.1 because OpenZeppelin 0.7.2, the latest stable release, requires it. The no-optional-fields rule and the versioned persistent structs keep the move to sdk 28 cheap.
-- **Both networks run protocol 29.** Network settings quoted here were read live on 2026-10-02 and re-read on 2026-10-06, and can change by network vote. Protocol constants change only with a protocol upgrade, and RPC defaults vary by provider ([R7](#r7-network-limits)). The current values are at [lab.stellar.org/network-limits](https://lab.stellar.org/network-limits).
+- **Mainnet runs protocol 29 and testnet 30** (2026-11-13). Network settings quoted here were read live on 2026-10-02 and re-read on 2026-10-06, the per-transaction limits again on 2026-11-13, and can change by network vote. Protocol constants change only with a protocol upgrade, and RPC defaults vary by provider ([R7](#r7-network-limits)). The current values are at [lab.stellar.org/network-limits](https://lab.stellar.org/network-limits).
 - **USDC is `AUTH_REVOCABLE`.** Circle's issuer account (mainnet and testnet) has `auth_revocable` set and clawback disabled. The Stellar Asset Contract applies issuer authorization to contract balances too, so Circle can deauthorize the sale contract's own USDC balance, not just an investor's. Refunds, cooling-off and payouts then fail with `Error(Contract, #11)` until it is reauthorized. Clawback is disabled today.
 - **The yield plan may press on the single-payment-asset premise.** The kickoff's option (a) for yield lets an offering pick an already-yielding token as its payment asset. The global cap in USDC stroops can't mix assets ([3](#3-premises)). Whether "swap de token" means paying with a yield token or swapping into USDC is pending André, Ariel and Matheus; confirm with Bruno.
-- **The SDK's bundled mainnet limits are stricter than the testnet settings this document quotes.** soroban-sdk 26.1's test host enforces 50 write entries and 100 footprint entries per invocation as mainnet's values; R7 quotes 200 and 400, read from testnet on 2026-10-20. If mainnet is at 50, a `refund` fits about 12 one-purchase investors and a `release` about 24, below the contract's limits of 16 and 30. The limits are upper bounds; the backend sizes every batch by simulation against the live network, and the measuring tests assert the documented values ([6.4](#64-batch-sizes)).
+- **Closed on 2026-11-13: mainnet's per-transaction limits are the testnet's.** `stellar network settings` on both networks gives 200 write entries, 200 disk-read entries, 400 footprint entries, 400 M instructions and 16,384 B of events. The risk recorded here in 1.0 was that soroban-sdk 26.1's test host enforces 50 write entries and 100 footprint entries as mainnet's values; that table is out of date, not the network stricter. The measuring tests still lift the host's check and assert the documented values, and the backend still sizes every batch by simulation ([6.4](#64-batch-sizes)).
 - **Dropping `snapshot` removes Base's planned NF-03 mitigation.** The audit response relies on `snapshot()` / `balanceOfAt()` as the record-date mechanism for holdings distributions, to be wired before any investor wallet is whitelisted. The Base app never calls them and the Stellar token has none. Any future pull distributor on Stellar needs its own record-date design.
 
 ---
@@ -717,7 +717,7 @@ USDC (Stellar Asset Contract) codes the backend will meet. They come back unchan
 
 ### R7. Network limits
 
-Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-risks)). Three kinds of limit, which change in different ways.
+Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29; the per-transaction limits were re-read on mainnet and testnet on 2026-11-13 and are the same on both ([12](#12-risks)). Three kinds of limit, which change in different ways.
 
 **Network settings** (changed by validator vote):
 
@@ -769,6 +769,8 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29 ([12](#12-ri
 - **Powers** are stored addresses as on the token and the sale: `owner` (the treasury that pays, chosen at deploy), `pauser` and `upgrader` (the platform multisig). A paused distributor blocks `distribute` only ([1](#1-parties-roles-and-keys)).
 - **Events:** `distributed` per payout after the asset's `transfer`, then `distribution_completed`; both carry the id as a topic. Sizes measured and pinned: 260 B and 252 B. A full distribution emits 15,372 B, a cap accepted with less room than the other batches ([6.4](#64-batch-sizes), [R5](#r5-event-sizes)).
 - **Errors:** block 6300–6399 ([R6](#r6-error-codes), [offer-distributor.md](offer-distributor.md#errors)).
+- **What the treasury signs.** The backend builds or checks the authorization tree of a distribution, the root and one `transfer` on the named asset per payout, and never passes on a tree as a simulation recorded it; a corrected list that replaces an unsent one keeps its id ([offer-distributor.md](offer-distributor.md#authorization)).
+- **Network limits re-read.** Mainnet's per-transaction limits are the testnet's, so the risk about the SDK's stricter table is closed; testnet is on protocol 30 ([12](#12-risks), [R7](#r7-network-limits)).
 - **Not in this version:** wiring the sale to the distributor or restricting where a raise may go ([#57](https://github.com/BWB-Labs/bwb-stellar/issues/57)); which contract pays returns to investors ([#60](https://github.com/BWB-Labs/bwb-stellar/issues/60)); deploying a distributor with each offering, which waits for the L8 factory.
 
 **1.0, 2026-10-22.** `offer-sale` delivered (L4). Its document now describes the deployed contract, and Tranche 1's three contracts are complete. Changes here:

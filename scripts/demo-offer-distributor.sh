@@ -75,14 +75,30 @@ ok() {
   grep -o 'Event: .*' <<<"$out" || true
 }
 
-# read_fn <contract> <fn> [args...]: a simulated read, printed. A failed
-# read stops the script with the CLI's error.
+# read_fn <contract> <fn> [args...]: a simulated read. Sets READ to the
+# value, the CLI's last line of output. It sets a variable instead of
+# printing, because a failure inside $(...) would only end the subshell: a
+# failed read stops the script with the CLI's error.
 read_fn() {
   local id="$1"; shift
   local out
   out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-deployer --id "$id" --send=no -- "$@" 2>&1)" \
     || { echo "read failed: $*" >&2; echo "$out" >&2; exit 1; }
-  printf '%s\n' "$out" | tail -n1
+  READ="$(printf '%s\n' "$out" | tail -n1)"
+}
+
+# expect_paid <id> <true|false>: reads is_paid and stops unless it is what
+# the step claims.
+expect_paid() {
+  read_fn "$DISTRIBUTOR" is_paid --id "$1"
+  echo "is_paid($1): $READ"
+  [[ "$READ" == "$2" ]] || { echo "expected is_paid to be $2" >&2; exit 1; }
+}
+
+# balance_of <address>: sets READ to the USDC balance in stroops, unquoted.
+balance_of() {
+  read_fn "$USDC" balance --id "$1"
+  READ="${READ//\"/}"
 }
 
 # rejected <source> <expected-code> <fn> [args...] [-- <storage keys>]:
@@ -105,9 +121,25 @@ paid_key() { printf '{"vec":[{"symbol":"Paid"},{"bytes":"%s"}]}' "$1"; }
 
 balances() {
   for who in "treasury:$TREASURY" "investor-a:$INV_A" "investor-b:$INV_B" "distributor:$DISTRIBUTOR"; do
-    printf '%s: %s USDC stroops\n' "${who%%:*}" "$(read_fn "$USDC" balance --id "${who#*:}")"
+    balance_of "${who#*:}"
+    printf '%s: %s USDC stroops\n' "${who%%:*}" "$READ"
   done
+  # The last one read is the distributor's: it never holds money.
+  [[ "$READ" == 0 ]] || { echo "the distributor holds $READ stroops; it should hold none" >&2; exit 1; }
 }
+
+# The run pauses a distributor other runs share. If it stops between the
+# pause and the unpause, lift the pause on the way out.
+PAUSED_BY_RUN=0
+restore_pause() {
+  if [[ "$PAUSED_BY_RUN" == 1 ]]; then
+    echo "the run stopped while paused: unpausing" >&2
+    stellar contract invoke --network "$NETWORK" --source bwb-testnet-treasury --id "$DISTRIBUTOR" -- \
+      unpause --caller "$TREASURY" >/dev/null 2>&1 \
+      || echo "could not unpause $DISTRIBUTOR; the treasury must do it by hand" >&2
+  fi
+}
+trap restore_pause EXIT
 
 FIRST="$(dist_id 1)"
 CORRECTION="$(dist_id 2)"
@@ -115,22 +147,28 @@ PAUSED="$(dist_id 3)"
 NO_TRUSTLINE="$(dist_id 4)"
 
 echo "offering $OFFERING: distributor $DISTRIBUTOR ($EXPLORER/contract/$DISTRIBUTOR), run $RUN"
-echo "powers: $(read_fn "$DISTRIBUTOR" powers)"
+read_fn "$DISTRIBUTOR" powers
+echo "powers: $READ"
+read_fn "$DISTRIBUTOR" paused
+[[ "$READ" == false ]] || { echo "the distributor is paused; the treasury must unpause it before a run" >&2; exit 1; }
 balances
+balance_of "$INV_A"; A_BEFORE="$READ"
+balance_of "$INV_B"; B_BEFORE="$READ"
+FIRST_LIST="$(payouts "$INV_A" 100 "$INV_B" 50)"
 
 step "1. The treasury distributes 150 USDC: 100 to investor A, 50 to investor B"
 echo "id: $FIRST"
 ok bwb-testnet-treasury distribute --id "$FIRST" --asset "$USDC" \
-  --payouts "$(payouts "$INV_A" 100 "$INV_B" 50)" --caller "$TREASURY"
+  --payouts "$FIRST_LIST" --caller "$TREASURY"
 
 step "2. The reads: the id is paid, the next one is not, and the distributor holds nothing"
-echo "is_paid($FIRST): $(read_fn "$DISTRIBUTOR" is_paid --id "$FIRST")"
-echo "is_paid($CORRECTION): $(read_fn "$DISTRIBUTOR" is_paid --id "$CORRECTION")"
+expect_paid "$FIRST" true
+expect_paid "$CORRECTION" false
 balances
 
 step "3. Idempotency: the same distribution sent again (6307 AlreadyPaid)"
 rejected bwb-testnet-treasury 6307 distribute --id "$FIRST" --asset "$USDC" \
-  --payouts "$(payouts "$INV_A" 100 "$INV_B" 50)" --caller "$TREASURY" \
+  --payouts "$FIRST_LIST" --caller "$TREASURY" \
   -- "$(paid_key "$FIRST")"
 
 step "4. Authorization: investor A, with money of its own, is not the owner (6300 NotOwner)"
@@ -143,6 +181,7 @@ ok bwb-testnet-treasury distribute --id "$CORRECTION" --asset "$USDC" \
   --payouts "$(payouts "$INV_B" 25)" --caller "$TREASURY"
 
 step "6. The platform pauses the distributor"
+PAUSED_BY_RUN=1
 ok bwb-testnet-platform pause --caller "$PLATFORM"
 
 step "7. Pause: a distribution while paused (1000 EnforcedPause)"
@@ -151,6 +190,7 @@ rejected bwb-testnet-treasury 1000 distribute --id "$PAUSED" --asset "$USDC" \
 
 step "8. Only the owner unpauses"
 ok bwb-testnet-treasury unpause --caller "$TREASURY"
+PAUSED_BY_RUN=0
 
 step "9. All or nothing: a list with a recipient that has no USDC trustline fails in simulation"
 # The platform account never opened a trustline for the demo USDC. The
@@ -164,7 +204,13 @@ if out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-trea
 fi
 grep -q 'Error(Contract, #13)' <<<"$out" || { echo "$out" >&2; exit 1; }
 echo "simulation failed with Error(Contract, #13) TrustlineMissingError; nothing was sent"
-echo "is_paid($NO_TRUSTLINE): $(read_fn "$DISTRIBUTOR" is_paid --id "$NO_TRUSTLINE")"
+expect_paid "$NO_TRUSTLINE" false
 
 step "After the run"
 balances
+# What the run paid, and nothing else: 100 to A, 50 + 25 to B.
+balance_of "$INV_A"
+[[ "$READ" == "$((A_BEFORE + 100 * USDC_UNIT))" ]] || { echo "investor A holds $READ, expected $((A_BEFORE + 100 * USDC_UNIT))" >&2; exit 1; }
+balance_of "$INV_B"
+[[ "$READ" == "$((B_BEFORE + 75 * USDC_UNIT))" ]] || { echo "investor B holds $READ, expected $((B_BEFORE + 75 * USDC_UNIT))" >&2; exit 1; }
+echo "balances moved by exactly what the run paid"

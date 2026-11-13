@@ -105,7 +105,7 @@ Superseded offerings, kept in the manifest: `t1-demo-1` and `t1-demo-3`, the fir
 | 8 | Only the owner unpauses | [`642597fd…`](https://stellar.expert/explorer/testnet/tx/642597fd4685e7d47d0c87a70575613d452fc392d1c77a52c431b376ab3302fe) |
 | 9 | All or nothing: a list with a recipient that has no USDC trustline fails in simulation (asset code 13); nothing is signed or sent | simulation only |
 
-Distribution ids of the run: `d5970826…10da` (step 1) and `5483fae6…3874` (step 5). Balances moved from 7,000 / 3,000 / 2,000 USDC (treasury, A, B) to 6,825 / 3,100 / 2,075.
+Distribution ids of the run: `d5970826…10da` (step 1) and `5483fae6…3874` (step 5). Balances moved from 7,000 / 3,000 / 2,000 USDC (treasury, A, B) to 6,825 / 3,100 / 2,075. The script now checks every read and the final balances itself and lifts its own pause if it stops midway; it ran a second time that way the same day, with the same results under fresh ids.
 
 ## Build and test
 
