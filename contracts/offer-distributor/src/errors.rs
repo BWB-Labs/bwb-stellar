@@ -17,10 +17,11 @@ pub enum OfferDistributorError {
     EmptyBatch = 6303,
     /// More than `MAX_PAYOUTS` payouts in one distribution.
     BatchTooLarge = 6304,
-    /// A payout whose amount is not positive.
+    /// A payout, or a rescue, whose amount is not positive.
     NonPositiveAmount = 6305,
-    /// A payout to the distributor itself, which never holds money, or to
-    /// the asset's own contract, where the amount would be stranded.
+    /// A payout or a rescue to the distributor itself, which is not meant
+    /// to hold money, or to the asset's own contract, where the amount
+    /// would be stranded.
     InvalidRecipient = 6306,
     /// The distribution id was already paid. A correction is a new
     /// distribution with a new id.

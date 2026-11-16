@@ -10,8 +10,9 @@
 # The run walks: a distribution to two investors, the read that says it was
 # paid, the same id refused, a stranger refused, a correction under a new
 # id, a pause with a refused distribution, a list with a recipient that has
-# no trustline, which fails in simulation and pays nobody, and a payout to
-# the asset's own contract, refused.
+# no trustline, which fails in simulation and pays nobody, a payout to
+# the asset's own contract, refused, and money sent to the distributor by
+# mistake, which its sender cannot take back and the treasury rescues.
 #
 # A distribution id is paid once for the life of the contract, so every run
 # derives fresh ids from RUN (the current time by default), the way the
@@ -212,6 +213,24 @@ step "10. A payout to the asset's own contract would be stranded there (6306 Inv
 rejected bwb-testnet-treasury 6306 distribute --id "$TO_ASSET" --asset "$USDC" \
   --payouts "$(payouts "$INV_A" 1 "$USDC" 1)" --caller "$TREASURY" \
   -- "$(paid_key "$TO_ASSET")"
+
+step "11. A mistake: investor A sends 1 USDC to the distributor's address by hand"
+# A plain transfer on the asset. The distributor is not called and cannot
+# refuse it. If the run stops before step 13, the treasury rescues by hand.
+out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-investor-a --id "$USDC" -- \
+  transfer --from "$INV_A" --to "$DISTRIBUTOR" --amount "$USDC_UNIT" 2>&1)" || { echo "$out" >&2; exit 1; }
+echo "tx: $(grep -o "$EXPLORER/tx/[0-9a-f]*" <<<"$out" | head -n1)"
+balance_of "$DISTRIBUTOR"
+echo "distributor: $READ USDC stroops"
+[[ "$READ" == "$USDC_UNIT" ]] || { echo "expected the distributor to hold $USDC_UNIT" >&2; exit 1; }
+
+step "12. The sender cannot take it back itself (6300 NotOwner)"
+rejected bwb-testnet-investor-a 6300 rescue --asset "$USDC" --to "$INV_A" \
+  --amount "$USDC_UNIT" --caller "$INV_A"
+
+step "13. The treasury rescues it: the 1 USDC goes back to investor A"
+ok bwb-testnet-treasury rescue --asset "$USDC" --to "$INV_A" \
+  --amount "$USDC_UNIT" --caller "$TREASURY"
 
 step "After the run"
 balances

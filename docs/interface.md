@@ -143,7 +143,7 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 | admin (stored address) | `offer-token` | tokenizer's treasury | manage the transfer whitelist and the offering URI, pause and unpause |
 | `xfer_admin` (stored address, fixed at construction) | `offer-token` | tokenizer's treasury | move tokens between any two accounts, even while paused |
 | owner (stored address) | `offer-sale` | tokenizer's treasury | close, reopen, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
-| owner (stored address) | `offer-distributor` | the treasury that pays, chosen at deploy | distribute from its own account, pause and unpause |
+| owner (stored address) | `offer-distributor` | the treasury that pays, chosen at deploy | distribute from its own account, rescue a balance sent to the distributor by mistake, pause and unpause |
 | access-control admin | `offer-allowlist` | platform multisig | grant and revoke the roles below; it is also the only upgrader (ADR 0008), and it can never renounce |
 | `pauser` (stored address) | `offer-token`, `offer-sale`, `offer-distributor` | platform multisig | pause only, never unpause (ADR 0003, flagged for the team) |
 | `upgrader` (stored address) | `offer-token`, `offer-sale`, `offer-distributor`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
@@ -764,7 +764,8 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29; the per-tra
 
 **1.1, 2026-11-13.** `offer-distributor` delivered (L6), the first Tranche 2 contract. Changes here:
 
-- **A distributor per offering.** The owner sends an id, an asset and at most 30 payouts, and `distribute` moves each amount from the owner's account straight to its recipient in that one call. The contract holds no balance, unlike Base's `TokenDistributor`, which is funded first and pays from its own balance: a Stellar transaction carries one contract call, so Base's two steps would leave money parked between two transactions (ADR 0009). Every recipient is paid or nobody is.
+- **A distributor per offering.** The owner sends an id, an asset and at most 30 payouts, and `distribute` moves each amount from the owner's account straight to its recipient in that one call. The contract needs no balance, unlike Base's `TokenDistributor`, which is funded first and pays from its own balance: a Stellar transaction carries one contract call, so Base's two steps would leave money parked between two transactions (ADR 0009). Every recipient is paid or nobody is.
+- **A balance sent to the distributor by mistake** can be sent out by the owner with `rescue(asset, to, amount, caller)`, the only call that moves money the contract holds; it emits `rescued` (added 2026-11-16, `offer-distributor` 0.3.0; [offer-distributor.md](offer-distributor.md#a-stray-balance)).
 - **An id is paid at most once** (6307). The backend chooses the 32-byte id as a hash of its own record; a correction is a new distribution with a new id; `is_paid(id)` answers whether a call went through.
 - **Powers** are stored addresses as on the token and the sale: `owner` (the treasury that pays, chosen at deploy), `pauser` and `upgrader` (the platform multisig). A paused distributor blocks `distribute` only ([1](#1-parties-roles-and-keys)).
 - **Events:** `distributed` per payout after the asset's `transfer`, then `distribution_completed`; both carry the id as a topic. Sizes measured and pinned: 260 B and 252 B. A full distribution emits 15,372 B, a cap accepted with less room than the other batches ([6.4](#64-batch-sizes), [R5](#r5-event-sizes)).

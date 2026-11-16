@@ -12,6 +12,7 @@ mod events;
 mod failure;
 mod idempotency;
 mod pause;
+mod rescue;
 mod ttl;
 mod upgrade;
 
