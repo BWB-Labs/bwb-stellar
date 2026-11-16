@@ -15,7 +15,7 @@ use crate::storage::DataKey;
 
 const DAY: u32 = 17_280;
 
-fn instance_ttl(e: &Env, id: &Address) -> u32 {
+pub(super) fn instance_ttl(e: &Env, id: &Address) -> u32 {
     e.as_contract(id, || e.storage().instance().get_ttl())
 }
 
@@ -27,11 +27,11 @@ fn marker_ttl(e: &Env, id: &Address, dist: &BytesN<32>) -> u32 {
     })
 }
 
-fn max_ttl(e: &Env, id: &Address) -> u32 {
+pub(super) fn max_ttl(e: &Env, id: &Address) -> u32 {
     e.as_contract(id, || e.storage().max_ttl())
 }
 
-fn advance(e: &Env, days: u32) {
+pub(super) fn advance(e: &Env, days: u32) {
     e.ledger().with_mut(|l| l.sequence_number += days * DAY);
 }
 

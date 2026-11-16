@@ -5,8 +5,8 @@
 //! The owner sends a distribution: an id, an asset and at most
 //! `MAX_PAYOUTS` `{recipient, amount}`. In that same call the contract
 //! moves each amount from the owner's account straight to its recipient,
-//! so it never holds a balance, and the owner's authorization covers the
-//! exact list. Either every recipient is paid or nothing happens. The
+//! so no payment passes through its balance, and the owner's
+//! authorization covers the exact list. Either every recipient is paid or nothing happens. The
 //! contract knows nothing about what a distribution is for: a payout to an
 //! offering's stakeholders and a return to its investors look the same.
 //!
@@ -16,7 +16,7 @@
 //!
 //! Three powers, each a stored address fixed at construction with no
 //! setter, as on the token and the sale: `owner` (the treasury that pays)
-//! distributes, pauses and unpauses; `pauser` (the platform multisig)
+//! distributes, rescues, pauses and unpauses; `pauser` (the platform multisig)
 //! pauses, never unpauses; `upgrader` (the platform multisig) replaces the
 //! code. A paused distributor blocks `distribute` and nothing else.
 //!

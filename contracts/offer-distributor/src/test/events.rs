@@ -1,23 +1,14 @@
 //! Each entrypoint emits exactly the events the distributor document
 //! lists, in the documented order.
-use soroban_sdk::{
-    testutils::{Address as _, Events as _},
-    xdr, Address, Env, Event as _, TryFromVal,
-};
+use soroban_sdk::{testutils::Address as _, xdr, Address, Event as _};
 
 use stellar_contract_utils::pausable::{Paused, Unpaused};
 
-use super::{err, setup, USDC};
+use super::{emitted, emitters, err, setup, USDC};
 use crate::events::{Configured, Distributed, DistributionCompleted, PauseChanged};
 use crate::OfferDistributorError;
 
 extern crate std;
-use std::vec::Vec;
-
-/// The events the distributor emitted in the last invocation.
-fn emitted(e: &Env, id: &Address) -> Vec<xdr::ContractEvent> {
-    e.events().all().filter_by_contract(id).events().to_vec()
-}
 
 #[test]
 fn construction_emits_configured() {
@@ -71,15 +62,7 @@ fn a_distribution_emits_distributed_per_payout_then_the_summary() {
 fn each_distributed_follows_the_assets_transfer() {
     let s = setup();
     s.distribute(7, &[(&s.alice, USDC), (&s.bob, USDC)]);
-    let all = s.e.events().all();
-    let emitters: Vec<Address> = all
-        .events()
-        .iter()
-        .map(|ev| {
-            let emitter = xdr::ScAddress::Contract(ev.contract_id.clone().unwrap());
-            Address::try_from_val(&s.e, &emitter).unwrap()
-        })
-        .collect();
+    let emitters = emitters(&s.e);
     let usdc = s.usdc.address.clone();
     let me = s.id.clone();
     assert_eq!(emitters, [usdc.clone(), me.clone(), usdc, me.clone(), me]);

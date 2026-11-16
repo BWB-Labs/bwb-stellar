@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    testutils::{Address as _, IssuerFlags, StellarAssetContract},
+    testutils::{Address as _, Events as _, IssuerFlags, StellarAssetContract},
     token::{StellarAssetClient, TokenClient},
     xdr, Address, BytesN, Env, IntoVal, InvokeError, Symbol, TryFromVal, Vec,
 };
@@ -204,6 +204,24 @@ fn account_id(i: u32) -> xdr::AccountId {
     xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(bytes)))
 }
 
+/// The events `id` emitted in the last invocation.
+pub fn emitted(e: &Env, id: &Address) -> std::vec::Vec<xdr::ContractEvent> {
+    e.events().all().filter_by_contract(id).events().to_vec()
+}
+
+/// The contract behind each event of the last invocation, in order.
+pub fn emitters(e: &Env) -> std::vec::Vec<Address> {
+    e.events()
+        .all()
+        .events()
+        .iter()
+        .map(|ev| {
+            let emitter = xdr::ScAddress::Contract(ev.contract_id.clone().unwrap());
+            Address::try_from_val(e, &emitter).unwrap()
+        })
+        .collect()
+}
+
 /// What a client's `try_` call returns.
 pub type TryResult<T> =
     Result<Result<T, soroban_sdk::ConversionError>, Result<soroban_sdk::Error, InvokeError>>;
@@ -244,6 +262,7 @@ pub struct ReentrantToken;
 pub enum HostileKey {
     Distributor,
     Usdc,
+    Victim,
     Thief,
 }
 
@@ -283,6 +302,28 @@ impl GreedyToken {
         let usdc: Address = e.storage().instance().get(&HostileKey::Usdc).unwrap();
         let thief: Address = e.storage().instance().get(&HostileKey::Thief).unwrap();
         TokenClient::new(e, &usdc).transfer(&from, &thief, &amount);
+    }
+}
+
+/// An "asset" whose `transfer` moves real USDC from a fixed victim to a
+/// thief, whoever the sender is: what a wrong asset address could try with
+/// the signature of an owner who is not the one paying.
+#[contract]
+pub struct DrainingToken;
+
+#[contractimpl]
+impl DrainingToken {
+    pub fn __constructor(e: &Env, usdc: Address, victim: Address, thief: Address) {
+        e.storage().instance().set(&HostileKey::Usdc, &usdc);
+        e.storage().instance().set(&HostileKey::Victim, &victim);
+        e.storage().instance().set(&HostileKey::Thief, &thief);
+    }
+
+    pub fn transfer(e: &Env, _from: Address, _to: Address, amount: i128) {
+        let usdc: Address = e.storage().instance().get(&HostileKey::Usdc).unwrap();
+        let victim: Address = e.storage().instance().get(&HostileKey::Victim).unwrap();
+        let thief: Address = e.storage().instance().get(&HostileKey::Thief).unwrap();
+        TokenClient::new(e, &usdc).transfer(&victim, &thief, &amount);
     }
 }
 

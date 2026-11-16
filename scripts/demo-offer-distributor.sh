@@ -66,16 +66,19 @@ payouts() {
   printf '[%s]' "$out"
 }
 
-# ok <source> <fn> [args...]: a call that must succeed. Prints its hash,
-# link and events.
-ok() {
-  local source="$1"; shift
+# invoke_ok <contract> <source> <fn> [args...]: a call that must succeed.
+# Prints its hash, link and events.
+invoke_ok() {
+  local id="$1" source="$2"; shift 2
   local out
-  out="$(stellar contract invoke --network "$NETWORK" --source "$source" --id "$DISTRIBUTOR" -- "$@" 2>&1)" \
+  out="$(stellar contract invoke --network "$NETWORK" --source "$source" --id "$id" -- "$@" 2>&1)" \
     || { echo "$out" >&2; exit 1; }
   echo "tx: $(grep -o "$EXPLORER/tx/[0-9a-f]*" <<<"$out" | head -n1)"
   grep -o 'Event: .*' <<<"$out" || true
 }
+
+# ok <source> <fn> [args...]: invoke_ok on the distributor.
+ok() { invoke_ok "$DISTRIBUTOR" "$@"; }
 
 # read_fn <contract> <fn> [args...]: a simulated read. Sets READ to the
 # value, the CLI's last line of output. It sets a variable instead of
@@ -126,7 +129,8 @@ balances() {
     balance_of "${who#*:}"
     printf '%s: %s USDC stroops\n' "${who%%:*}" "$READ"
   done
-  # The last one read is the distributor's: it never holds money.
+  # The last one read is the distributor's: it holds nothing before the run
+  # and nothing once the rescue is done.
   [[ "$READ" == 0 ]] || { echo "the distributor holds $READ stroops; it should hold none" >&2; exit 1; }
 }
 
@@ -158,6 +162,16 @@ balances
 balance_of "$INV_A"; A_BEFORE="$READ"
 balance_of "$INV_B"; B_BEFORE="$READ"
 FIRST_LIST="$(payouts "$INV_A" 100 "$INV_B" 50)"
+
+# Step 11 sends money to the distributor, which only a distributor with
+# `rescue` (0.3.0) can send back. Checked before anything is sent: a
+# simulated rescue by a stranger must be refused by the contract itself.
+if out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-investor-a --id "$DISTRIBUTOR" --send=no -- \
+  rescue --asset "$USDC" --to "$INV_A" --amount 1 --caller "$INV_A" 2>&1)" \
+  || ! grep -q 'Error(Contract, #6300)' <<<"$out"; then
+  echo "the deployed distributor has no rescue; upgrade it to 0.3.0 before a run" >&2
+  exit 1
+fi
 
 step "1. The treasury distributes 150 USDC: 100 to investor A, 50 to investor B"
 echo "id: $FIRST"
@@ -217,9 +231,7 @@ rejected bwb-testnet-treasury 6306 distribute --id "$TO_ASSET" --asset "$USDC" \
 step "11. A mistake: investor A sends 1 USDC to the distributor's address by hand"
 # A plain transfer on the asset. The distributor is not called and cannot
 # refuse it. If the run stops before step 13, the treasury rescues by hand.
-out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-investor-a --id "$USDC" -- \
-  transfer --from "$INV_A" --to "$DISTRIBUTOR" --amount "$USDC_UNIT" 2>&1)" || { echo "$out" >&2; exit 1; }
-echo "tx: $(grep -o "$EXPLORER/tx/[0-9a-f]*" <<<"$out" | head -n1)"
+invoke_ok "$USDC" bwb-testnet-investor-a transfer --from "$INV_A" --to "$DISTRIBUTOR" --amount "$USDC_UNIT"
 balance_of "$DISTRIBUTOR"
 echo "distributor: $READ USDC stroops"
 [[ "$READ" == "$USDC_UNIT" ]] || { echo "expected the distributor to hold $USDC_UNIT" >&2; exit 1; }

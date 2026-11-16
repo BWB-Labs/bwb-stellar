@@ -1,8 +1,8 @@
 //! Events specific to `offer-distributor`. Each name is the struct name in
 //! snake case; `#[topic]` fields become topics, the rest a map in the data,
 //! which the SDK encodes with its keys in sorted name order. The paid
-//! asset's own `transfer` is emitted before each `distributed`, and
-//! OpenZeppelin's `paused` and `unpaused` before `pause_changed`.
+//! asset's own `transfer` is emitted before each `distributed` and before
+//! `rescued`, and OpenZeppelin's `paused` and `unpaused` before `pause_changed`.
 use soroban_sdk::{contractevent, Address, BytesN};
 
 /// The distributor's whole configuration, once, at construction.

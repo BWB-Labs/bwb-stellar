@@ -1,8 +1,8 @@
 //! The distributor's own storage: the powers in instance storage and one
 //! persistent marker per paid distribution, plus the expiry policy and the
 //! power check built on them. The pause flag and the schema version live
-//! in OpenZeppelin's storage. The contract holds no balance, so there is
-//! no accounting to keep.
+//! in OpenZeppelin's storage. The contract needs no balance and keeps no
+//! accounting: the asset holds whatever was sent to it by mistake.
 use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env};
 
 use crate::errors::OfferDistributorError;

@@ -83,8 +83,8 @@ fn the_smallest_amount_is_one_stroop() {
     assert_eq!(s.usdc.balance(&s.alice), 1);
 }
 
-/// The distributor never holds money, so paying it would strand the
-/// amount there.
+/// The distributor needs no balance, so a payout to it is a mistake: the
+/// amount would sit there until a rescue.
 #[test]
 fn the_distributor_itself_cannot_be_a_recipient() {
     let s = setup();
