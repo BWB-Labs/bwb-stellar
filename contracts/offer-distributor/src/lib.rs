@@ -21,8 +21,8 @@
 //! code. A paused distributor blocks `distribute` and nothing else.
 //!
 //! The contract needs no balance, but anyone can send it one by mistake.
-//! `rescue` lets the owner send such a balance out; it is the only call
-//! that moves money the contract holds.
+//! `rescue` lets the owner take such a balance into its own account, and
+//! nowhere else; it is the only call that moves money the contract holds.
 #![no_std]
 
 mod errors;
@@ -150,27 +150,27 @@ impl OfferDistributor {
     }
 
     /// Sends `amount` of `asset` out of the distributor's own balance to
-    /// `to`. Owner only (6300). The distributor needs no balance, so
-    /// whatever it holds reached it by mistake, and this is the way back.
-    /// The amount is positive (6305) and `to` is neither the distributor
-    /// nor the asset's own contract (6306); more than the distributor
-    /// holds fails with the asset's own code. Works while paused: it pays
-    /// nothing from the owner's account. Emits `rescued`.
-    pub fn rescue(e: &Env, asset: Address, to: Address, amount: i128, caller: Address) {
+    /// the owner. Owner only (6300). The distributor needs no balance, so
+    /// whatever it holds reached it by mistake; it can leave only to the
+    /// owner, who returns it to its sender. The amount is positive (6305);
+    /// more than the distributor holds fails with the asset's own code.
+    /// Works while paused: it pays nothing from the owner's account. Emits
+    /// `rescued`.
+    pub fn rescue(e: &Env, asset: Address, amount: i128, caller: Address) {
         require_owner(e, &caller);
         if amount <= 0 {
             panic_with_error!(e, OfferDistributorError::NonPositiveAmount);
         }
-        let me = e.current_contract_address();
-        if to == me || to == asset {
-            panic_with_error!(e, OfferDistributorError::InvalidRecipient);
-        }
         // The distributor is the direct caller of this `transfer`, which is
         // all the authorization it gives: the asset cannot spend another
         // asset's balance in the distributor's name.
-        token::TokenClient::new(e, &asset).transfer(&me, &to, &amount);
+        token::TokenClient::new(e, &asset).transfer(
+            &e.current_contract_address(),
+            &caller,
+            &amount,
+        );
         storage::extend_instance_ttl(e);
-        events::Rescued { asset, to, amount }.publish(e);
+        events::Rescued { asset, amount }.publish(e);
     }
 
     /// Whether a distribution with this id was paid. The answer to "did my

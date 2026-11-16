@@ -3,7 +3,7 @@
 - **What it does.** Pays a list of recipients in one call. The owner sends a distribution: an id, an asset and at most 30 `{recipient, amount}`. In that same call the contract moves each amount from the owner's account straight to its recipient. Every recipient is paid or nobody is, and an id is paid at most once.
 - **Scope.** One instance per offering. The contract needs no balance and knows nothing about what a distribution is for: a payout to an offering's stakeholders and a return to its investors look the same.
 - **Who uses it.** The owner, a treasury, distributes, pauses, unpauses and rescues; every distribution is paid from the owner's own account. The backend builds the list, chooses the id and submits what the treasury signed. The platform multisig pauses and upgrades.
-- **Where it comes from.** A port of Base's push `TokenDistributor`, following it wherever Stellar allows, with four changes: the payment is one atomic call instead of "fund, then distribute" (ADR 0009), an id cannot be paid twice, the contract can be paused and upgraded, and the owner can send out a balance that reached it by mistake.
+- **Where it comes from.** A port of Base's push `TokenDistributor`, following it wherever Stellar allows, with four changes: the payment is one atomic call instead of "fund, then distribute" (ADR 0009), an id cannot be paid twice, the contract can be paused and upgraded, and the owner can take out a balance that reached it by mistake.
 
 **Delivered in L6.** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-4`; `scripts/demo-offer-distributor.sh` exercises it. The design decisions are on issue [#28](https://github.com/BWB-Labs/bwb-stellar/issues/28); the facts under them are in [research/l6-push-distributor.md](research/l6-push-distributor.md). The cross-cutting rules are in [interface.md](interface.md).
 
@@ -59,7 +59,7 @@ There is nothing else to configure: no asset, no name, no limits. The constructi
 | Call | Signed by | What it does |
 |---|---|---|
 | `distribute(id, asset, payouts, caller)` | `caller` = `owner` | Pays every `{recipient, amount}` in `asset` from the owner's account and records `id` as paid. Blocked while paused. |
-| `rescue(asset, to, amount, caller)` | `caller` = `owner` | Sends `amount` of `asset` from the distributor's own balance to `to`. Works while paused. |
+| `rescue(asset, amount, caller)` | `caller` = `owner` | Sends `amount` of `asset` from the distributor's own balance to the owner. Works while paused. |
 | `is_paid(id)` | nobody | Whether a distribution with this id was paid. |
 | `powers()` | nobody | `{owner, pauser, upgrader}` |
 | `paused()` | nobody | The pause flag |
@@ -86,21 +86,21 @@ Then it records the id and makes the transfers. A transfer the asset refuses fai
 
 ### A stray balance
 
-The distributor needs no balance, and no contract can refuse a token transfer made to its address: the asset updates its own books and never calls the receiver. So money can reach the distributor by mistake, from someone used to Base's "fund, then distribute" or from a pasted address. The one exception is an asset whose issuer requires authorization for every holder: a transfer to a distributor it never authorized fails at the sender. `rescue(asset, to, amount, caller)` is the way back.
+The distributor needs no balance, and no contract can refuse a token transfer made to its address: the asset updates its own books and never calls the receiver. So money can reach the distributor by mistake, from someone used to Base's "fund, then distribute" or from a pasted address. The one exception is an asset whose issuer requires authorization for every holder: a transfer to a distributor it never authorized fails at the sender. `rescue(asset, amount, caller)` is the way out.
 
 - **Owner only** (6300). The pauser, the upgrader and the account that sent the money cannot call it; the sender asks the treasury.
-- **`to` is the owner's choice,** normally whoever sent the money. It cannot be the distributor itself or the asset's own contract (6306), and the amount is positive (6305). The contract does not know who sent a balance, so the signers check `to` against the `from` of the asset's `transfer` that credited the distributor, not against whoever asks for the money. `to` is a plain address: a return to an exchange's shared account carries no memo or muxed id, so it is agreed with the exchange first.
-- **It moves only what the distributor holds.** The `transfer` goes from the distributor to `to`; more than the balance fails with the asset's code (10), and so does a `to` the asset refuses or a balance its issuer froze, which only the issuer gives back (11, 13; [Errors](#errors)). The owner signs the call and no transfer, so signed that way a rescue cannot spend from the owner's account ([Authorization](#authorization)).
+- **The money goes to the owner and nowhere else.** The call has no recipient to get wrong: a rescue built by mistake, or signed under a false story about whose money it is, lands in the treasury. Returning it to its sender is then an ordinary payment by the treasury, which can carry a memo or a muxed address for an exchange. The signers find the sender in the `from` of the asset's `transfer` that credited the distributor, not in whoever asks for the money.
+- **It moves only what the distributor holds.** The amount is positive (6305); more than the balance fails with the asset's code (10), and so does a balance the issuer froze, the distributor's or the owner's, or an owner account with no trustline for the asset (11, 13; [Errors](#errors)). The owner signs the call and no transfer, so signed that way a rescue cannot spend from the owner's account ([Authorization](#authorization)).
 - **It works while paused,** uses no distribution id and emits `rescued`.
-- **A wrong asset address gets nothing.** The distributor authorizes only the one `transfer` it makes, on the asset named; that contract cannot move another asset's balance in the distributor's name.
+- **A wrong asset address gets nothing from the distributor.** The distributor authorizes only the one `transfer` it makes, on the asset named; that contract cannot move another asset's balance in the distributor's name.
 
-**What this adds to a leaked or mistaken owner.** The owner can now take whatever the distributor holds. That is money that should not be there, and it is never an investor's payout in transit: a distribution does not pass through this balance.
+**What this adds to a leaked or mistaken owner.** The owner can take whatever the distributor holds into its own account. That is money that should not be there, and it is never an investor's payout in transit: a distribution does not pass through this balance.
 
 ### Authorization
 
 The treasury signs one authorization entry. Its root is `distribute(id, asset, payouts, owner)`; under it comes the asset's `transfer(owner, recipient, amount)`, one per payout, in the list's order, and nothing else ([interface 4](interface.md#4-invocation-and-authorization)). BWB submits the transaction and pays the fee.
 
-For a `rescue` the entry is the root alone, `rescue(asset, to, amount, owner)`, with no sub-invocation: the distributor authorizes its own `transfer`.
+For a `rescue` the entry is the root alone, `rescue(asset, amount, owner)`, with no sub-invocation: the distributor authorizes its own `transfer`.
 
 **The backend builds that tree, or checks it, before anyone signs. It never passes on a tree as a simulation recorded it.** A recording simulation grants whatever the called contracts ask for in the owner's name. If a wrong asset address reached the call, its `transfer` could ask to move the owner's real USDC elsewhere, the simulation would record that as one more sub-invocation, and a treasury signing the recorded tree would authorize it. Signed with the tree above, the same call fails and moves nothing (the `authorization` tests show both). The same holds for a rescue with a wrong asset address: a recorded tree with anything under the root is refused, and the `rescue` tests show both outcomes. The check is mechanical: the root's arguments are the distribution; every sub-invocation is `transfer` on the root's own `asset`, from the owner, to the payout's recipient, for its amount; there are as many as payouts; none has children.
 
@@ -111,7 +111,7 @@ For a `rescue` the entry is the root alone, `rescue(asset, to, amount, owner)`, 
 ## Differences from Base
 
 - **One atomic call instead of two steps.** Base funds the distributor with a plain transfer and then calls `distributeTokens`, which pays from the contract's balance; a Safe puts both in one transaction. A Stellar transaction carries one contract call, so the two steps would be two transactions with money parked in between. Here `distribute` moves the money from the owner to the recipients itself, and the contract needs no balance (ADR 0009).
-- **`rescue` for a balance sent by mistake.** Base's distributor has no such call, and none is needed there: whatever it holds is paid out by the next `distributeTokens`. Here nothing pays from the contract's balance, so a stray one would stay without it.
+- **`rescue` for a balance sent by mistake,** which goes only to the owner. Base's distributor has no such call, and none is needed there: whatever it holds is paid out by the next `distributeTokens`. Here nothing pays from the contract's balance, so a stray one would stay without it.
 - **An id that cannot be paid twice.** Base has none: the same list sent twice pays twice.
 - **Pause and upgrade through stored powers.** Base's distributor has one `Ownable` owner, transferable, and no pause; its code changes through the factory's beacon. Here the powers are three fixed addresses, the platform can pause, and each instance upgrades itself (ADR 0001, ADR 0005).
 - **30 payouts per call, not 200.** The limit comes from the events a transaction may emit.
@@ -130,11 +130,11 @@ Data fields are listed in sorted name order.
 | `configured` | `configured` | `{owner, pauser, upgrader}` | Construction |
 | `distributed` | `distributed`, id, recipient | `{amount, asset}` | `distribute`, per payout, after the asset's `transfer` |
 | `distribution_completed` | `distribution_completed`, id | `{asset, count, total}` | `distribute`, once, after the last `distributed` |
-| `rescued` | `rescued`, asset | `{amount, to}` | `rescue`, after the asset's `transfer` |
+| `rescued` | `rescued`, asset | `{amount}` | `rescue`, after the asset's `transfer` |
 | `pause_changed` | `pause_changed`, caller | `{paused}` | `pause` and `unpause`, after OpenZeppelin's |
 | `upgraded` | `upgraded` | `{from_schema_version, new_wasm_hash}` | `upgrade`, emitted by the old code |
 
-Also emitted, by the asset the distributor calls: one `transfer` from the owner to the recipient before each `distributed`, and one from the distributor to `to` before `rescued`. A refused call emits nothing.
+Also emitted, by the asset the distributor calls: one `transfer` from the owner to the recipient before each `distributed`, and one from the distributor to the owner before `rescued`. A refused call emits nothing.
 
 **Reading them.** `id` is a topic on both events, so an indexer finds every payout of a distribution by it, and the backend matches it to its own record. `distribution_completed` is the proof a distribution was paid in full: `total` is the sum of its `count` payouts. `rescued` is the only event that goes with money leaving the distributor's own address. All three record what the distributor asked the asset to do; the asset's own `transfer` event is the proof the money moved.
 
@@ -150,13 +150,13 @@ Also emitted, by the asset the distributor calls: one `transfer` from the owner 
 | 6303 | `EmptyBatch` | A distribution with no payouts |
 | 6304 | `BatchTooLarge` | More than 30 payouts |
 | 6305 | `NonPositiveAmount` | A payout, or a rescue, of zero or less |
-| 6306 | `InvalidRecipient` | A payout or a rescue to the distributor itself, or to the asset's own contract, where it would be stranded |
+| 6306 | `InvalidRecipient` | A payout to the distributor itself, or to the asset's own contract, where it would be stranded |
 | 6307 | `AlreadyPaid` | The id was already paid |
 | 6308 | `AmountOverflow` | The amounts add up to more than an `i128` holds |
 
 Codes from the contracts it calls, which surface unchanged:
 
-- **the asset** (a Stellar Asset Contract), during a distribution or a rescue: 10 `BalanceError` (the owner holds less than the list is worth, a recipient's trustline is at its limit, or a rescue asks for more than the distributor holds), 11 `BalanceDeauthorizedError` (the issuer froze the owner's or a recipient's balance, or in a rescue the distributor's or `to`'s; the code does not say which), 13 `TrustlineMissingError` (a recipient account, or a rescue's `to`, has no trustline for the asset, or does not exist) ([interface R6](interface.md#r6-error-codes));
+- **the asset** (a Stellar Asset Contract), during a distribution or a rescue: 10 `BalanceError` (the owner holds less than the list is worth, a recipient's trustline is at its limit, or a rescue asks for more than the distributor holds), 11 `BalanceDeauthorizedError` (the issuer froze the owner's or a recipient's balance, or in a rescue the distributor's or the owner's; the code does not say which), 13 `TrustlineMissingError` (a recipient account, or in a rescue the owner's, has no trustline for the asset, or does not exist) ([interface R6](interface.md#r6-error-codes));
 - **OpenZeppelin:** 1000 `EnforcedPause` and 1001 `ExpectedPause` from the distributor's own pause.
 
 A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract code ([interface 7.1](interface.md#71-codes)). An authorization that does not cover every transfer is refused inside the asset's call, which fails the distribution without a contract code either.
@@ -180,7 +180,7 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 |---|---|
 | `authorization` | A signed wrong caller per privileged call gets the power's code, a funded stranger included, with the pauser and the upgrader as different accounts so neither passes for the other; an unsigned call fails at authorization; the reads with no auths at all; the owner's exact authorization with one `transfer` per payout; a signature for one list does not pay another; a signature without the transfers, or missing one, moves nothing; an asset that asks for more than was signed gets nothing, and gets paid under a recorded tree |
 | `boundary` | 30 payouts and the 31st; an empty list; zero and negative amounts, `i128::MIN` included; one stroop; the largest amounts, which reach the asset and fail there; a payout to the distributor itself or to the asset's own contract; a recipient listed twice; the owner listing itself; an id of all zeros; amounts that overflow together; the distributor's balance stays zero; a full distribution to classic accounts measured against the network limits, with its 33 write entries |
-| `rescue` | The owner sends a stray balance back, whole or in parts; nobody else can, the sender included; the owner signs the call and no transfer; an unsigned call fails at authorization; a zero or negative amount, a rescue to the distributor or to the asset, more than the balance and an empty distributor are refused; a `to` the asset refuses and a balance the issuer froze fail with the asset's code; it works while paused and leaves distributions as they were; a hostile asset cannot take another asset's balance, and gets the owner's money only under a recorded tree; the exact `rescued` event after the asset's `transfer`; a refused rescue emits nothing; the instance is topped up |
+| `rescue` | The owner takes a stray balance into its own account, whole or in parts; nobody else can, the sender included; the owner signs the call and no transfer; an unsigned call fails at authorization; a zero or negative amount, more than the balance and an empty distributor are refused; a balance the issuer froze, the distributor's or the owner's, fails with the asset's code; it works while paused and leaves distributions as they were; a hostile asset cannot take another asset's balance, and gets the owner's money only under a recorded tree; the exact `rescued` event after the asset's `transfer`; a refused rescue emits nothing; the instance is topped up |
 | `pause` | A paused distributor blocks `distribute` until the owner unpauses; the owner may pause too; the reads answer while paused; OpenZeppelin's 1000 and 1001 |
 | `idempotency` | The same distribution sent twice pays once; a paid id is refused with another list or asset; a correction as a new id; a failed call and a refused call leave their id unpaid; ids are separate per distributor; an id stays paid and refused after its entry's lifetime ran out |
 | `failure` | A frozen recipient, a recipient without a trustline and a recipient account that does not exist each fail the whole distribution with the asset's code, and it passes once the list is fixed; an owner without enough balance and a frozen owner pay nobody; an asset address with no token behind it, the distributor's own included; an asset that moves nothing still records the distribution; an asset that calls back into the distributor; the first rule broken is the one reported; one distributor paying in two assets |

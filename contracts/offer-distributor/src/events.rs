@@ -36,13 +36,12 @@ pub struct DistributionCompleted {
     pub count: u32,
 }
 
-/// A balance the distributor held by mistake, sent out by the owner, after
-/// the asset's `transfer` from the distributor to `to`.
+/// A balance the distributor held by mistake, taken by the owner, after
+/// the asset's `transfer` from the distributor to the owner.
 #[contractevent]
 pub struct Rescued {
     #[topic]
     pub asset: Address,
-    pub to: Address,
     pub amount: i128,
 }
 

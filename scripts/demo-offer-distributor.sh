@@ -12,7 +12,8 @@
 # id, a pause with a refused distribution, a list with a recipient that has
 # no trustline, which fails in simulation and pays nobody, a payout to
 # the asset's own contract, refused, and money sent to the distributor by
-# mistake, which its sender cannot take back and the treasury rescues.
+# mistake, which its sender cannot take back; the treasury rescues it into
+# its own account and pays it back.
 #
 # A distribution id is paid once for the life of the contract, so every run
 # derives fresh ids from RUN (the current time by default), the way the
@@ -167,7 +168,7 @@ FIRST_LIST="$(payouts "$INV_A" 100 "$INV_B" 50)"
 # `rescue` (0.3.0) can send back. Checked before anything is sent: a
 # simulated rescue by a stranger must be refused by the contract itself.
 if out="$(stellar contract invoke --network "$NETWORK" --source bwb-testnet-investor-a --id "$DISTRIBUTOR" --send=no -- \
-  rescue --asset "$USDC" --to "$INV_A" --amount 1 --caller "$INV_A" 2>&1)" \
+  rescue --asset "$USDC" --amount 1 --caller "$INV_A" 2>&1)" \
   || ! grep -q 'Error(Contract, #6300)' <<<"$out"; then
   echo "the deployed distributor has no rescue; upgrade it to 0.3.0 before a run" >&2
   exit 1
@@ -230,19 +231,21 @@ rejected bwb-testnet-treasury 6306 distribute --id "$TO_ASSET" --asset "$USDC" \
 
 step "11. A mistake: investor A sends 1 USDC to the distributor's address by hand"
 # A plain transfer on the asset. The distributor is not called and cannot
-# refuse it. If the run stops before step 13, the treasury rescues by hand.
+# refuse it. If the run stops before step 14, the treasury finishes by hand.
 invoke_ok "$USDC" bwb-testnet-investor-a transfer --from "$INV_A" --to "$DISTRIBUTOR" --amount "$USDC_UNIT"
 balance_of "$DISTRIBUTOR"
 echo "distributor: $READ USDC stroops"
 [[ "$READ" == "$USDC_UNIT" ]] || { echo "expected the distributor to hold $USDC_UNIT" >&2; exit 1; }
 
 step "12. The sender cannot take it back itself (6300 NotOwner)"
-rejected bwb-testnet-investor-a 6300 rescue --asset "$USDC" --to "$INV_A" \
+rejected bwb-testnet-investor-a 6300 rescue --asset "$USDC" \
   --amount "$USDC_UNIT" --caller "$INV_A"
 
-step "13. The treasury rescues it: the 1 USDC goes back to investor A"
-ok bwb-testnet-treasury rescue --asset "$USDC" --to "$INV_A" \
-  --amount "$USDC_UNIT" --caller "$TREASURY"
+step "13. The treasury rescues it: the 1 USDC can only go to the treasury's own account"
+ok bwb-testnet-treasury rescue --asset "$USDC" --amount "$USDC_UNIT" --caller "$TREASURY"
+
+step "14. The treasury returns it to investor A with an ordinary payment"
+invoke_ok "$USDC" bwb-testnet-treasury transfer --from "$TREASURY" --to "$INV_A" --amount "$USDC_UNIT"
 
 step "After the run"
 balances
