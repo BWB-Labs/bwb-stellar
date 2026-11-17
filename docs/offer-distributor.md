@@ -9,12 +9,23 @@
 
 ## A distribution
 
-```
-distribute(id, asset, payouts, caller)
+```mermaid
+sequenceDiagram
+    participant T as Treasury (the owner)
+    participant D as Distributor
+    participant U as USDC (the asset)
+    participant A as Investor A
+    participant B as Investor B
 
-  owner ──transfer──▶ recipient 1      distributed {id, recipient 1, asset, amount}
-  owner ──transfer──▶ recipient 2      distributed {id, recipient 2, asset, amount}
-  …                                    distribution_completed {id, asset, total, count}
+    T->>D: distribute(id, USDC, A gets 100 and B gets 50)
+    Note over D: checks the list<br/>marks the id as paid
+    D->>U: pay A 100 from the Treasury
+    U->>A: 100 USDC, Treasury to A
+    Note over D: event distributed (id, A, USDC, 100)
+    D->>U: pay B 50 from the Treasury
+    U->>B: 50 USDC, Treasury to B
+    Note over D: event distributed (id, B, USDC, 50)
+    Note over D: event distribution_completed (id, USDC, total 150, count 2)
 ```
 
 - **The money never rests in the contract.** Each `transfer` goes from the owner's account to a recipient. A distribution leaves the distributor's own balance as it was, which is zero unless someone sent it money by mistake ([A stray balance](#a-stray-balance)).
