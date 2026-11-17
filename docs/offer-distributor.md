@@ -5,7 +5,7 @@
 - **Who uses it.** The owner, a treasury, distributes, pauses, unpauses and rescues; every distribution is paid from the owner's own account. The backend builds the list, chooses the id and submits what the treasury signed. The platform multisig pauses and upgrades.
 - **Where it comes from.** A port of Base's push `TokenDistributor`, following it wherever Stellar allows, with four changes: the payment is one atomic call instead of "fund, then distribute" (ADR 0009), an id cannot be paid twice, the contract can be paused and upgraded, and the owner can take out a balance that reached it by mistake.
 
-**Delivered in L6.** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-4`; `scripts/demo-offer-distributor.sh` exercises it. The design decisions are on issue [#28](https://github.com/BWB-Labs/bwb-stellar/issues/28); the facts under them are in [research/l6-push-distributor.md](research/l6-push-distributor.md). The cross-cutting rules are in [interface.md](interface.md).
+**Delivered in L6.** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-4`; `scripts/demo-offer-distributor.sh` exercises it. The design decisions are on issue [#28](https://github.com/BWB-Labs/bwb-stellar/issues/28). The cross-cutting rules are in [interface.md](interface.md).
 
 ## A distribution
 
