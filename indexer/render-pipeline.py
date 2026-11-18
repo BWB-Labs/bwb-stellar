@@ -1,31 +1,39 @@
 #!/usr/bin/env python3
-"""Render the Goldsky Turbo pipeline for one network from deployments/<network>.json.
+"""Render the Goldsky Turbo pipeline for one network, and the SQL that seeds its tracked contracts.
 
-    indexer/render-pipeline.py --network testnet --start-at latest|earliest|<ledger> \
+    indexer/render-pipeline.py --network testnet --start-at latest|earliest|<ledger sequence> \
         [--heartbeat-every 720] [--resource-size xs] [--out <file>]
     WEBHOOK_MANAGER_URL=https://<manager>.convex.site/hooks/<hook secret> \
         indexer/render-pipeline.py --network testnet --fill
 
 The pipeline has two streams that share one worker and one checkpoint:
 
-- contract events of every contract the manifest references, filtered in SQL
-  and delivered in batches to <manager>/webhooks/goldsky/events;
+- contract events of every tracked contract, delivered in batches to
+  <manager>/webhooks/goldsky/events;
 - a heartbeat, one ledger row every --heartbeat-every ledgers, delivered to
   <manager>/webhooks/goldsky/heartbeat so a receiver can tell a stalled pipeline
   from a quiet one.
 
-Both are addressed to the backend's Webhook Manager, which hands each batch to
-every backend deployment listening to it. The manager's address contains its
-hook secret and Goldsky cannot read a sink's url from a secret, so the rendered
-file carries a placeholder and is safe to commit. --fill copies the committed
-file to pipelines/<network>.local.yaml (ignored by git) with the address from
-WEBHOOK_MANAGER_URL in place of the placeholder; that copy is what
+The tracked contracts are not in the pipeline. They are rows in four Postgres
+tables, one per contract kind, that the pipeline consults on every batch
+(Goldsky dynamic tables). A row added while the pipeline runs takes effect
+within seconds, with no apply and no restart: the backend adds the contracts it
+deploys, before it deploys them. Rendering also writes
+pipelines/<network>.seed.sql, which creates the four tables, adds every
+contract deployments/<network>.json references and lets the backend's database
+user add rows; it is safe to run again.
+
+Both streams are addressed to the backend's Webhook Manager, which hands each
+batch to every backend deployment listening to it. The manager's address
+contains its hook secret and Goldsky cannot read a sink's url from a secret, so
+the rendered file carries a placeholder and is safe to commit. --fill copies
+the committed file to pipelines/<network>.local.yaml (ignored by git) with the
+address from WEBHOOK_MANAGER_URL in place of the placeholder; that copy is what
 `goldsky turbo apply` takes.
 
 Every row carries its chain environment (the network) and, for events, the
-contract's kind from the manifest; a receiver rejects rows for any other
-chain environment. Re-run after each deploy, fill and apply: apply is an upsert
-and keeps the pipeline's checkpoint. See indexer/README.md.
+contract's kind, from the table that tracks it; a receiver rejects rows for any
+other chain environment. See indexer/README.md.
 """
 import argparse
 import json
@@ -38,6 +46,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATASET_VERSION = "1.2.0"
 CONTRACT_ID = re.compile(r"\bC[A-Z2-7]{55}\b")
 LABEL = re.compile(r"[A-Za-z0-9_. -]+")
+NETWORK = re.compile(r"[a-z][a-z0-9_]*")
 EVENTS_PATH = "/webhooks/goldsky/events"
 HEARTBEAT_PATH = "/webhooks/goldsky/heartbeat"
 MANAGER_URL_VARIABLE = "WEBHOOK_MANAGER_URL"
@@ -45,12 +54,15 @@ MANAGER_URL_PLACEHOLDER = "${" + MANAGER_URL_VARIABLE + "}"
 MANAGER_URL = re.compile(r"https://[a-z0-9-]+\.convex\.site/hooks/[A-Za-z0-9_-]+")
 
 
-RENDER_ONLY = ("start_at", "secret_name", "heartbeat_every", "resource_size", "name")
+RENDER_ONLY = ("start_at", "secret_name", "tables_secret_name", "heartbeat_every", "resource_size", "name")
+KINDS = ("token", "sale", "allowlist", "asset")
+TABLES_SCHEMA = "streamling"
+BACKEND_ROLE = "bwb_backend"
 
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--network", default="testnet", help="deployments/<network>.json to read (default: testnet)")
+    ap.add_argument("--network", default="testnet", help="network to render; deployments/<network>.json seeds it (default: testnet)")
     ap.add_argument("--start-at", default=None,
                     help="latest | earliest | <ledger sequence>, required to render. The dataset keeps full history, "
                          "so a ledger number backfills. It is where a replay starts, so re-render with the value "
@@ -60,6 +72,8 @@ def parse_args():
                          "in place of the placeholder; this is the file to apply")
     ap.add_argument("--secret-name", default="BWB_GOLDSKY_WEBHOOK",
                     help="Goldsky secret holding the Authorization header (default: BWB_GOLDSKY_WEBHOOK)")
+    ap.add_argument("--tables-secret-name", default="BWB_INDEXER_POSTGRES",
+                    help="Goldsky secret of the Postgres holding the tracked contracts (default: BWB_INDEXER_POSTGRES)")
     ap.add_argument("--heartbeat-every", type=int, default=720,
                     help="deliver one ledger row every N ledgers; 720 is about one an hour (default: 720)")
     ap.add_argument("--resource-size", default="xs", help="Goldsky worker size (default: xs)")
@@ -76,6 +90,8 @@ def parse_args():
             ap.error("--fill writes the hook secret: --out must end in .local.yaml, which git ignores")
     elif args.start_at is None:
         ap.error("--start-at is required to render (latest, earliest or a ledger sequence)")
+    if not NETWORK.fullmatch(args.network):
+        ap.error("--network must be lowercase letters, digits or underscores: it names the tracked-contract tables")
     return args
 
 
@@ -117,9 +133,9 @@ def collect_contracts(manifest):
     Deployed offering contracts and the single-instance contracts come first.
     Addresses that only appear inside constructor arguments (superseded
     allowlists, a token's initial holder) come after: they still emit events
-    the backend may read, and one more id in the filter costs nothing. Each id
-    gets the kind the receiver stores, so the receiver never has to guess it
-    from the event's name.
+    the backend may read, and one more tracked id costs nothing. Each id gets
+    the kind the receiver stores, so the receiver never has to guess it from
+    the event's name.
     """
     seen = {}
 
@@ -157,19 +173,39 @@ def collect_contracts(manifest):
     return [(contract_id, kind, label) for contract_id, (kind, label) in seen.items()]
 
 
-def render(args, contracts):
-    ids_sql = "\n".join(
-        f"          '{contract_id}'{',' if i < len(contracts) - 1 else ''}  -- {label}"
-        for i, (contract_id, _kind, label) in enumerate(contracts)
+def transform_of(kind):
+    """The dynamic table transform that tracks one contract kind."""
+    return f"tracked_{kind}s"
+
+
+def table_of(network, kind):
+    """The Postgres table behind it. One database can hold every network's tables."""
+    return f"{network}_tracked_{kind}s"
+
+
+def render(args):
+    tables_yaml = "\n".join(
+        f"""  {transform_of(kind)}:
+    type: dynamic_table
+    backend_type: Postgres
+    backend_entity_name: {table_of(args.network, kind)}
+    secret_name: {args.tables_secret_name}
+    max_connections: 2"""
+        for kind in KINDS
     )
     kinds_sql = "\n".join(
-        f"          WHEN '{contract_id}' THEN '{kind}'"
-        for contract_id, kind, _label in contracts
+        f"          WHEN dynamic_table_check('{transform_of(kind)}', contract_id) THEN '{kind}'"
+        for kind in KINDS
+    )
+    tracked_sql = "\n".join(
+        f"          {'OR ' if i else ''}dynamic_table_check('{transform_of(kind)}', contract_id)"
+        for i, kind in enumerate(KINDS)
     )
     name = args.name or f"bwb-stellar-{args.network}"
-    return f"""# Generated by indexer/render-pipeline.py from deployments/{args.network}.json. Do not edit by hand.
-# Re-render after every deploy. The sink urls carry a placeholder for the Webhook Manager's address,
-# which contains a secret: `render-pipeline.py --fill` writes the copy to apply (see indexer/README.md).
+    return f"""# Generated by indexer/render-pipeline.py. Do not edit by hand.
+# The tracked contracts are rows in the {TABLES_SCHEMA}.{args.network}_tracked_* tables, not in this file.
+# The sink urls carry a placeholder for the Webhook Manager's address, which contains a secret:
+# `render-pipeline.py --fill` writes the copy to apply (see indexer/README.md).
 name: {name}
 description: BWB contract events and liveness heartbeat on Stellar {args.network}, delivered to the Webhook Manager
 resource_size: {args.resource_size}
@@ -187,6 +223,7 @@ sources:
     start_at: {args.start_at}
     fetch_parallelism: 2
 transforms:
+{tables_yaml}
   bwb_contract_events:
     type: sql
     primary_key: id
@@ -196,13 +233,13 @@ transforms:
         transaction_hash, transaction_successful, in_successful_contract_call,
         ledger_sequence, ledger_closed_at,
         '{args.network}' AS chain_environment,
-        CASE contract_id
+        CASE
 {kinds_sql}
         END AS contract_kind
       FROM stellar_events
       WHERE type = 'contract'
-        AND contract_id IN (
-{ids_sql}
+        AND (
+{tracked_sql}
         )
   heartbeat:
     type: sql
@@ -231,6 +268,42 @@ sinks:
     batch_size: 10
     batch_flush_interval: 1s
 """
+
+
+def render_seed(network, contracts):
+    """SQL that creates the tracked-contract tables and adds the manifest's contracts.
+
+    The tables have the shape Goldsky gives a dynamic table it creates itself,
+    so creating them first changes nothing for the pipeline, and it lets the
+    contracts be there before the pipeline reads its first ledger. Contract ids
+    are stored as Stellar writes them: the lookup is an exact match. The
+    backend's database user may add rows and nothing else.
+    """
+    statements = [
+        f"-- Generated by indexer/render-pipeline.py from deployments/{network}.json. Do not edit by hand.",
+        "-- Creates the tracked-contract tables and adds the manifest's contracts. Safe to run again.",
+        f"CREATE SCHEMA IF NOT EXISTS {TABLES_SCHEMA};",
+    ]
+    for kind in KINDS:
+        table = f"{TABLES_SCHEMA}.{table_of(network, kind)}"
+        statements.append(
+            f"CREATE TABLE IF NOT EXISTS {table} (\n"
+            "  value text PRIMARY KEY,\n"
+            "  updated_at timestamptz NOT NULL DEFAULT clock_timestamp()\n"
+            ");"
+        )
+        rows = [(contract_id, label) for contract_id, contract_kind, label in contracts if contract_kind == kind]
+        if not rows:
+            continue
+        values = "\n".join(
+            f"  ('{contract_id}'){',' if i < len(rows) - 1 else ''}  -- {label}"
+            for i, (contract_id, label) in enumerate(rows)
+        )
+        statements.append(f"INSERT INTO {table} (value) VALUES\n{values}\nON CONFLICT (value) DO NOTHING;")
+    tables = ", ".join(f"{TABLES_SCHEMA}.{table_of(network, kind)}" for kind in KINDS)
+    statements.append(f"GRANT USAGE ON SCHEMA {TABLES_SCHEMA} TO {BACKEND_ROLE};")
+    statements.append(f"GRANT INSERT ON {tables} TO {BACKEND_ROLE};")
+    return "\n".join(statements) + "\n"
 
 
 def fill(args):
@@ -267,9 +340,12 @@ def main():
         sys.exit("no deployed contracts found")
     out = pathlib.Path(args.out) if args.out else ROOT / "indexer" / "pipelines" / f"{args.network}.yaml"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(args, contracts))
-    shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
-    print(f"wrote {shown}: {len(contracts)} contracts, start_at={args.start_at}, heartbeat every {args.heartbeat_every} ledgers")
+    out.write_text(render(args))
+    seed = out.with_suffix(".seed.sql")
+    seed.write_text(render_seed(args.network, contracts))
+    shown = [path.relative_to(ROOT) if path.is_relative_to(ROOT) else path for path in (out, seed)]
+    print(f"wrote {shown[0]}: start_at={args.start_at}, heartbeat every {args.heartbeat_every} ledgers")
+    print(f"wrote {shown[1]}: {len(contracts)} contracts to track")
 
 
 if __name__ == "__main__":

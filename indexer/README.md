@@ -2,8 +2,11 @@
 
 Every event the BWB contracts emit on Stellar is delivered to the backend by a
 [Goldsky Turbo](https://docs.goldsky.com/turbo-pipelines) pipeline: Goldsky
-reads the chain, filters the events of the contracts in `deployments/<network>.json`
-and posts them in batches to the backend's Webhook Manager. The manager queues
+reads the chain, keeps the events of the tracked contracts and posts them in
+batches to the backend's Webhook Manager. The tracked contracts are rows in a
+Postgres database the pipeline consults as it runs, so a contract is tracked
+the moment its row exists: the backend adds the contracts it deploys before it
+deploys them, with no script and no Goldsky command. The manager queues
 each batch and hands it to every backend deployment listening to it; each one
 writes the batch before it acknowledges it and keeps one row per Stellar event
 id. A batch a backend did not take is retried by the manager and then kept
@@ -16,8 +19,9 @@ with the reasoning in that repository's ADR 0022 and ADR 0023.
 
 | File | What |
 |---|---|
-| `render-pipeline.py` | Renders a pipeline YAML for one network from its deployment manifest, and fills in the manager's address for applying |
+| `render-pipeline.py` | Renders a pipeline YAML for one network and the SQL that seeds its tracked contracts, and fills in the manager's address for applying |
 | `pipelines/<network>.yaml` | The rendered pipeline, committed so a diff shows what changed. The manager's address is a placeholder |
+| `pipelines/<network>.seed.sql` | Creates the tracked-contract tables and adds every contract `deployments/<network>.json` references. Safe to run again |
 | `pipelines/<network>.local.yaml` | The filled copy that is applied. It holds a secret and is ignored by git |
 
 ## How it works
@@ -28,18 +32,35 @@ chain at their own pace, so the heartbeat reaching the chain head does not by
 itself mean the events have:
 
 - **Contract events.** `stellar_<network>.events` filtered in SQL to the
-  contracts the manifest references: every deployed offering token and sale,
-  the single-instance contracts (`offer-allowlist`, the demo payment asset),
-  and the addresses that only appear inside constructor arguments (superseded
-  allowlists, a token's initial holder). Each row carries the network as
-  `chain_environment` and the contract's kind (`token`, `sale`, `allowlist`,
-  `asset`) as `contract_kind`, so the backend never guesses the kind from an
-  event name two contracts share. Delivered to `/webhooks/goldsky/events`.
+  tracked contracts. Each row carries the network as `chain_environment` and
+  the contract's kind (`token`, `sale`, `allowlist`, `asset`) as
+  `contract_kind`, so the backend never guesses the kind from an event name two
+  contracts share. Delivered to `/webhooks/goldsky/events`.
 - **Heartbeat.** `stellar_<network>.ledgers` filtered to one ledger every 720
   (about one an hour at 5 s per ledger). The contracts are quiet for days, so
   without it a stalled pipeline and an idle chain look the same. Delivered to
   `/webhooks/goldsky/heartbeat`; the backend marks the feed stale when neither a
   heartbeat nor an event has arrived for two hours.
+
+**Tracked contracts.** Four tables in a Postgres database hosted by Goldsky,
+one per contract kind: `streamling.<network>_tracked_tokens`, `_sales`,
+`_allowlists` and `_assets`. Each is one column of contract ids. The pipeline
+declares them as [dynamic tables](https://docs.goldsky.com/turbo-pipelines/transforms/dynamic-tables)
+and asks them, on every batch, whether an event's contract is tracked and as
+which kind. A row added while the pipeline runs takes effect within seconds,
+with no apply and no restart. Two writers add rows:
+
+- the backend, for every offering it deploys: before it submits the deploy
+  transaction it adds the token, the sale and the allowlist, and it does not
+  deploy until they are in. A contract's address is known before it exists, so
+  its first events, the ones its constructor emits, are already tracked. It
+  does not add the payment asset, which for its offerings is Circle's USDC:
+  tracking that would deliver every USDC event on the network;
+- `pipelines/<network>.seed.sql`, for the contracts `scripts/deploy.sh` wrote to
+  the manifest.
+
+Contract ids are stored exactly as Stellar writes them, in upper case: the
+lookup is an exact match, and a lower-case row matches nothing.
 
 Both sinks send the `Authorization` header from a Goldsky secret, and the
 manager passes it on with the body, unchanged.
@@ -79,35 +100,68 @@ create; the rest is CLI.
 
 1. **Goldsky.** Install the CLI (`curl https://goldsky.com | sh`) and its Turbo
    extension (`curl https://install-turbo.goldsky.com | sh`), then `goldsky login`
-   with the team's token. The Starter plan runs one pipeline at a time, size
-   `xs` or `s`, within 750 free worker-hours a month; `xs` uses half a worker.
-   `goldsky project list` shows the active project.
-2. **Token.** Generate one and keep it out of the shell history:
+   and `goldsky project switch <project id>` to the team's project
+   (`goldsky project list` shows the active one). The project must be on the
+   Scale plan: the hosted database below is not offered on Starter. Scale
+   includes 750 pipeline worker-hours a month and `xs` uses half a worker; the
+   database is billed by the CPU-hour while a pipeline uses it. The team's
+   usage page has a spend limit that pauses everything when reached, so set it
+   above the database's monthly cost.
+2. **Tracked-contract database.** Once per Goldsky project; every network's
+   tables live in it:
+   ```bash
+   goldsky hosted-sink create --type postgres --name BWB_INDEXER_POSTGRES
+   ```
+   That provisions the database and a Goldsky secret of the same name, which
+   the pipeline reads. Its connection details are in the dashboard under Sinks
+   (or `goldsky secret reveal BWB_INDEXER_POSTGRES`); they are a secret and go
+   to the team's password manager. They are the database owner's, for the
+   pipeline and for the steps here. The backend gets a user of its own that can
+   only add rows; create it once, with a password of its own:
+   ```bash
+   read -rs DATABASE_URL && export DATABASE_URL   # paste postgresql://<owner>:<password>@<host>/<database>?sslmode=require
+   openssl rand -hex 24 > /tmp/backend-db-password && chmod 600 /tmp/backend-db-password
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v pw="$(cat /tmp/backend-db-password)" <<< "CREATE ROLE bwb_backend LOGIN PASSWORD :'pw';"
+   ```
+   Then create the tables and add the manifest's contracts:
+   ```bash
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f indexer/pipelines/testnet.seed.sql
+   unset DATABASE_URL
+   ```
+   Run it before the first apply, so the contracts are tracked from the first
+   ledger the pipeline reads. The backend's address is the owner's with
+   `bwb_backend` and its password in place of the owner's; it goes to the
+   password manager too, and `/tmp/backend-db-password` is removed.
+3. **Token.** Generate one and keep it out of the shell history:
    ```bash
    openssl rand -hex 32 > /tmp/goldsky-token && chmod 600 /tmp/goldsky-token
    ```
-3. **Goldsky secret**, type `httpauth`, which Goldsky adds as a header to every
+4. **Goldsky secret**, type `httpauth`, which Goldsky adds as a header to every
    request of a sink that names it:
    ```bash
    goldsky secret create --name BWB_GOLDSKY_WEBHOOK --description "Authorization header for the BWB Convex webhook routes" \
      --value "{\"type\":\"httpauth\",\"secretKey\":\"Authorization\",\"secretValue\":\"Bearer $(cat /tmp/goldsky-token)\"}"
    ```
-4. **Backend settings** on every Convex deployment that listens to the manager
+5. **Backend settings** on every Convex deployment that listens to the manager
    (from the backend repository's `app/`). All listeners of one manager hold the
-   same token:
+   same token, and the same database address, which is how a deployment adds
+   the contracts it deploys:
    ```bash
    bunx convex env set GOLDSKY_WEBHOOK_TOKEN "$(cat /tmp/goldsky-token)"
    bunx convex env set CHAIN_ENVIRONMENT testnet
+   read -rs BACKEND_DATABASE_URL && bunx convex env set CONTRACT_TRACKING_DATABASE_URL "$BACKEND_DATABASE_URL"; unset BACKEND_DATABASE_URL   # postgresql://bwb_backend:<its password>@<host>/<database>?sslmode=require
    ```
+   A deployment without the database address refuses to deploy a Stellar
+   offering rather than deploy one nobody indexes.
    `CHAIN_ENVIRONMENT` is the deployment's one chain environment (that
    repository's ADR 0011): `mainnet` on production, `testnet` everywhere else.
    Confirm the routes answer: `curl https://<deployment>.convex.site/webhooks/goldsky/health`
    returns 503 with `"live": false` until the first delivery, which is correct.
    A listener without the token answers 401 to every batch and fills the
    manager's failed deliveries.
-5. `rm /tmp/goldsky-token`, and keep the token in the team's password manager:
+6. `rm /tmp/goldsky-token`, and keep the token in the team's password manager:
    every new listener needs it.
-6. **Webhook Manager.** The manager of the network's chain environment must
+7. **Webhook Manager.** The manager of the network's chain environment must
    know the two Goldsky paths (it does once the backend change that adds them is
    pushed to it) and have each backend deployment registered as a listener. Both
    are covered in the backend repository's `webhooks-manager/README.md`;
@@ -119,8 +173,9 @@ create; the rest is CLI.
 indexer/render-pipeline.py --network testnet --start-at 5177900
 ```
 
-That writes `indexer/pipelines/testnet.yaml`. Commit it with the manifest change
-that produced it. Its two sink urls start with the placeholder
+That writes `indexer/pipelines/testnet.yaml` and `indexer/pipelines/testnet.seed.sql`.
+Commit both. The pipeline only changes when a flag does; the seed changes with
+the manifest. The pipeline's two sink urls start with the placeholder
 `${WEBHOOK_MANAGER_URL}`: the manager's address contains its hook secret, a
 Goldsky sink cannot read its url from a secret, and this repository is public.
 
@@ -154,7 +209,8 @@ render flag, and it writes only to a path ending in `.local.yaml`.
 pipeline's checkpoint and continues from it. Only `restart --clear-state`
 replays. Flags of the render script: `--heartbeat-every` (ledgers between
 heartbeats, 720), `--resource-size` (`xs`), `--name` (`bwb-stellar-<network>`),
-`--secret-name` (`BWB_GOLDSKY_WEBHOOK`), `--out`, and `--fill`.
+`--secret-name` (`BWB_GOLDSKY_WEBHOOK`), `--tables-secret-name`
+(`BWB_INDEXER_POSTGRES`), `--out`, and `--fill`.
 
 Goldsky keys the checkpoint on the pipeline's name and the names of its two
 sources. Never rename them: a rename is a replay from `start_at`. If
@@ -209,6 +265,9 @@ incident, and `feeds` the liveness record the health route reports.
 5. Checkpoint: re-run `render` with no change and `apply` again; `goldsky turbo
    state list` shows the same positions, and no delivery covers ledgers already
    held.
+6. Tracked contracts: `psql "$DATABASE_URL" -c 'SELECT * FROM streamling.testnet_tracked_tokens ORDER BY updated_at'`
+   (and `_sales`, `_allowlists`, `_assets`) lists what the pipeline tracks and
+   when each row was added.
 
 ## When a batch did not land
 
@@ -225,23 +284,31 @@ the listener's name, and keeps the batch seven days.
    then `goldsky turbo restart bwb-stellar-testnet --clear-state`. Every
    listener receives the range again and keeps only the rows it lacks.
 
-## Redeploy a contract
+## Track a new contract
 
-After `scripts/deploy.sh` writes the new contract to the manifest: re-render
-with the committed file's `--start-at`, commit, fill, validate, apply. The
-checkpoint is kept, so the new filter applies only from the pipeline's current
-position. A pipeline that has caught up already read the deploy ledger with the
-old filter, so the new contract's first events were not delivered: the ones its
-constructor emits, and anything it did before the apply.
+**An offering the backend deploys** needs nothing here. The backend adds the
+token, the sale and the allowlist to the tracked-contract tables before it
+submits the transaction that creates the token, and again before the sale's.
+If the database does not answer, nothing is deployed and the step is tried
+again. The pipeline is not touched.
 
-Recover them with a replay, right after the apply:
+**A contract `scripts/deploy.sh` deploys** is tracked by the seed. Its address
+is in the manifest only after the deploy, so its first events have already
+passed a pipeline that has caught up:
 
-```bash
-goldsky turbo restart bwb-stellar-testnet --clear-state
-```
+1. Re-render with the committed file's `--start-at` and commit the new
+   `testnet.seed.sql`.
+2. Run the seed (see [Setup](#setup), step 2). The pipeline tracks the contract
+   from its current position on.
+3. Recover what it emitted before that with a replay:
+   ```bash
+   goldsky turbo restart bwb-stellar-testnet --clear-state
+   ```
+   It reads again from `start_at`. Every listener keeps the rows it lacks and
+   counts the rest as duplicates, so the replay is safe.
 
-It reads again from `start_at`. Every listener keeps the rows it lacks and
-counts the rest as duplicates, so the replay is safe.
+**To stop tracking a contract**, delete its row. The pipeline stops delivering
+its events within seconds; the rows the backend already holds stay.
 
 ## Pause, resume, replay, stop
 
@@ -255,8 +322,8 @@ goldsky turbo delete bwb-stellar-testnet
 A replay redelivers every row to every listener; each holds one row per event
 id and reports the rest as duplicates, so a replay is safe and only costs
 worker-hours. It is also how a backend deployment that started listening late
-gets the events from before it registered. A paused pipeline still counts as the Starter plan's one
-pipeline; delete it to run another.
+gets the events from before it registered. A paused pipeline leaves the
+tracked-contract database idle, which stops its compute charge.
 
 ## Rotate the token
 
@@ -280,15 +347,18 @@ testnet contract events describe a chain that no longer exists.
 
 1. Pause the pipeline before the reset: `goldsky turbo pause bwb-stellar-testnet`.
 2. After the reset, redeploy the contracts with `scripts/deploy.sh`; the
-   manifest `deployments/testnet.json` is rewritten with the new ids.
+   manifest `deployments/testnet.json` is rewritten with the new ids. Empty the
+   tracked-contract tables, whose ids no longer exist:
+   `psql "$DATABASE_URL" -c 'TRUNCATE streamling.testnet_tracked_tokens, streamling.testnet_tracked_sales, streamling.testnet_tracked_allowlists, streamling.testnet_tracked_assets'`.
 3. On every testnet Convex deployment that keeps contract events, from the
    backend repository's `app/`, run `bunx convex run contractEvents:clearTestnet` (it deletes in batches,
    rescheduling itself until `done: true`; it refuses to run on a mainnet
    deployment). The rows have no value once their contracts
    are gone; nothing else references them.
 4. Re-render with `--start-at` just before the first new deploy ledger (or
-   `earliest`), commit, fill, validate, then `goldsky turbo apply` and
-   `goldsky turbo restart bwb-stellar-testnet --clear-state`.
+   `earliest`), commit, run the new seed, fill, validate, then `goldsky turbo apply` and
+   `goldsky turbo restart bwb-stellar-testnet --clear-state`. Offerings the
+   backend deploys after the reset add themselves.
 5. Verify as above. The health route reports live again on the first delivery.
 
 Mainnet never resets; none of this touches the production deployment.
@@ -297,9 +367,13 @@ Mainnet never resets; none of this touches the production deployment.
 
 Nothing here is testnet-specific. Mainnet needs, in order: `deployments/mainnet.json`
 written by the first mainnet deploy; `CHAIN_ENVIRONMENT=mainnet` and
-`GOLDSKY_WEBHOOK_TOKEN` on the production Convex deployment, with a mainnet
-token and its own Goldsky secret; a second Goldsky pipeline, which on Starter
-means a second team or a paid plan, since Starter runs one pipeline at a time;
-then `render --network mainnet --start-at <ledger before the first mainnet
-deploy>`, fill with the production manager's `WEBHOOK_MANAGER_URL`, validate,
-apply, verify.
+`GOLDSKY_WEBHOOK_TOKEN` and `CONTRACT_TRACKING_DATABASE_URL` on the production
+Convex deployment, with a mainnet token and its own Goldsky secret; then
+`render --network mainnet --start-at <ledger before the first mainnet deploy>`,
+run `mainnet.seed.sql` (its tables are `streamling.mainnet_tracked_*`, in the
+same database), fill with the production manager's `WEBHOOK_MANAGER_URL`,
+validate, apply, verify. The second pipeline runs in the same Goldsky project.
+
+The payment asset on mainnet is USDC, which every Stellar application uses:
+tracking it delivers every USDC event on the network. Decide before the
+mainnet seed whether it belongs in `mainnet_tracked_assets` at all.
