@@ -106,6 +106,39 @@ function coversClose({ rootInvocation }: xdr.SorobanAuthorizationEntry, { sale, 
   )
 }
 
+function configSettingKey(configSettingId: xdr.ConfigSettingId) {
+  return xdr.LedgerKey.configSetting(new xdr.LedgerKeyConfigSetting({ configSettingId }))
+}
+
+async function expirationLedgerFor(server: Server, validUntil: number): Promise<Result<number, SaleRefusal>> {
+  const [latest, { entries }] = await Promise.all([
+    server._getLatestLedger(),
+    server.getLedgerEntries(
+      configSettingKey(xdr.ConfigSettingId.configSettingScpTiming),
+      configSettingKey(xdr.ConfigSettingId.configSettingStateArchival),
+    ),
+  ])
+  const settings = entries.flatMap(({ val }) => (val.type === 'configSetting' ? [val.configSetting] : []))
+  const timing = settings.find((setting) => setting.type === 'configSettingScpTiming')
+  const archival = settings.find((setting) => setting.type === 'configSettingStateArchival')
+  if (timing?.type !== 'configSettingScpTiming' || archival?.type !== 'configSettingStateArchival') {
+    return refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, 'The network did not report its ledger time and entry lifetime')
+  }
+  const closedAt = Number(latest.closeTime) * 1_000
+  if (!Number.isFinite(closedAt)) {
+    return refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, 'The network did not report when its latest ledger closed')
+  }
+  if (validUntil <= closedAt) {
+    return refused(SALE_REFUSAL.VALID_UNTIL_PASSED, `${new Date(validUntil).toISOString()} has already passed on chain`)
+  }
+  const expirationLedger =
+    latest.sequence + Math.ceil((validUntil - closedAt) / timing.contractScpTiming.ledgerTargetCloseTimeMilliseconds)
+  const latestAllowed = latest.sequence + archival.stateArchivalSettings.maxEntryTtl - 1
+  return expirationLedger > latestAllowed
+    ? refused(SALE_REFUSAL.VALID_UNTIL_TOO_LATE, `Ledger ${expirationLedger} is past the latest ledger the network allows, ${latestAllowed}`)
+    : succeed(expirationLedger, `The entry expires at ledger ${expirationLedger}`)
+}
+
 function eventsOf(resultMeta: string): Array<xdr.ContractEvent> | undefined {
   try {
     const meta = xdr.TransactionMeta.fromXDR(resultMeta, 'base64')
@@ -136,11 +169,11 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
     return toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR()))
   }
 
-  async function signableEntry(
+  async function requestedEntry(
     server: Server,
     operation: xdr.Operation,
     { signer, covers }: { signer: string; covers: (entry: xdr.SorobanAuthorizationEntry) => boolean },
-  ): Promise<Result<{ entry: string; entryHash: string; expirationLedger: number }, SaleRefusal>> {
+  ): Promise<Result<{ entry: xdr.SorobanAuthorizationEntry; latestLedger: number }, SaleRefusal>> {
     const simulation = await simulate(server, operation)
     if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
     const entries = simulation.result?.auth ?? []
@@ -148,15 +181,11 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
     if (entry === undefined || entries.length !== 1 || inspectAuthEntry(entry).address !== signer || !covers(entry)) {
       return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, `The call did not ask ${signer} for one entry covering it`)
     }
-    const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
-    return succeed(
-      {
-        entry: entry.toXDR('base64'),
-        entryHash: entryHashOf(entry, expirationLedger),
-        expirationLedger,
-      },
-      `Entry prepared for ${signer} to sign`,
-    )
+    return succeed({ entry, latestLedger: simulation.latestLedger }, `The call asks ${signer} for one entry`)
+  }
+
+  function signable(entry: xdr.SorobanAuthorizationEntry, expirationLedger: number) {
+    return { entry: entry.toXDR('base64'), entryHash: entryHashOf(entry, expirationLedger), expirationLedger }
   }
 
   async function authorized(
@@ -216,11 +245,16 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
         return refused(SALE_REFUSAL.INVALID_BUYER, `${buyer} is not an account address`)
       }
       return onChain(async (server) => {
-        const signable = await signableEntry(server, buyOperation(buyer, amount, []), {
+        const requested = await requestedEntry(server, buyOperation(buyer, amount, []), {
           signer: buyer,
           covers: (entry) => coversPurchase(entry, { sale: address, buyer, amount }),
         })
-        return signable.success ? succeed({ chainId, buyer, amount, ...signable.data }, signable.message) : signable
+        if (!requested.success) return requested
+        const { entry, latestLedger } = requested.data
+        return succeed(
+          { chainId, buyer, amount, ...signable(entry, latestLedger + ENTRY_LIFETIME_LEDGERS) },
+          'Purchase prepared for the buyer to sign',
+        )
       })
     },
 
@@ -240,16 +274,25 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
       return onChain((server) => authorized(server, buyOperation(buyer, amount, [signed]), expirationLedger))
     },
 
-    close: async ({ treasury }) => {
+    close: async ({ treasury, validUntil }) => {
       if (!StrKey.isValidEd25519PublicKey(treasury)) {
         return refused(SALE_REFUSAL.INVALID_TREASURY, `${treasury} is not an account address`)
       }
       return onChain(async (server) => {
-        const signable = await signableEntry(server, closeOperation(treasury, []), {
-          signer: treasury,
-          covers: (entry) => coversClose(entry, { sale: address, treasury }),
-        })
-        return signable.success ? succeed({ chainId, treasury, ...signable.data }, signable.message) : signable
+        const [expiration, requested] = await Promise.all([
+          expirationLedgerFor(server, validUntil),
+          requestedEntry(server, closeOperation(treasury, []), {
+            signer: treasury,
+            covers: (entry) => coversClose(entry, { sale: address, treasury }),
+          }),
+        ])
+        if (!expiration.success) return expiration
+        if (!requested.success) return requested
+        const { entry, latestLedger } = requested.data
+        if (expiration.data <= latestLedger) {
+          return refused(SALE_REFUSAL.VALID_UNTIL_PASSED, `The chain reached ledger ${expiration.data} while the close was prepared`)
+        }
+        return succeed({ chainId, treasury, ...signable(entry, expiration.data) }, 'Close prepared for the officers to sign')
       })
     },
 

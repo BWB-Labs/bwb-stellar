@@ -21,6 +21,8 @@ export const SALE_REFUSAL = {
   BALANCE_FROZEN: 'balanceFrozen',
   TRUSTLINE_MISSING: 'trustlineMissing',
   ENTRY_EXPIRED: 'entryExpired',
+  VALID_UNTIL_PASSED: 'validUntilPassed',
+  VALID_UNTIL_TOO_LATE: 'validUntilTooLate',
   SIGNATURE_MISMATCH: 'signatureMismatch',
   BELOW_THRESHOLD: 'belowThreshold',
   UNEXPECTED_AUTHORIZATION: 'unexpectedAuthorization',
@@ -92,7 +94,7 @@ export type SaleView = (
 export type Sale = {
   buy(purchase: { buyer: string; amount: bigint }): Promise<Result<PreparedPurchase, SaleRefusal>>
   authorize(signed: { prepared: PreparedPurchase; signature: string }): Promise<Result<AuthorizedPurchase, SaleRefusal>>
-  close(closing: { treasury: string }): Promise<Result<PreparedClose, SaleRefusal>>
+  close(closing: { treasury: string; validUntil: number }): Promise<Result<PreparedClose, SaleRefusal>>
   authorizeClose(signed: { prepared: PreparedClose; signatures: Array<AddressSignature> }): Promise<Result<AuthorizedClose, SaleRefusal>>
   purchaseReceipt(settled: { buyer: string; transaction: SettledTransaction }): Result<PurchaseReceipt, SaleRefusal>
   read(): Promise<Result<SaleView, SaleRefusal>>

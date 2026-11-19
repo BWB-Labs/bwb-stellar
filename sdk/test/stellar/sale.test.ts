@@ -317,11 +317,66 @@ function closeEntry({ caller = TREASURY, signer = TREASURY }: { caller?: string;
   )
 }
 
+const LATEST_CLOSE_TIME = 1_795_000_000
+const LEDGER_MS = 5_000
+const MAX_ENTRY_TTL = 3_110_400
+const VALID_UNTIL = (LATEST_CLOSE_TIME + 1_800) * 1_000
+
+function stubCloseChain(simulation: Record<string, unknown>, { reportsSettings = true } = {}) {
+  const scpTiming = xdr.LedgerEntryData.configSetting(
+    xdr.ConfigSettingEntry.configSettingScpTiming(
+      new xdr.ConfigSettingScpTiming({
+        ledgerTargetCloseTimeMilliseconds: LEDGER_MS,
+        nominationTimeoutInitialMilliseconds: 1_000,
+        nominationTimeoutIncrementMilliseconds: 1_000,
+        ballotTimeoutInitialMilliseconds: 1_000,
+        ballotTimeoutIncrementMilliseconds: 1_000,
+      }),
+    ),
+  )
+  const stateArchival = xdr.LedgerEntryData.configSetting(
+    xdr.ConfigSettingEntry.configSettingStateArchival(
+      new xdr.StateArchivalSettings({
+        maxEntryTtl: MAX_ENTRY_TTL,
+        minTemporaryTtl: 16,
+        minPersistentTtl: 120_960,
+        persistentRentRateDenominator: 1n,
+        tempRentRateDenominator: 1n,
+        maxEntriesToArchive: 1_000,
+        liveSorobanStateSizeWindowSampleSize: 30,
+        liveSorobanStateSizeWindowSamplePeriod: 64,
+        evictionScanSize: 100_000,
+        startingEvictionScanLevel: 7,
+      }),
+    ),
+  )
+  return stubJsonRpc(({ method }) => {
+    if (method === 'getNetwork') return { passphrase: Networks.TESTNET, protocolVersion: 23 }
+    if (method === 'getLatestLedger') {
+      return { id: 'ab'.repeat(32), sequence: LATEST_LEDGER, protocolVersion: 23, closeTime: String(LATEST_CLOSE_TIME) }
+    }
+    if (method === 'getLedgerEntries') {
+      return {
+        entries: (reportsSettings ? [
+          { configSettingId: xdr.ConfigSettingId.configSettingScpTiming, entry: scpTiming },
+          { configSettingId: xdr.ConfigSettingId.configSettingStateArchival, entry: stateArchival },
+        ] : []).map(({ configSettingId, entry }) => ({
+          key: xdr.LedgerKey.configSetting(new xdr.LedgerKeyConfigSetting({ configSettingId })).toXDR('base64'),
+          xdr: entry.toXDR('base64'),
+          lastModifiedLedgerSeq: 1,
+        })),
+        latestLedger: LATEST_LEDGER,
+      }
+    }
+    return simulation
+  })
+}
+
 describe('close', () => {
   it('returns the one entry the treasury signs to close the sale, with its hash and expiration ledger', async () => {
-    stubSimulation(simulated([closeEntry()]))
+    stubCloseChain(simulated([closeEntry()]))
 
-    const closing = await theSale().close({ treasury: TREASURY })
+    const closing = await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })
 
     if (!closing.success) throw new Error(closing.message)
     const entry = xdr.SorobanAuthorizationEntry.fromXDR(closing.data.entry, 'base64')
@@ -339,18 +394,18 @@ describe('close', () => {
     ['another address would sign', closeEntry({ signer: Keypair.random().publicKey() })],
     ['covers a purchase', purchaseEntry({ signer: TREASURY })],
   ])('refuses an entry that %s', async (_, entry) => {
-    stubSimulation(simulated([entry]))
+    stubCloseChain(simulated([entry]))
 
-    expect(await theSale().close({ treasury: TREASURY })).toMatchObject({
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
       success: false,
       error: { code: SALE_REFUSAL.UNEXPECTED_AUTHORIZATION },
     })
   })
 
   it('refuses a treasury that is not an account address, without asking the chain', async () => {
-    const requests = stubSimulation(simulated([closeEntry()]))
+    const requests = stubCloseChain(simulated([closeEntry()]))
 
-    expect(await theSale().close({ treasury: SALE })).toMatchObject({
+    expect(await theSale().close({ treasury: SALE, validUntil: VALID_UNTIL })).toMatchObject({
       success: false,
       error: { code: SALE_REFUSAL.INVALID_TREASURY },
     })
@@ -361,9 +416,45 @@ describe('close', () => {
     [6228, SALE_REFUSAL.BELOW_MINIMUM],
     [6201, SALE_REFUSAL.SALE_NOT_ACTIVE],
   ])('names contract error %i as %s', async (contractError, code) => {
-    stubSimulation({ latestLedger: LATEST_LEDGER, error: `HostError: Error(Contract, #${contractError})`, events: [] })
+    stubCloseChain({ latestLedger: LATEST_LEDGER, error: `HostError: Error(Contract, #${contractError})`, events: [] })
 
-    expect(await theSale().close({ treasury: TREASURY })).toMatchObject({ success: false, error: { code } })
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({ success: false, error: { code } })
+  })
+
+  it.each([
+    ['a moment between two ledgers, rounded up to the next ledger', VALID_UNTIL - 1, EXPIRATION_LEDGER],
+    ['the latest moment the network allows', (LATEST_CLOSE_TIME + (MAX_ENTRY_TTL - 1) * 5) * 1_000, LATEST_LEDGER + MAX_ENTRY_TTL - 1],
+  ])('keeps the entry valid until %s', async (_, validUntil, expirationLedger) => {
+    stubCloseChain(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil })).toMatchObject({ success: true, data: { expirationLedger } })
+  })
+
+  it.each([
+    ['already past', LATEST_CLOSE_TIME * 1_000, SALE_REFUSAL.VALID_UNTIL_PASSED],
+    ['beyond what the network allows', (LATEST_CLOSE_TIME + MAX_ENTRY_TTL * 5) * 1_000, SALE_REFUSAL.VALID_UNTIL_TOO_LATE],
+  ])('refuses a moment %s', async (_, validUntil, code) => {
+    stubCloseChain(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil })).toMatchObject({ success: false, error: { code } })
+  })
+
+  it('refuses a moment the chain reached while the close was being prepared', async () => {
+    stubCloseChain(simulated([closeEntry()], EXPIRATION_LEDGER))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.VALID_UNTIL_PASSED },
+    })
+  })
+
+  it('says the response was unexpected when the network does not report its ledger time and entry lifetime', async () => {
+    stubCloseChain(simulated([closeEntry()]), { reportsSettings: false })
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.UNEXPECTED_RESPONSE },
+    })
   })
 })
 
@@ -375,8 +466,8 @@ describe('authorizeClose', () => {
   const OFFICERS = [FIRST, SECOND, THIRD]
 
   async function preparedClose() {
-    stubSimulation(simulated([closeEntry()]))
-    const closing = await theSale().close({ treasury: TREASURY })
+    stubCloseChain(simulated([closeEntry()]))
+    const closing = await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })
     if (!closing.success) throw new Error(closing.message)
     return closing.data
   }

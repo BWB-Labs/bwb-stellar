@@ -83,7 +83,9 @@ const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.S
 | `insufficientBalance` | The buyer holds too little of the payment asset |
 | `balanceFrozen` | The asset's issuer froze the balance |
 | `trustlineMissing` | The buyer has no trustline for the payment asset |
-| `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
+| `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase or close again |
+| `validUntilPassed` | The close's `validUntil` has already passed on chain |
+| `validUntilTooLate` | The close's `validUntil` is later than the network lets an entry live |
 | `signatureMismatch` | A signature is not over this entry as prepared, or not by the buyer or a signer of the treasury |
 | `belowThreshold` | Fewer officers signed the close than the treasury's threshold |
 | `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase or close, or a prepared close no longer holds it |
@@ -95,7 +97,7 @@ const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.S
 The treasury that owns a sale closes it, and its officers co-sign one authorization entry. A sale that sells out closes during its last purchase, with no entry to sign.
 
 ```ts
-const closing = await sale.close({ treasury })
+const closing = await sale.close({ treasury, validUntil: proposalDeadline + 5 * 60_000 })
 if (!closing.success) return closing
 // Each officer signs closing.data.entryHash, within closing.data.expirationLedger.
 const authorized = await sale.authorizeClose({ prepared: closing.data, signatures })
@@ -103,7 +105,7 @@ if (!authorized.success) return authorized
 // Relay authorized.data.invocation.
 ```
 
-`close` simulates the close and returns the one entry the treasury signs. `authorizeClose` takes one `{ address, signature }` per officer, each a `0x`-prefixed hex ed25519 signature over the entry hash. Without asking the chain, it refuses an entry that is not this treasury's close of this sale, and a signature that is not over the entry as prepared, expiration ledger included. It then reads the treasury's signers and refuses a signature by anyone else, or fewer distinct officers than the treasury's threshold, before anything is simulated. Last, it puts every signature on the entry in raw public key order and simulates the signed close again. An entry lives 360 ledgers, about thirty minutes.
+`close` simulates the close and returns the one entry the treasury signs. `validUntil` is the moment, in Unix milliseconds, until which the signed entry must stay valid: the platform passes its proposal deadline plus five minutes, so officers who sign at the end of the window still have time for the close to land. The SDK turns it into an expiration ledger from the latest ledger's close time and the network's target ledger time, rounding up to the next ledger. Ledgers that close faster than the target spend the entry early, which the five minutes absorb. A purchase entry keeps its fixed 360 ledgers, about thirty minutes. A moment the chain has already reached, or reaches while the close is prepared, is refused as `validUntilPassed`, and one past the longest lifetime the network allows an entry (`max_entry_ttl`, about 180 days on testnet) as `validUntilTooLate`. `authorizeClose` takes one `{ address, signature }` per officer, each a `0x`-prefixed hex ed25519 signature over the entry hash. Without asking the chain, it refuses an entry that is not this treasury's close of this sale, and a signature that is not over the entry as prepared, expiration ledger included. It then reads the treasury's signers and refuses a signature by anyone else, or fewer distinct officers than the treasury's threshold, before anything is simulated. Last, it puts every signature on the entry in raw public key order and simulates the signed close again.
 
 Once the sale is Closing, `read()` reports `finalizableAt`: the time, in Unix milliseconds, from which the sale can be finalized and its distribution begin. The other states carry no such field.
 
