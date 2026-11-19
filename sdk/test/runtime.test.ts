@@ -41,6 +41,7 @@ function terms() {
       tokenSymbol: 'AURORA',
       offeringURI: 'https://bwb.example/offerings/offering-1',
       totalTokens: '1000',
+      pricePerQuota: '10000000',
       coolingOffSeconds: '432000',
     },
     {

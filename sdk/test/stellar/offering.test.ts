@@ -28,6 +28,7 @@ const REQUEST: OfferingRequest = {
   tokenSymbol: 'AURORA',
   offeringURI: 'https://bwb.example/offerings/offering-1',
   totalTokens: '1000',
+  pricePerQuota: '250000000',
   coolingOffSeconds: '432000',
 }
 
@@ -52,6 +53,7 @@ describe('deploymentDigest', () => {
 
     expect(digest).toMatch(/^[0-9a-f]{64}$/)
     expect(deploymentDigest(NETWORK.TESTNET, { ...terms, totalTokens: '1001' })).not.toBe(digest)
+    expect(deploymentDigest(NETWORK.TESTNET, { ...terms, pricePerQuota: '250000001' })).not.toBe(digest)
     expect(deploymentDigest(NETWORK.TESTNET, { ...terms, treasury: Keypair.random().publicKey() })).not.toBe(digest)
     expect(deploymentDigest(NETWORK.MAINNET, terms)).not.toBe(digest)
   })
