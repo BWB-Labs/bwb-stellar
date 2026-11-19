@@ -1,0 +1,46 @@
+{
+  "deliverable": "Deliverable 3 — Distribution Attribution and Commissioning Engine",
+  "source": "https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA",
+  "page": "../../tranche-2-d3.md",
+  "criteria": [
+    {
+      "criterion": 1,
+      "text": "A tagged public release documents the attribution rule version and event-to-ledger mapping.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 2,
+      "text": "Published anonymized fixtures and Stellar event references reproduce single, idempotent commission entries and reversals.",
+      "status": "open",
+      "evidence": [
+        {
+          "what": "Sale interface of @bwb-labs/sdk: buy, authorize and purchaseReceipt, which reads the purchased event",
+          "pull_request": "https://github.com/BWB-Labs/bwb-stellar/pull/63"
+        },
+        {
+          "what": "Quotas bought on testnet through the sale interface, sent from a local backend",
+          "file": "purchase.json",
+          "hash": "96dc4b9a4e235e29a8b2397ecc28407076532faba4a1690baca7aadb43afe7de",
+          "explorer_url": "https://stellar.expert/explorer/testnet/tx/96dc4b9a4e235e29a8b2397ecc28407076532faba4a1690baca7aadb43afe7de"
+        }
+      ],
+      "ci_run": null
+    },
+    {
+      "criterion": 3,
+      "text": "A public demonstration and evidence export show invested value, units sold, and commission states.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 4,
+      "text": "Public CI reproduces the multi-office scenario without duplicate attribution or commission entries.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    }
+  ]
+}
