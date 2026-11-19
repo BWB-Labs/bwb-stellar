@@ -54,9 +54,10 @@ MANAGER_URL_PLACEHOLDER = "${" + MANAGER_URL_VARIABLE + "}"
 MANAGER_URL = re.compile(r"https://[a-z0-9-]+\.convex\.site/hooks/[A-Za-z0-9_-]+")
 
 
-RENDER_ONLY = ("start_at", "secret_name", "tables_secret_name", "heartbeat_every", "resource_size", "name")
+RENDER_ONLY = ("start_at", "secret_name", "heartbeat_every", "resource_size", "name")
 KINDS = ("token", "sale", "allowlist", "asset")
 TABLES_SCHEMA = "streamling"
+TABLES_SECRET = "BWB_INDEXER_POSTGRES"
 BACKEND_ROLE = "bwb_backend"
 
 
@@ -72,8 +73,6 @@ def parse_args():
                          "in place of the placeholder; this is the file to apply")
     ap.add_argument("--secret-name", default="BWB_GOLDSKY_WEBHOOK",
                     help="Goldsky secret holding the Authorization header (default: BWB_GOLDSKY_WEBHOOK)")
-    ap.add_argument("--tables-secret-name", default="BWB_INDEXER_POSTGRES",
-                    help="Goldsky secret of the Postgres holding the tracked contracts (default: BWB_INDEXER_POSTGRES)")
     ap.add_argument("--heartbeat-every", type=int, default=720,
                     help="deliver one ledger row every N ledgers; 720 is about one an hour (default: 720)")
     ap.add_argument("--resource-size", default="xs", help="Goldsky worker size (default: xs)")
@@ -189,7 +188,7 @@ def render(args):
     type: dynamic_table
     backend_type: Postgres
     backend_entity_name: {table_of(args.network, kind)}
-    secret_name: {args.tables_secret_name}
+    secret_name: {TABLES_SECRET}
     max_connections: 2"""
         for kind in KINDS
     )
@@ -284,8 +283,8 @@ def render_seed(network, contracts):
         "-- Creates the tracked-contract tables and adds the manifest's contracts. Safe to run again.",
         f"CREATE SCHEMA IF NOT EXISTS {TABLES_SCHEMA};",
     ]
-    for kind in KINDS:
-        table = f"{TABLES_SCHEMA}.{table_of(network, kind)}"
+    tables = {kind: f"{TABLES_SCHEMA}.{table_of(network, kind)}" for kind in KINDS}
+    for kind, table in tables.items():
         statements.append(
             f"CREATE TABLE IF NOT EXISTS {table} (\n"
             "  value text PRIMARY KEY,\n"
@@ -300,10 +299,14 @@ def render_seed(network, contracts):
             for i, (contract_id, label) in enumerate(rows)
         )
         statements.append(f"INSERT INTO {table} (value) VALUES\n{values}\nON CONFLICT (value) DO NOTHING;")
-    tables = ", ".join(f"{TABLES_SCHEMA}.{table_of(network, kind)}" for kind in KINDS)
     statements.append(f"GRANT USAGE ON SCHEMA {TABLES_SCHEMA} TO {BACKEND_ROLE};")
-    statements.append(f"GRANT INSERT ON {tables} TO {BACKEND_ROLE};")
+    statements.append(f"GRANT INSERT ON {", ".join(tables.values())} TO {BACKEND_ROLE};")
     return "\n".join(statements) + "\n"
+
+
+def shown(path):
+    """The path as printed: relative to the repository when it is inside it."""
+    return path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
 
 
 def fill(args):
@@ -321,8 +324,7 @@ def fill(args):
     out.touch(mode=0o600)
     out.chmod(0o600)
     out.write_text(rendered.replace(MANAGER_URL_PLACEHOLDER, manager_url))
-    shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
-    print(f"wrote {shown} for `goldsky turbo apply`; it holds the hook secret, do not commit or share it")
+    print(f"wrote {shown(out)} for `goldsky turbo apply`; it holds the hook secret, do not commit or share it")
 
 
 def main():
@@ -343,9 +345,8 @@ def main():
     out.write_text(render(args))
     seed = out.with_suffix(".seed.sql")
     seed.write_text(render_seed(args.network, contracts))
-    shown = [path.relative_to(ROOT) if path.is_relative_to(ROOT) else path for path in (out, seed)]
-    print(f"wrote {shown[0]}: start_at={args.start_at}, heartbeat every {args.heartbeat_every} ledgers")
-    print(f"wrote {shown[1]}: {len(contracts)} contracts to track")
+    print(f"wrote {shown(out)}: start_at={args.start_at}, heartbeat every {args.heartbeat_every} ledgers")
+    print(f"wrote {shown(seed)}: {len(contracts)} contracts to track")
 
 
 if __name__ == "__main__":
