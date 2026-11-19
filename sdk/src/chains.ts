@@ -1,0 +1,8 @@
+export const CHAIN_ID = {
+  STELLAR_TESTNET: 'cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472',
+  STELLAR_MAINNET: '7ac33997544e3175d266bd022439b22cdb16508c01163f26e5cb2a3e1045a979',
+  BASE_TESTNET: 84532,
+  BASE_MAINNET: 8453,
+} as const
+
+export type ChainId = (typeof CHAIN_ID)[keyof typeof CHAIN_ID]
