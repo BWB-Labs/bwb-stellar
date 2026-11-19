@@ -69,12 +69,14 @@ const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.S
 | `chainMismatch` | The configured client reports another network id than its chain id |
 | `chainUnavailable` | No endpoint answered |
 | `invalidBuyer` | The buyer is not an account address |
+| `invalidTreasury` | The treasury is not an account address, or holds no account on chain |
 | `unexpectedResponse` | The address did not answer like a sale |
 | `unreadableTransaction` | The settled transaction is malformed or in a format this version cannot read |
 | `investorNotEnabled` | The investor is not on the allowlist |
 | `allocationExceeded` | The purchase exceeds the investor's allocation this period |
 | `tooManyReceipts` | The investor holds the most live receipts this sale allows |
-| `saleNotActive` | The sale is not open for buying |
+| `saleNotActive` | The sale is not open for buying, so it cannot be closed either |
+| `belowMinimum` | The sale has not sold its minimum, so it cannot close; cancel it instead |
 | `notWholeQuotas` | The amount is not an exact multiple of the price |
 | `exceedsSupply` | Fewer quotas are left than the amount buys |
 | `tooManyPurchases` | The investor holds the most live purchases this offering allows |
@@ -82,10 +84,28 @@ const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.S
 | `balanceFrozen` | The asset's issuer froze the balance |
 | `trustlineMissing` | The buyer has no trustline for the payment asset |
 | `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
-| `signatureMismatch` | The signature is not the buyer's over this entry |
+| `signatureMismatch` | A signature is not over this entry, or not by the buyer or a signer of the treasury |
+| `belowThreshold` | Fewer officers signed the close than the treasury's threshold |
 | `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase |
 | `purchaseNotFound` | The settled transaction holds no purchase by this buyer in this sale |
 | `contractRefused` | The contract refused for another reason; the message carries its error |
+
+## Closing a sale
+
+The treasury that owns a sale closes it, and its officers co-sign one authorization entry. A sale that sells out closes during its last purchase, with no entry to sign.
+
+```ts
+const closing = await sale.close({ treasury })
+if (!closing.success) return closing
+// Each officer signs closing.data.entryHash, within closing.data.expirationLedger.
+const authorized = await sale.authorizeClose({ prepared: closing.data, signatures })
+if (!authorized.success) return authorized
+// Relay authorized.data.invocation.
+```
+
+`close` simulates the close and returns the one entry the treasury signs. `authorizeClose` takes one `{ address, signature }` per officer, each a `0x`-prefixed hex ed25519 signature over the entry hash. It reads the treasury's signers, refuses a signature that is not over the entry or not by a signer, and refuses fewer distinct officers than the treasury's threshold before anything is simulated. It then puts every signature on the entry in raw public key order and simulates the signed close again. An entry lives 360 ledgers, about thirty minutes.
+
+Once the sale is Closing, `read()` reports `finalizableAt`: the time, in Unix milliseconds, from which the sale can be finalized and its distribution begin. The other states carry no such field.
 
 ## Usage
 
