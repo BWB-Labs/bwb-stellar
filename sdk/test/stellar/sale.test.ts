@@ -86,9 +86,9 @@ function rpc(network: Network = NETWORK.TESTNET) {
 }
 
 function theSale(address = SALE, chainId: StellarChainId = CHAIN_ID.STELLAR_TESTNET, network?: Network): Sale {
-  const sale = createBwbSdk({ chains: { [chainId]: { rpc: rpc(network) } } }).sale({ chainId, address })
-  if (!sale.success) throw new Error(sale.message)
-  return sale.data
+  const client = createBwbSdk({ chains: { [chainId]: { rpc: rpc(network) } } }).select(chainId)
+  if (!client.success) throw new Error(client.message)
+  return client.data.sale({ address })
 }
 
 function signatureOver(entryHash: string, key = BUYER): string {

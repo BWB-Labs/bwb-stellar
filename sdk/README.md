@@ -45,17 +45,20 @@ import { CHAIN_ID, connect, createBwbSdk, NETWORK } from '@bwb-labs/sdk'
 const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: ['https://soroban-testnet.stellar.org'] })
 const bwb = createBwbSdk({ chains: { [CHAIN_ID.STELLAR_TESTNET]: { rpc } } })
 
-const sale = bwb.sale({ chainId: CHAIN_ID.STELLAR_TESTNET, address: saleAddress })
-if (!sale.success) return sale
+const client = bwb.select(CHAIN_ID.STELLAR_TESTNET)
+if (!client.success) return client
+const sale = client.data.sale({ address: saleAddress })
 
-const prepared = await sale.data.buy({ buyer, amount })
+const prepared = await sale.buy({ buyer, amount })
 if (!prepared.success) return prepared
 // The buyer signs prepared.data.entryHash with their wallet.
-const authorized = await sale.data.authorize({ prepared: prepared.data, signature })
+const authorized = await sale.authorize({ prepared: prepared.data, signature })
 if (!authorized.success) return authorized
 // Relay authorized.data.invocation, then read the purchase from the settled transaction.
-const receipt = sale.data.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
+const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
 ```
+
+`select` returns a client bound to one chain, so its `sale` takes only the offering's address. `bwb.sale({ chainId, address })` does both steps at once and returns the same refusals as `select`.
 
 `buy` returns one authorization entry covering the purchase and its USDC transfer. `authorize` checks the signature against that entry and simulates the signed call again, so the relay assembles resources that cover signature verification. The source of the relayed transaction must not be the buyer.
 
