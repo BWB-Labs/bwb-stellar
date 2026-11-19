@@ -41,6 +41,7 @@ const CONTRACT_REFUSALS: Record<string, SaleRefusalCode> = {
   6206: SALE_REFUSAL.NOT_WHOLE_QUOTAS,
   6207: SALE_REFUSAL.EXCEEDS_SUPPLY,
   6220: SALE_REFUSAL.TOO_MANY_PURCHASES,
+  6228: SALE_REFUSAL.BELOW_MINIMUM,
 }
 
 const SALE_STATES: Record<string, SaleState> = {
@@ -92,6 +93,17 @@ function coversPurchase(
   )
 }
 
+function coversClose({ rootInvocation }: xdr.SorobanAuthorizationEntry, { sale, treasury }: { sale: string; treasury: string }) {
+  const root = contractCallOf(rootInvocation)
+  return (
+    rootInvocation.subInvocations.length === 0 &&
+    root?.contract === sale &&
+    root.method === 'close' &&
+    root.args.length === 1 &&
+    root.args[0] === treasury
+  )
+}
+
 function eventsOf(resultMeta: string): Array<xdr.ContractEvent> | undefined {
   try {
     const meta = xdr.TransactionMeta.fromXDR(resultMeta, 'base64')
@@ -116,6 +128,33 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
 
   function simulate(server: Server, operation: xdr.Operation) {
     return simulateOperation(server, passphrase, { source: SIMULATION_SOURCE, operation })
+  }
+
+  async function signableEntry(
+    server: Server,
+    operation: xdr.Operation,
+    { signer, covers }: { signer: string; covers: (entry: xdr.SorobanAuthorizationEntry) => boolean },
+  ): Promise<Result<{ entry: string; entryHash: string; expirationLedger: number }, SaleRefusal>> {
+    const simulation = await simulate(server, operation)
+    if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
+    const entries = simulation.result?.auth ?? []
+    const [entry] = entries
+    if (entry === undefined || entries.length !== 1 || inspectAuthEntry(entry).address !== signer || !covers(entry)) {
+      return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, `The call did not ask ${signer} for one entry covering it`)
+    }
+    const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
+    return succeed(
+      {
+        entry: entry.toXDR('base64'),
+        entryHash: toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR())),
+        expirationLedger,
+      },
+      `Entry prepared for ${signer} to sign`,
+    )
+  }
+
+  function closeOperation(treasury: string, auth: Array<xdr.SorobanAuthorizationEntry>) {
+    return Operation.invokeContractFunction({ contract: address, function: 'close', args: [scv.address(treasury)], auth })
   }
 
   function buyOperation(buyer: string, amount: bigint, auth: Array<xdr.SorobanAuthorizationEntry>) {
@@ -147,30 +186,11 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
         return refused(SALE_REFUSAL.INVALID_BUYER, `${buyer} is not an account address`)
       }
       return onChain(async (server) => {
-        const simulation = await simulate(server, buyOperation(buyer, amount, []))
-        if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
-        const entries = simulation.result?.auth ?? []
-        const [entry] = entries
-        if (
-          entry === undefined ||
-          entries.length !== 1 ||
-          inspectAuthEntry(entry).address !== buyer ||
-          !coversPurchase(entry, { sale: address, buyer, amount })
-        ) {
-          return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, 'The purchase did not ask the buyer for one entry covering it')
-        }
-        const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
-        return succeed(
-          {
-            chainId,
-            buyer,
-            amount,
-            entry: entry.toXDR('base64'),
-            entryHash: toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR())),
-            expirationLedger,
-          },
-          'Purchase prepared for the buyer to sign',
-        )
+        const signable = await signableEntry(server, buyOperation(buyer, amount, []), {
+          signer: buyer,
+          covers: (entry) => coversPurchase(entry, { sale: address, buyer, amount }),
+        })
+        return signable.success ? succeed({ chainId, buyer, amount, ...signable.data }, signable.message) : signable
       })
     },
 
@@ -195,6 +215,19 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
         }
         if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
         return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Purchase authorized')
+      })
+    },
+
+    close: async ({ treasury }) => {
+      if (!StrKey.isValidEd25519PublicKey(treasury)) {
+        return refused(SALE_REFUSAL.INVALID_TREASURY, `${treasury} is not an account address`)
+      }
+      return onChain(async (server) => {
+        const signable = await signableEntry(server, closeOperation(treasury, []), {
+          signer: treasury,
+          covers: (entry) => coversClose(entry, { sale: address, treasury }),
+        })
+        return signable.success ? succeed({ chainId, treasury, ...signable.data }, signable.message) : signable
       })
     },
 

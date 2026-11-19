@@ -41,11 +41,7 @@ function contractCall(contract: string, method: string, args: Array<xdr.ScVal>) 
   )
 }
 
-function purchaseEntry({
-  recipient = SALE,
-  buyer = BUYER.publicKey(),
-  signer = BUYER.publicKey(),
-}: { recipient?: string; buyer?: string; signer?: string } = {}) {
+function unsignedEntry(signer: string, rootInvocation: xdr.SorobanAuthorizedInvocation) {
   return new xdr.SorobanAuthorizationEntry({
     credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(
       new xdr.SorobanAddressCredentials({
@@ -55,7 +51,18 @@ function purchaseEntry({
         signature: xdr.ScVal.scvVoid(),
       }),
     ),
-    rootInvocation: new xdr.SorobanAuthorizedInvocation({
+    rootInvocation,
+  })
+}
+
+function purchaseEntry({
+  recipient = SALE,
+  buyer = BUYER.publicKey(),
+  signer = BUYER.publicKey(),
+}: { recipient?: string; buyer?: string; signer?: string } = {}) {
+  return unsignedEntry(
+    signer,
+    new xdr.SorobanAuthorizedInvocation({
       function: contractCall(SALE, 'buy', [scv.address(buyer), scv.i128(AMOUNT)]),
       subInvocations: [
         new xdr.SorobanAuthorizedInvocation({
@@ -64,7 +71,7 @@ function purchaseEntry({
         }),
       ],
     }),
-  })
+  )
 }
 
 function simulated(auth: Array<xdr.SorobanAuthorizationEntry>, latestLedger = LATEST_LEDGER, resourceFee = '500') {
@@ -297,6 +304,65 @@ describe('authorize', () => {
     expect(
       await theSale().authorize({ prepared: purchase, signature: signatureOver(purchase.entryHash) }),
     ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.EXCEEDS_SUPPLY } })
+  })
+})
+
+const TREASURY = Keypair.random().publicKey()
+
+function closeEntry({ caller = TREASURY, signer = TREASURY }: { caller?: string; signer?: string } = {}) {
+  return unsignedEntry(
+    signer,
+    new xdr.SorobanAuthorizedInvocation({ function: contractCall(SALE, 'close', [scv.address(caller)]), subInvocations: [] }),
+  )
+}
+
+describe('close', () => {
+  it('returns the one entry the treasury signs to close the sale, with its hash and expiration ledger', async () => {
+    stubSimulation(simulated([closeEntry()]))
+
+    const closing = await theSale().close({ treasury: TREASURY })
+
+    if (!closing.success) throw new Error(closing.message)
+    const entry = xdr.SorobanAuthorizationEntry.fromXDR(closing.data.entry, 'base64')
+    const expectedHash = hash(buildAuthorizationEntryPreimage(entry, EXPIRATION_LEDGER, Networks.TESTNET).toXDR())
+    expect(closing.data).toMatchObject({
+      chainId: CHAIN_ID.STELLAR_TESTNET,
+      treasury: TREASURY,
+      expirationLedger: EXPIRATION_LEDGER,
+      entryHash: toHex(expectedHash),
+    })
+  })
+
+  it.each([
+    ['closes for another caller', closeEntry({ caller: Keypair.random().publicKey() })],
+    ['another address would sign', closeEntry({ signer: Keypair.random().publicKey() })],
+    ['covers a purchase', purchaseEntry({ signer: TREASURY })],
+  ])('refuses an entry that %s', async (_, entry) => {
+    stubSimulation(simulated([entry]))
+
+    expect(await theSale().close({ treasury: TREASURY })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.UNEXPECTED_AUTHORIZATION },
+    })
+  })
+
+  it('refuses a treasury that is not an account address, without asking the chain', async () => {
+    const requests = stubSimulation(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: SALE })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.INVALID_TREASURY },
+    })
+    expect(requests).toEqual([])
+  })
+
+  it.each([
+    [6228, SALE_REFUSAL.BELOW_MINIMUM],
+    [6201, SALE_REFUSAL.SALE_NOT_ACTIVE],
+  ])('names contract error %i as %s', async (contractError, code) => {
+    stubSimulation({ latestLedger: LATEST_LEDGER, error: `HostError: Error(Contract, #${contractError})`, events: [] })
+
+    expect(await theSale().close({ treasury: TREASURY })).toMatchObject({ success: false, error: { code } })
   })
 })
 

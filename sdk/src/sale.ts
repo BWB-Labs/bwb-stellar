@@ -7,10 +7,12 @@ export const SALE_REFUSAL = {
   CHAIN_MISMATCH: 'chainMismatch',
   CHAIN_UNAVAILABLE: 'chainUnavailable',
   INVALID_BUYER: 'invalidBuyer',
+  INVALID_TREASURY: 'invalidTreasury',
   INVESTOR_NOT_ENABLED: 'investorNotEnabled',
   ALLOCATION_EXCEEDED: 'allocationExceeded',
   TOO_MANY_RECEIPTS: 'tooManyReceipts',
   SALE_NOT_ACTIVE: 'saleNotActive',
+  BELOW_MINIMUM: 'belowMinimum',
   NOT_WHOLE_QUOTAS: 'notWholeQuotas',
   EXCEEDS_SUPPLY: 'exceedsSupply',
   TOO_MANY_PURCHASES: 'tooManyPurchases',
@@ -49,6 +51,14 @@ export type PreparedPurchase = {
   expirationLedger: number
 }
 
+export type PreparedClose = {
+  chainId: StellarChainId
+  treasury: string
+  entry: string
+  entryHash: string
+  expirationLedger: number
+}
+
 export type AuthorizedPurchase = {
   chainId: StellarChainId
   invocation: string
@@ -76,6 +86,7 @@ export type SaleView = {
 export type Sale = {
   buy(purchase: { buyer: string; amount: bigint }): Promise<Result<PreparedPurchase, SaleRefusal>>
   authorize(signed: { prepared: PreparedPurchase; signature: string }): Promise<Result<AuthorizedPurchase, SaleRefusal>>
+  close(closing: { treasury: string }): Promise<Result<PreparedClose, SaleRefusal>>
   purchaseReceipt(settled: { buyer: string; transaction: SettledTransaction }): Result<PurchaseReceipt, SaleRefusal>
   read(): Promise<Result<SaleView, SaleRefusal>>
 }
