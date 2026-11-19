@@ -30,14 +30,14 @@ Every function that can fail for an expected reason returns a `Result`: `{ succe
 
 ## Buying quotas
 
-One sale interface serves every chain. The configuration holds a client for each chain id a deployment serves, and the SDK returns the strategy for the offering's chain id, bound to that offering. The chain id decides the network, so the client must serve that network, or every call returns `chainMismatch`. The caller builds the client and owns any fallback across endpoints; `connect` is one way to build it.
+One sale interface serves every chain. The configuration holds a client for each chain id a deployment serves, and the SDK returns the strategy for the offering's chain id, bound to that offering. Each chain is named by its own identifier: a Stellar chain by its network id, the SHA-256 of its passphrase, and a Base chain by its EVM chain id. The client must serve that chain, or every call returns `chainMismatch`. The caller builds the client and owns any fallback across endpoints; `connect` is one way to build it.
 
-| Chain id | Strategy |
-|---|---|
-| `stellar-testnet` | Stellar |
-| `stellar-mainnet` | Stellar |
-| `base-testnet` | None yet, refused with `chainNotSupported` |
-| `base-mainnet` | None yet, refused with `chainNotSupported` |
+| Constant | Chain id | Strategy |
+|---|---|---|
+| `CHAIN_ID.STELLAR_TESTNET` | `cee0302d…ecd472`, the testnet network id | Stellar |
+| `CHAIN_ID.STELLAR_MAINNET` | `7ac33997…45a979`, the mainnet network id | Stellar |
+| `CHAIN_ID.BASE_TESTNET` | `84532` | None yet, refused with `chainNotSupported` |
+| `CHAIN_ID.BASE_MAINNET` | `8453` | None yet, refused with `chainNotSupported` |
 
 ```ts
 import { CHAIN_ID, connect, createBwbSdk, NETWORK } from '@bwb-labs/sdk'
@@ -63,7 +63,7 @@ const receipt = sale.data.purchaseReceipt({ buyer, transaction: { chainId: CHAIN
 |---|---|
 | `chainNotConfigured` | The configuration holds no client for the offering's chain id |
 | `chainNotSupported` | The SDK has no strategy for that chain id yet |
-| `chainMismatch` | The configured client serves another network than its chain id |
+| `chainMismatch` | The configured client reports another network id than its chain id |
 | `chainUnavailable` | No endpoint answered |
 | `invalidBuyer` | The buyer is not an account address |
 | `unexpectedResponse` | The address did not answer like a sale |

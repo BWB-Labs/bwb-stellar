@@ -130,9 +130,9 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
   async function onChain<T>(call: (server: Server) => Promise<Result<T, SaleRefusal>>): Promise<Result<T, SaleRefusal>> {
     try {
       return await rpc((server, served) =>
-        served === passphrase
+        toHex(hash(served)) === chainId
           ? call(server)
-          : Promise.resolve(refused(SALE_REFUSAL.CHAIN_MISMATCH, `The client serves "${served}", not ${chainId}`)),
+          : Promise.resolve(refused(SALE_REFUSAL.CHAIN_MISMATCH, `The client serves network "${served}", not chain ${chainId}`)),
       )
     } catch (error) {
       if (error instanceof SorobanSimulationError) return contractRefusal(error.message)
