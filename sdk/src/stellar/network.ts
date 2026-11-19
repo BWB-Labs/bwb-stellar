@@ -34,7 +34,7 @@ export function usdcOf(network: Network): { asset: Asset; contract: string } {
 }
 
 export function networkIdOf(network: Network): Uint8Array {
-  return hash(Buffer.from(passphraseOf(network)))
+  return hash(passphraseOf(network))
 }
 
 export class StellarChainMismatchError extends Error {}

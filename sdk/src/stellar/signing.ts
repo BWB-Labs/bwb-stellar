@@ -20,18 +20,18 @@ export type PrivyWallets = {
 const HEX_SIGNATURE = /^0x[0-9a-fA-F]{128}$/
 
 export function toHex(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('hex')
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export function fromHex(hex: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(hex.replace(/^0x/, ''), 'hex'))
+  return Uint8Array.from(hex.replace(/^0x/, '').match(/../g) ?? [], (byte) => parseInt(byte, 16))
 }
 
 export function keypairSigner(keypair: Keypair): HashSigner {
   return {
     address: keypair.publicKey(),
     async sign(hash) {
-      return Uint8Array.from(keypair.sign(Buffer.from(hash)))
+      return Uint8Array.from(keypair.sign(hash))
     },
   }
 }
@@ -63,8 +63,8 @@ export function isSignatureOf(
   if (!HEX_SIGNATURE.test(signature)) return false
   try {
     return Keypair.fromPublicKey(address).verify(
-      Buffer.from(fromHex(hash)),
-      Buffer.from(fromHex(signature)),
+      fromHex(hash),
+      fromHex(signature),
     )
   } catch {
     return false

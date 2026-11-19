@@ -131,7 +131,7 @@ function hashesOf(bumped: FeeBumpTransaction): Hashes {
 }
 
 function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64')
+  return btoa(String.fromCharCode(...bytes))
 }
 
 async function signWith(

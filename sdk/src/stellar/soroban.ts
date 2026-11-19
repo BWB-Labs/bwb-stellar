@@ -35,11 +35,11 @@ export function contractAddressOf({
 }): string {
   const preimage = xdr.HashIdPreimage.envelopeTypeContractId(
     new xdr.HashIdPreimageContractId({
-      networkId: Buffer.from(networkId),
+      networkId,
       contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
         new xdr.ContractIdPreimageFromAddress({
           address: Address.fromString(deployer).toScAddress(),
-          salt: Buffer.from(salt),
+          salt,
         }),
       ),
     }),
