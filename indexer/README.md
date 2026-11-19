@@ -32,7 +32,8 @@ chain at their own pace, so the heartbeat reaching the chain head does not by
 itself mean the events have:
 
 - **Contract events.** `stellar_<network>.events` filtered in SQL to the
-  tracked contracts. Each row carries the network as `chain_environment` and
+  tracked contracts. Each row carries the chain as `chain_id` (the SHA-256 of
+  the network passphrase, Stellar's network id) and
   the contract's kind (`token`, `sale`, `allowlist`, `asset`) as
   `contract_kind`, so the backend never guesses the kind from an event name two
   contracts share. Delivered to `/webhooks/goldsky/events`.
@@ -78,7 +79,7 @@ a path it does not know; Goldsky fails the pipeline on any 4xx except 408 and
 | 200 | batch written (or already held) | done |
 | 401 | bad or missing token, or the backend has no token configured | retries, then keeps the batch |
 | 400 | body is not rows | retries, then keeps the batch |
-| 422 | wrong chain environment | retries, then keeps the batch |
+| 422 | rows of another chain | retries, then keeps the batch |
 | 500 | the write failed | retries, then keeps the batch |
 
 The manager retries a backend 11 times over about 17 minutes. After that the
@@ -278,7 +279,7 @@ The manager logs `[delivery] retries exhausted` with the provider `goldsky` and
 the listener's name, and keeps the batch seven days.
 
 1. Fix the backend that refused it (its own log has the reason: the token, the
-   chain environment, or the write).
+   chain id, or the write).
 2. Replay from the manager, from the backend repository's `webhooks-manager/`:
    `bunx convex run deliveries:replay` (add `--prod` for the production
    manager). It queues every kept failure again, for every provider.
