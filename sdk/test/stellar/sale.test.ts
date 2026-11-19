@@ -614,7 +614,7 @@ describe('purchaseReceipt', () => {
 })
 
 describe('read', () => {
-  function answerFor(params: unknown, state = 'Active'): xdr.ScVal {
+  function answerFor(params: unknown, state: string, finalizableAt: bigint): xdr.ScVal {
     if (typeof params !== 'object' || params === null || !('transaction' in params) || typeof params.transaction !== 'string') {
       throw new Error('No transaction simulated')
     }
@@ -624,7 +624,7 @@ describe('read', () => {
     }
     const method = operation.func.invokeContract.functionName.toString()
     if (method === 'state') return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(state)])
-    if (method === 'finalizable_at') return scv.u64(1_793_086_401n)
+    if (method === 'finalizable_at') return scv.u64(finalizableAt)
     if (method === 'config') return scv.struct({ price: scv.i128(100_000_000n) })
     if (method === 'accounting') {
       return scv.struct({ supply: scv.i128(1_000n), sold_tokens: scv.i128(3n), raised: scv.i128(300_000_000n) })
@@ -632,7 +632,7 @@ describe('read', () => {
     return scv.struct({ payment_asset: nativeToScVal(USDC, { type: 'address' }) })
   }
 
-  function stubSale(state?: string) {
+  function stubSale(state = 'Active', finalizableAt = 1_793_086_401n) {
     stubJsonRpc(({ method, params }) =>
       method === 'getNetwork'
         ? { passphrase: Networks.TESTNET, protocolVersion: 23 }
@@ -640,7 +640,7 @@ describe('read', () => {
             latestLedger: LATEST_LEDGER,
             minResourceFee: '100',
             transactionData: new SorobanDataBuilder().build().toXDR('base64'),
-            results: [{ xdr: answerFor(params, state).toXDR('base64'), auth: [] }],
+            results: [{ xdr: answerFor(params, state, finalizableAt).toXDR('base64'), auth: [] }],
             events: [],
           },
     )
@@ -662,17 +662,22 @@ describe('read', () => {
     })
   })
 
-  it('reports when a closing sale can be finalized and its distribution begin', async () => {
-    stubSale('Closing')
+  it.each([
+    ['Active', SALE_STATE.ACTIVE],
+    ['Closing', SALE_STATE.CLOSING],
+    ['Successful', SALE_STATE.SUCCESSFUL],
+    ['Failed', SALE_STATE.FAILED],
+  ])('reports the finalization time while the sale is %s, once it has a purchase', async (state, saleState) => {
+    stubSale(state)
 
     expect(await theSale().read()).toMatchObject({
       success: true,
-      data: { state: SALE_STATE.CLOSING, finalizableAt: 1_793_086_401_000 },
+      data: { state: saleState, finalizableAt: 1_793_086_401_000 },
     })
   })
 
-  it('reports no finalization time while the sale is still active', async () => {
-    stubSale()
+  it('reports no finalization time before the first purchase', async () => {
+    stubSale('Active', 0n)
 
     const sale = await theSale().read()
 

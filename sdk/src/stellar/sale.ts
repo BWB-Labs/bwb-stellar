@@ -406,8 +406,6 @@ function saleViewOf(
   ) {
     return undefined
   }
-  const terms = { pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
-  return saleState === SALE_STATE.CLOSING
-    ? { state: saleState, finalizableAt: Number(finalizableAt) * 1_000, ...terms }
-    : { state: saleState, ...terms }
+  const terms = { state: saleState, pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
+  return finalizableAt === 0n ? terms : { ...terms, finalizableAt: Number(finalizableAt) * 1_000 }
 }

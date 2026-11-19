@@ -80,10 +80,9 @@ export type PurchaseReceipt = {
   paid: bigint
 }
 
-export type SaleView = (
-  | { state: typeof SALE_STATE.CLOSING; finalizableAt: number }
-  | { state: Exclude<SaleState, typeof SALE_STATE.CLOSING> }
-) & {
+export type SaleView = {
+  state: SaleState
+  finalizableAt?: number
   pricePerQuota: bigint
   supply: bigint
   soldQuotas: bigint
