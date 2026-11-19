@@ -405,6 +405,33 @@ describe('authorizeClose', () => {
     expect(requests.map(({ method }) => method)).not.toContain('simulateTransaction')
   })
 
+  it('refuses signatures over a close whose expiration was changed after it was prepared, without asking the chain', async () => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    expect(
+      await theSale().authorizeClose({
+        prepared: { ...closing, expirationLedger: closing.expirationLedger + 1 },
+        signatures: signedBy(closing.entryHash, [FIRST, SECOND]),
+      }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.SIGNATURE_MISMATCH } })
+    expect(requests).toEqual([])
+  })
+
+  it.each([
+    ['another call', () => purchaseEntry({ signer: TREASURY }).toXDR('base64')],
+    ['another address', () => closeEntry({ signer: Keypair.random().publicKey() }).toXDR('base64')],
+    ['no entry at all', () => 'bm90IHhkcg=='],
+  ])('refuses a prepared close whose entry was swapped for %s, without asking the chain', async (_, entry) => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    expect(
+      await theSale().authorizeClose({ prepared: { ...closing, entry: entry() }, signatures: signedBy(closing.entryHash, [FIRST, SECOND]) }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNEXPECTED_AUTHORIZATION } })
+    expect(requests).toEqual([])
+  })
+
   it('counts an officer who signed twice once', async () => {
     const closing = await preparedClose()
     stubTreasury()

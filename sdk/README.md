@@ -84,9 +84,9 @@ const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.S
 | `balanceFrozen` | The asset's issuer froze the balance |
 | `trustlineMissing` | The buyer has no trustline for the payment asset |
 | `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
-| `signatureMismatch` | A signature is not over this entry, or not by the buyer or a signer of the treasury |
+| `signatureMismatch` | A signature is not over this entry as prepared, or not by the buyer or a signer of the treasury |
 | `belowThreshold` | Fewer officers signed the close than the treasury's threshold |
-| `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase |
+| `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase or close, or a prepared close no longer holds it |
 | `purchaseNotFound` | The settled transaction holds no purchase by this buyer in this sale |
 | `contractRefused` | The contract refused for another reason; the message carries its error |
 
@@ -103,7 +103,7 @@ if (!authorized.success) return authorized
 // Relay authorized.data.invocation.
 ```
 
-`close` simulates the close and returns the one entry the treasury signs. `authorizeClose` takes one `{ address, signature }` per officer, each a `0x`-prefixed hex ed25519 signature over the entry hash. It reads the treasury's signers, refuses a signature that is not over the entry or not by a signer, and refuses fewer distinct officers than the treasury's threshold before anything is simulated. It then puts every signature on the entry in raw public key order and simulates the signed close again. An entry lives 360 ledgers, about thirty minutes.
+`close` simulates the close and returns the one entry the treasury signs. `authorizeClose` takes one `{ address, signature }` per officer, each a `0x`-prefixed hex ed25519 signature over the entry hash. Without asking the chain, it refuses an entry that is not this treasury's close of this sale, and a signature that is not over the entry as prepared, expiration ledger included. It then reads the treasury's signers and refuses a signature by anyone else, or fewer distinct officers than the treasury's threshold, before anything is simulated. Last, it puts every signature on the entry in raw public key order and simulates the signed close again. An entry lives 360 ledgers, about thirty minutes.
 
 Once the sale is Closing, `read()` reports `finalizableAt`: the time, in Unix milliseconds, from which the sale can be finalized and its distribution begin. The other states carry no such field.
 
