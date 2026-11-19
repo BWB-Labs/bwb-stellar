@@ -15,6 +15,7 @@ import { refuse, succeed, type Result, type ResultError } from '../result.js'
 import {
   SALE_REFUSAL,
   SALE_STATE,
+  type AuthorizedPurchase,
   type PurchaseReceipt,
   type Sale,
   type SaleRefusal,
@@ -23,8 +24,9 @@ import {
   type SaleView,
 } from '../sale.js'
 import { passphraseOf, STELLAR_NETWORK, StellarChainMismatchError, type StellarChainId, type StellarRpc } from './network.js'
-import { fromHex, toHex } from './signing.js'
+import { fromHex, isSignatureOf, toHex } from './signing.js'
 import { scv, simulateOperation, simulateRead, SorobanSimulationError } from './soroban.js'
+import { readSignerSet } from './treasury.js'
 
 const SIMULATION_SOURCE = StrKey.encodeEd25519PublicKey(new Uint8Array(32))
 const ENTRY_LIFETIME_LEDGERS = 360
@@ -153,6 +155,19 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
     )
   }
 
+  async function authorized(
+    server: Server,
+    operation: xdr.Operation,
+    expirationLedger: number,
+  ): Promise<Result<AuthorizedPurchase, SaleRefusal>> {
+    const simulation = await simulate(server, operation)
+    if (simulation.latestLedger >= expirationLedger) {
+      return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
+    }
+    if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
+    return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Signed call authorized')
+  }
+
   function closeOperation(treasury: string, auth: Array<xdr.SorobanAuthorizationEntry>) {
     return Operation.invokeContractFunction({ contract: address, function: 'close', args: [scv.address(treasury)], auth })
   }
@@ -207,15 +222,7 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
       } catch (error) {
         return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `The signature is not of the entry: ${String(error)}`)
       }
-      const operation = buyOperation(buyer, amount, [signed])
-      return onChain(async (server) => {
-        const simulation = await simulate(server, operation)
-        if (simulation.latestLedger >= expirationLedger) {
-          return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
-        }
-        if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
-        return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Purchase authorized')
-      })
+      return onChain((server) => authorized(server, buyOperation(buyer, amount, [signed]), expirationLedger))
     },
 
     close: async ({ treasury }) => {
@@ -228,6 +235,48 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
           covers: (entry) => coversClose(entry, { sale: address, treasury }),
         })
         return signable.success ? succeed({ chainId, treasury, ...signable.data }, signable.message) : signable
+      })
+    },
+
+    async authorizeClose({ prepared: { treasury, entry, entryHash, expirationLedger }, signatures }) {
+      const forged = signatures.find(({ address: signer, signature }) => !isSignatureOf(signer, entryHash, signature))
+      if (forged !== undefined) {
+        return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `The signature of ${forged.address} is not of the entry`)
+      }
+      const byOfficer = new Map(signatures.map(({ address: signer, signature }) => [signer, signature]))
+      return onChain(async (server) => {
+        const signerSet = await readSignerSet(rpc, treasury)
+        if (signerSet === null) return refused(SALE_REFUSAL.INVALID_TREASURY, `${treasury} has no account`)
+        const outsider = [...byOfficer.keys()].find((signer) => !signerSet.signers.includes(signer))
+        if (outsider !== undefined) {
+          return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `${outsider} is not a signer of ${treasury}`)
+        }
+        if (byOfficer.size < signerSet.threshold) {
+          return refused(
+            SALE_REFUSAL.BELOW_THRESHOLD,
+            `${byOfficer.size} of the ${signerSet.threshold} signatures ${treasury} requires`,
+          )
+        }
+        const sorted = [...byOfficer]
+          .map(([signer, signature]) => {
+            const publicKey = StrKey.decodeEd25519PublicKey(signer)
+            return { publicKey, signature: fromHex(signature), order: toHex(publicKey) }
+          })
+          .sort((a, b) => (a.order < b.order ? -1 : 1))
+        const signed = await authorizeEntry(
+          xdr.SorobanAuthorizationEntry.fromXDR(entry, 'base64'),
+          async () => ({
+            signatureScVal: scv.vec(
+              sorted.map(({ publicKey, signature }) =>
+                scv.struct({ public_key: xdr.ScVal.scvBytes(publicKey), signature: xdr.ScVal.scvBytes(signature) }),
+              ),
+            ),
+          }),
+          expirationLedger,
+          passphrase,
+          treasury,
+        )
+        return authorized(server, closeOperation(treasury, [signed]), expirationLedger)
       })
     },
 

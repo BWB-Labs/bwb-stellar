@@ -1,5 +1,6 @@
 import type { StellarChainId } from './stellar/network.js'
 import type { Result } from './result.js'
+import type { AddressSignature } from './stellar/signing.js'
 
 export const SALE_REFUSAL = {
   CHAIN_NOT_CONFIGURED: 'chainNotConfigured',
@@ -21,6 +22,7 @@ export const SALE_REFUSAL = {
   TRUSTLINE_MISSING: 'trustlineMissing',
   ENTRY_EXPIRED: 'entryExpired',
   SIGNATURE_MISMATCH: 'signatureMismatch',
+  BELOW_THRESHOLD: 'belowThreshold',
   UNEXPECTED_AUTHORIZATION: 'unexpectedAuthorization',
   UNEXPECTED_RESPONSE: 'unexpectedResponse',
   UNREADABLE_TRANSACTION: 'unreadableTransaction',
@@ -64,6 +66,8 @@ export type AuthorizedPurchase = {
   invocation: string
 }
 
+export type AuthorizedClose = AuthorizedPurchase
+
 export type SettledTransaction = {
   chainId: StellarChainId
   resultMeta: string
@@ -87,6 +91,7 @@ export type Sale = {
   buy(purchase: { buyer: string; amount: bigint }): Promise<Result<PreparedPurchase, SaleRefusal>>
   authorize(signed: { prepared: PreparedPurchase; signature: string }): Promise<Result<AuthorizedPurchase, SaleRefusal>>
   close(closing: { treasury: string }): Promise<Result<PreparedClose, SaleRefusal>>
+  authorizeClose(signed: { prepared: PreparedClose; signatures: Array<AddressSignature> }): Promise<Result<AuthorizedClose, SaleRefusal>>
   purchaseReceipt(settled: { buyer: string; transaction: SettledTransaction }): Result<PurchaseReceipt, SaleRefusal>
   read(): Promise<Result<SaleView, SaleRefusal>>
 }
