@@ -47,6 +47,8 @@ DATASET_VERSION = "1.2.0"
 CONTRACT_ID = re.compile(r"\bC[A-Z2-7]{55}\b")
 LABEL = re.compile(r"[A-Za-z0-9_. -]+")
 NETWORK = re.compile(r"[a-z][a-z0-9_]*")
+START_AT = re.compile(r"latest|earliest|\d+")
+NAME = re.compile(r"[A-Za-z0-9_-]+")
 EVENTS_PATH = "/webhooks/goldsky/events"
 HEARTBEAT_PATH = "/webhooks/goldsky/heartbeat"
 MANAGER_URL_VARIABLE = "WEBHOOK_MANAGER_URL"
@@ -89,6 +91,15 @@ def parse_args():
             ap.error("--fill writes the hook secret: --out must end in .local.yaml, which git ignores")
     elif args.start_at is None:
         ap.error("--start-at is required to render (latest, earliest or a ledger sequence)")
+    else:
+        if not START_AT.fullmatch(args.start_at):
+            ap.error("--start-at must be latest, earliest or a ledger sequence")
+        if args.heartbeat_every < 1:
+            ap.error("--heartbeat-every must be at least 1")
+        for flag in ("secret_name", "resource_size", "name"):
+            value = getattr(args, flag)
+            if value is not None and not NAME.fullmatch(value):
+                ap.error(f"--{flag.replace('_', '-')} must be letters, digits, hyphens or underscores")
     if not NETWORK.fullmatch(args.network):
         ap.error("--network must be lowercase letters, digits or underscores: it names the tracked-contract tables")
     return args
@@ -139,7 +150,9 @@ def collect_contracts(manifest):
     seen = {}
 
     def add(contract_id, kind, label):
-        if not contract_id or contract_id in seen:
+        if not contract_id:
+            sys.exit(f"{label}: no contract_id in the manifest")
+        if contract_id in seen:
             return
         if not CONTRACT_ID.fullmatch(contract_id):
             sys.exit(f"{label}: {contract_id!r} is not a contract id")
