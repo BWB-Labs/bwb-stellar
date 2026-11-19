@@ -1,13 +1,10 @@
+import type { StellarChainId } from './stellar/network.js'
 import type { Result } from './result.js'
-
-export const CHAIN = {
-  STELLAR: 'stellar',
-} as const
-
-export type Chain = (typeof CHAIN)[keyof typeof CHAIN]
 
 export const SALE_REFUSAL = {
   CHAIN_NOT_CONFIGURED: 'chainNotConfigured',
+  CHAIN_NOT_SUPPORTED: 'chainNotSupported',
+  CHAIN_MISMATCH: 'chainMismatch',
   CHAIN_UNAVAILABLE: 'chainUnavailable',
   INVALID_BUYER: 'invalidBuyer',
   INVESTOR_NOT_ENABLED: 'investorNotEnabled',
@@ -44,7 +41,7 @@ export const SALE_STATE = {
 export type SaleState = (typeof SALE_STATE)[keyof typeof SALE_STATE]
 
 export type PreparedPurchase = {
-  chain: typeof CHAIN.STELLAR
+  chainId: StellarChainId
   buyer: string
   amount: bigint
   entry: string
@@ -53,12 +50,12 @@ export type PreparedPurchase = {
 }
 
 export type AuthorizedPurchase = {
-  chain: typeof CHAIN.STELLAR
+  chainId: StellarChainId
   invocation: string
 }
 
 export type SaleReceipt = {
-  chain: typeof CHAIN.STELLAR
+  chainId: StellarChainId
   resultMeta: string
 }
 

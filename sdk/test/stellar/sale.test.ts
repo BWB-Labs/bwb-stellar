@@ -14,8 +14,8 @@ import {
 } from '@stellar/stellar-sdk/base'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { bwbSdk, CHAIN, SALE_REFUSAL, SALE_STATE, type PreparedPurchase, type Sale } from '../../src/index.js'
-import { connect, NETWORK } from '../../src/stellar/network.js'
+import { CHAIN_ID, createBwbSdk, SALE_REFUSAL, SALE_STATE, type PreparedPurchase, type Sale, type StellarChainId } from '../../src/index.js'
+import { connect, NETWORK, type Network } from '../../src/stellar/network.js'
 import { createRelay } from '../../src/stellar/relay.js'
 import { fromHex, keypairSigner, toHex } from '../../src/stellar/signing.js'
 import { scv } from '../../src/stellar/soroban.js'
@@ -77,18 +77,16 @@ function simulated(auth: Array<xdr.SorobanAuthorizationEntry>, latestLedger = LA
   }
 }
 
-function stubSimulation(answer: Record<string, unknown>) {
-  return stubJsonRpc(({ method }) =>
-    method === 'getNetwork' ? { passphrase: Networks.TESTNET, protocolVersion: 23 } : answer,
-  )
+function stubSimulation(answer: Record<string, unknown>, passphrase: string = Networks.TESTNET) {
+  return stubJsonRpc(({ method }) => (method === 'getNetwork' ? { passphrase, protocolVersion: 23 } : answer))
 }
 
-function rpc() {
-  return connect({ network: NETWORK.TESTNET, rpcUrls: [RPC_URL] })
+function rpc(network: Network = NETWORK.TESTNET) {
+  return connect({ network, rpcUrls: [RPC_URL] })
 }
 
-function theSale(address = SALE): Sale {
-  const sale = bwbSdk().withStellar({ rpc: rpc(), network: NETWORK.TESTNET }).build().sale({ chain: CHAIN.STELLAR, address })
+function theSale(address = SALE, chainId: StellarChainId = CHAIN_ID.STELLAR_TESTNET, network?: Network): Sale {
+  const sale = createBwbSdk({ chains: { [chainId]: { rpc: rpc(network) } } }).sale({ chainId, address })
   if (!sale.success) throw new Error(sale.message)
   return sale.data
 }
@@ -122,7 +120,7 @@ describe('buy', () => {
     const expectedHash = hash(buildAuthorizationEntryPreimage(entry, EXPIRATION_LEDGER, Networks.TESTNET).toXDR())
 
     expect(purchase).toMatchObject({
-      chain: CHAIN.STELLAR,
+      chainId: CHAIN_ID.STELLAR_TESTNET,
       buyer: BUYER.publicKey(),
       amount: AMOUNT,
       expirationLedger: EXPIRATION_LEDGER,
@@ -187,6 +185,37 @@ describe('buy', () => {
       success: false,
       error: { code },
     })
+  })
+
+  it('binds the entry hash to the network of the chain id', async () => {
+    stubSimulation(simulated([purchaseEntry()]), Networks.PUBLIC)
+
+    const purchase = await theSale(SALE, CHAIN_ID.STELLAR_MAINNET, NETWORK.MAINNET).buy({
+      buyer: BUYER.publicKey(),
+      amount: AMOUNT,
+    })
+
+    if (!purchase.success) throw new Error(purchase.message)
+    const entry = xdr.SorobanAuthorizationEntry.fromXDR(purchase.data.entry, 'base64')
+    const mainnetHash = hash(buildAuthorizationEntryPreimage(entry, EXPIRATION_LEDGER, Networks.PUBLIC).toXDR())
+    expect(purchase.data).toMatchObject({ chainId: CHAIN_ID.STELLAR_MAINNET, entryHash: toHex(mainnetHash) })
+  })
+
+  it('refuses a client that serves another network than the chain id', async () => {
+    stubSimulation(simulated([purchaseEntry()]))
+
+    expect(await theSale(SALE, CHAIN_ID.STELLAR_MAINNET).buy({ buyer: BUYER.publicKey(), amount: AMOUNT })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.CHAIN_MISMATCH },
+    })
+  })
+
+  it('refuses the same way when the client itself finds its endpoint on another network', async () => {
+    stubSimulation(simulated([purchaseEntry()]))
+
+    expect(
+      await theSale(SALE, CHAIN_ID.STELLAR_MAINNET, NETWORK.MAINNET).buy({ buyer: BUYER.publicKey(), amount: AMOUNT }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.CHAIN_MISMATCH } })
   })
 
   it('says the chain is unavailable when no endpoint answers', async () => {
@@ -272,7 +301,7 @@ describe('authorize', () => {
 })
 
 describe('outcome', () => {
-  const receipt = { chain: CHAIN.STELLAR, resultMeta: RECEIPT }
+  const receipt = { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: RECEIPT }
 
   it('reads the quotas and the amount paid from the purchase event', () => {
     expect(theSale().outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
@@ -297,7 +326,7 @@ describe('outcome', () => {
 
   it('says so when the receipt cannot be read, rather than reporting no purchase', () => {
     expect(
-      theSale().outcome({ buyer: RECEIPT_BUYER, receipt: { chain: CHAIN.STELLAR, resultMeta: 'bm90IHhkcg==' } }),
+      theSale().outcome({ buyer: RECEIPT_BUYER, receipt: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: 'bm90IHhkcg==' } }),
     ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNREADABLE_RECEIPT } })
   })
 })

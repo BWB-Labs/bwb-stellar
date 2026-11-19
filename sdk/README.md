@@ -30,15 +30,22 @@ Every function that can fail for an expected reason returns a `Result`: `{ succe
 
 ## Buying quotas
 
-One sale interface serves every chain. The builder sets up the chains a deployment serves, and the factory returns the strategy for the offering's chain, bound to that offering. Asking for a chain the builder did not set up returns `chainNotConfigured`.
+One sale interface serves every chain. The configuration holds a client for each chain id a deployment serves, and the SDK returns the strategy for the offering's chain id, bound to that offering. The chain id decides the network, so the client must serve that network, or every call returns `chainMismatch`. The caller builds the client and owns any fallback across endpoints; `connect` is one way to build it.
+
+| Chain id | Strategy |
+|---|---|
+| `stellar-testnet` | Stellar |
+| `stellar-mainnet` | Stellar |
+| `base-testnet` | None yet, refused with `chainNotSupported` |
+| `base-mainnet` | None yet, refused with `chainNotSupported` |
 
 ```ts
-import { bwbSdk, connect, NETWORK } from '@bwb-labs/sdk'
+import { CHAIN_ID, connect, createBwbSdk, NETWORK } from '@bwb-labs/sdk'
 
 const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: ['https://soroban-testnet.stellar.org'] })
-const bwb = bwbSdk().withStellar({ rpc, network: NETWORK.TESTNET }).build()
+const bwb = createBwbSdk({ chains: { [CHAIN_ID.STELLAR_TESTNET]: { rpc } } })
 
-const sale = bwb.sale({ chain: 'stellar', address: saleAddress })
+const sale = bwb.sale({ chainId: CHAIN_ID.STELLAR_TESTNET, address: saleAddress })
 if (!sale.success) return sale
 
 const prepared = await sale.data.buy({ buyer, amount })
@@ -47,14 +54,16 @@ if (!prepared.success) return prepared
 const authorized = await sale.data.authorize({ prepared: prepared.data, signature })
 if (!authorized.success) return authorized
 // Relay authorized.data.invocation, then read the purchase from the settled transaction.
-const outcome = sale.data.outcome({ buyer, receipt: { chain: 'stellar', resultMeta } })
+const outcome = sale.data.outcome({ buyer, receipt: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
 ```
 
 `buy` returns one authorization entry covering the purchase and its USDC transfer. `authorize` checks the signature against that entry and simulates the signed call again, so the relay assembles resources that cover signature verification. The source of the relayed transaction must not be the buyer.
 
 | Refusal | Meaning |
 |---|---|
-| `chainNotConfigured` | The builder did not set up the offering's chain |
+| `chainNotConfigured` | The configuration holds no client for the offering's chain id |
+| `chainNotSupported` | The SDK has no strategy for that chain id yet |
+| `chainMismatch` | The configured client serves another network than its chain id |
 | `chainUnavailable` | No endpoint answered |
 | `invalidBuyer` | The buyer is not an account address |
 | `unexpectedResponse` | The address did not answer like a sale |

@@ -13,7 +13,6 @@ import { Api, type Server } from '@stellar/stellar-sdk/rpc'
 
 import { refuse, succeed, type Result, type ResultError } from '../result.js'
 import {
-  CHAIN,
   SALE_REFUSAL,
   SALE_STATE,
   type PurchaseOutcome,
@@ -23,7 +22,7 @@ import {
   type SaleState,
   type SaleView,
 } from '../sale.js'
-import { passphraseOf, type StellarSetup } from './network.js'
+import { passphraseOf, STELLAR_NETWORK, StellarChainMismatchError, type StellarChainId, type StellarRpc } from './network.js'
 import { fromHex, toHex } from './signing.js'
 import { scv, simulateOperation, simulateRead, SorobanSimulationError } from './soroban.js'
 
@@ -112,8 +111,8 @@ function purchaseIn(event: xdr.ContractEvent, sale: string, buyer: string): Purc
   return typeof tokens === 'bigint' && typeof paid === 'bigint' ? { quotas: tokens, paid } : undefined
 }
 
-export function stellarSale({ rpc, network }: StellarSetup, address: string): Sale {
-  const passphrase = passphraseOf(network)
+export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: string): Sale {
+  const passphrase = passphraseOf(STELLAR_NETWORK[chainId])
 
   function simulate(server: Server, operation: xdr.Operation) {
     return simulateOperation(server, passphrase, { source: SIMULATION_SOURCE, operation })
@@ -130,9 +129,14 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
 
   async function onChain<T>(call: (server: Server) => Promise<Result<T, SaleRefusal>>): Promise<Result<T, SaleRefusal>> {
     try {
-      return await rpc(call)
+      return await rpc((server, served) =>
+        served === passphrase
+          ? call(server)
+          : Promise.resolve(refused(SALE_REFUSAL.CHAIN_MISMATCH, `The client serves "${served}", not ${chainId}`)),
+      )
     } catch (error) {
       if (error instanceof SorobanSimulationError) return contractRefusal(error.message)
+      if (error instanceof StellarChainMismatchError) return refused(SALE_REFUSAL.CHAIN_MISMATCH, error.message)
       return refused(SALE_REFUSAL.CHAIN_UNAVAILABLE, `The chain did not answer: ${String(error)}`)
     }
   }
@@ -158,7 +162,7 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
         const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
         return succeed(
           {
-            chain: CHAIN.STELLAR,
+            chainId,
             buyer,
             amount,
             entry: entry.toXDR('base64'),
@@ -190,7 +194,7 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
           return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
         }
         if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
-        return succeed({ chain: CHAIN.STELLAR, invocation: operation.toXDR('base64') }, 'Purchase authorized')
+        return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Purchase authorized')
       })
     },
 

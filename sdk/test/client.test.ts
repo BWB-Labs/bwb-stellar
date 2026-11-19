@@ -1,16 +1,14 @@
-import { Networks } from '@stellar/stellar-sdk/base'
 import { describe, expect, it } from 'vitest'
 
-import { bwbSdk, CHAIN, NETWORK, SALE_REFUSAL, type StellarRpc } from '../src/index.js'
+import { CHAIN_ID, createBwbSdk, SALE_REFUSAL, type StellarRpc } from '../src/index.js'
 
 const SALE = 'CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC'
-const rpc: StellarRpc = () => Promise.reject(new Error(`No chain behind ${Networks.TESTNET}`))
+const rpc: StellarRpc = () => Promise.reject(new Error('No chain behind this client'))
+const bwb = createBwbSdk({ chains: { [CHAIN_ID.STELLAR_TESTNET]: { rpc } } })
 
-describe('bwbSdk', () => {
-  it('returns the sale of a Stellar offering when the builder set up Stellar', () => {
-    const sale = bwbSdk().withStellar({ rpc, network: NETWORK.TESTNET }).build().sale({ chain: CHAIN.STELLAR, address: SALE })
-
-    expect(sale).toMatchObject({
+describe('createBwbSdk', () => {
+  it('returns the sale of an offering on a configured Stellar chain', () => {
+    expect(bwb.sale({ chainId: CHAIN_ID.STELLAR_TESTNET, address: SALE })).toMatchObject({
       success: true,
       data: {
         buy: expect.any(Function),
@@ -21,9 +19,17 @@ describe('bwbSdk', () => {
     })
   })
 
-  it('refuses a chain the builder did not set up', () => {
-    const sale = bwbSdk().build().sale({ chain: CHAIN.STELLAR, address: SALE })
+  it('refuses a supported chain the configuration leaves out', () => {
+    expect(bwb.sale({ chainId: CHAIN_ID.STELLAR_MAINNET, address: SALE })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.CHAIN_NOT_CONFIGURED },
+    })
+  })
 
-    expect(sale).toMatchObject({ success: false, error: { code: SALE_REFUSAL.CHAIN_NOT_CONFIGURED } })
+  it.each([CHAIN_ID.BASE_TESTNET, CHAIN_ID.BASE_MAINNET])('refuses %s, which has no strategy yet', (chainId) => {
+    expect(bwb.sale({ chainId, address: SALE })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.CHAIN_NOT_SUPPORTED },
+    })
   })
 })
