@@ -8,13 +8,13 @@ Balance and payment reads are not part of this release.
 
 | Module | Exports | What it does |
 |---|---|---|
-| [`network`](src/network.ts) | `connect`, `NETWORK`, `passphraseOf`, `networkIdOf`, `usdcOf`, `accountKey` | An RPC connection that tries each endpoint in order and refuses one that serves another network. |
-| [`signing`](src/signing.ts) | `HashSigner`, `privySigner`, `keypairSigner`, `isSignatureOf` | A signer is an address and a function that signs a hash. `privySigner` signs through Privy's raw signing, so no key ever leaves Privy. `isSignatureOf` checks a signature made in the browser before it is used. |
-| [`wallet`](src/wallet.ts) | `ensureStellarWallet`, `walletOpeningOperations` | Reuses the user's Privy embedded Stellar wallet or pregenerates one, and builds the sponsored account creation and USDC trustline. |
-| [`relay`](src/relay.ts) | `createRelay`, `RELAY_FAILURE` | `submitAsPlatform` for envelopes only platform keys sign; `prepareForSigners` and `submitSigned` for envelopes users or officers sign. Every envelope is sourced from a channel and fee-bumped by the sponsor. |
-| [`treasury`](src/treasury.ts) | `treasuryCreationOperations`, `signerChangeOperations`, `readSignerSet` | An organization's treasury is a native multisig: its officers are its signers, at one threshold, with the master key disabled. |
-| [`offering`](src/offering.ts) | `offeringTerms`, `deploymentDigest`, `deploymentOperation`, `isStepApplied`, `DEPLOYMENT_STEPS` | Derives an offering's contract addresses, the digest its officers sign, and the four deployment steps: token, sale, allowlist grant and activation. |
-| [`soroban`](src/soroban.ts) | `createContractOperation`, `invokeContractOperation`, `prepareSorobanTransaction`, `simulateRead`, `contractExists`, `scv` | Contract calls: simulation, resource assembly and read-only views. |
+| [`network`](src/stellar/network.ts) | `connect`, `NETWORK`, `passphraseOf`, `networkIdOf`, `usdcOf`, `accountKey` | An RPC connection that tries each endpoint in order and refuses one that serves another network. |
+| [`signing`](src/stellar/signing.ts) | `HashSigner`, `privySigner`, `keypairSigner`, `isSignatureOf` | A signer is an address and a function that signs a hash. `privySigner` signs through Privy's raw signing, so no key ever leaves Privy. `isSignatureOf` checks a signature made in the browser before it is used. |
+| [`wallet`](src/stellar/wallet.ts) | `ensureStellarWallet`, `walletOpeningOperations` | Reuses the user's Privy embedded Stellar wallet or pregenerates one, and builds the sponsored account creation and USDC trustline. |
+| [`relay`](src/stellar/relay.ts) | `createRelay`, `RELAY_FAILURE` | `submitAsPlatform` for envelopes only platform keys sign; `prepareForSigners` and `submitSigned` for envelopes users or officers sign. Every envelope is sourced from a channel and fee-bumped by the sponsor. |
+| [`treasury`](src/stellar/treasury.ts) | `treasuryCreationOperations`, `signerChangeOperations`, `readSignerSet` | An organization's treasury is a native multisig: its officers are its signers, at one threshold, with the master key disabled. |
+| [`offering`](src/stellar/offering.ts) | `offeringTerms`, `deploymentDigest`, `deploymentOperation`, `isStepApplied`, `DEPLOYMENT_STEPS` | Derives an offering's contract addresses, the digest its officers sign, and the four deployment steps: token, sale, allowlist grant and activation. |
+| [`soroban`](src/stellar/soroban.ts) | `createContractOperation`, `invokeContractOperation`, `prepareSorobanTransaction`, `simulateRead`, `contractExists`, `scv` | Contract calls: simulation, resource assembly and read-only views. |
 
 Every function that can fail for an expected reason returns a `Result`: `{ success: true, data }` or `{ success: false, error: { code } }`. The relay's codes are:
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Asset } from '@stellar/stellar-sdk/base'
 
-import { connect, NETWORK, StellarChainMismatchError, usdcOf } from '../src/network.js'
+import { connect, NETWORK, StellarChainMismatchError, usdcOf } from '../../src/stellar/network.js'
 
 const MANAGED = 'https://managed.example'
 const PUBLIC = 'https://public.example'

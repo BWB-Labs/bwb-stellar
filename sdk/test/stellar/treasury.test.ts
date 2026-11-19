@@ -1,8 +1,8 @@
 import { Asset, Keypair, Operation, type xdr } from '@stellar/stellar-sdk/base'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { connect, NETWORK } from '../src/network.js'
-import { readSignerSet, signerChangeOperations, treasuryCreationOperations } from '../src/treasury.js'
+import { connect, NETWORK } from '../../src/stellar/network.js'
+import { readSignerSet, signerChangeOperations, treasuryCreationOperations } from '../../src/stellar/treasury.js'
 import { accountEntry, RPC_URL, stubChain } from './support/chain.js'
 
 const TREASURY = Keypair.random().publicKey()

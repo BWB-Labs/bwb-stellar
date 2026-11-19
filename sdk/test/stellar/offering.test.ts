@@ -1,7 +1,7 @@
 import { Keypair, Operation } from '@stellar/stellar-sdk/base'
 import { describe, expect, it } from 'vitest'
 
-import { NETWORK } from '../src/network.js'
+import { NETWORK } from '../../src/stellar/network.js'
 import {
   DEPLOYMENT_STEP,
   DEPLOYMENT_STEPS,
@@ -9,7 +9,7 @@ import {
   deploymentOperation,
   offeringTerms,
   type OfferingRequest,
-} from '../src/offering.js'
+} from '../../src/stellar/offering.js'
 
 const PLATFORM = {
   network: NETWORK.TESTNET,

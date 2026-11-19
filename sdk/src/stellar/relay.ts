@@ -9,7 +9,7 @@ import {
 import type { Api } from '@stellar/stellar-sdk/rpc'
 
 import { accountKey, type StellarRpc } from './network.js'
-import { refuse, succeed, type Result, type ResultError } from './result.js'
+import { refuse, succeed, type Result, type ResultError } from '../result.js'
 import { fromHex, toHex, type AddressSignature, type HashSigner } from './signing.js'
 import { invokesHostFunction, prepareSorobanTransaction, SorobanSimulationError } from './soroban.js'
 
