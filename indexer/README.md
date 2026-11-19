@@ -209,8 +209,7 @@ render flag, and it writes only to a path ending in `.local.yaml`.
 pipeline's checkpoint and continues from it. Only `restart --clear-state`
 replays. Flags of the render script: `--heartbeat-every` (ledgers between
 heartbeats, 720), `--resource-size` (`xs`), `--name` (`bwb-stellar-<network>`),
-`--secret-name` (`BWB_GOLDSKY_WEBHOOK`), `--tables-secret-name`
-(`BWB_INDEXER_POSTGRES`), `--out`, and `--fill`.
+`--secret-name` (`BWB_GOLDSKY_WEBHOOK`), `--out`, and `--fill`.
 
 Goldsky keys the checkpoint on the pipeline's name and the names of its two
 sources. Never rename them: a rename is a replay from `start_at`. If
