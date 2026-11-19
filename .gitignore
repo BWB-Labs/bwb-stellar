@@ -42,3 +42,6 @@ Thumbs.db
 
 # SDK build output
 sdk/dist/
+
+# Filled Goldsky pipelines: they carry the Webhook Manager hook secret
+indexer/pipelines/*.local.yaml
