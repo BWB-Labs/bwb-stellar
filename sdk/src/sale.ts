@@ -1,5 +1,6 @@
 import type { StellarChainId } from './stellar/network.js'
 import type { Result } from './result.js'
+import type { AddressSignature } from './stellar/signing.js'
 
 export const SALE_REFUSAL = {
   CHAIN_NOT_CONFIGURED: 'chainNotConfigured',
@@ -7,10 +8,12 @@ export const SALE_REFUSAL = {
   CHAIN_MISMATCH: 'chainMismatch',
   CHAIN_UNAVAILABLE: 'chainUnavailable',
   INVALID_BUYER: 'invalidBuyer',
+  INVALID_TREASURY: 'invalidTreasury',
   INVESTOR_NOT_ENABLED: 'investorNotEnabled',
   ALLOCATION_EXCEEDED: 'allocationExceeded',
   TOO_MANY_RECEIPTS: 'tooManyReceipts',
   SALE_NOT_ACTIVE: 'saleNotActive',
+  BELOW_MINIMUM: 'belowMinimum',
   NOT_WHOLE_QUOTAS: 'notWholeQuotas',
   EXCEEDS_SUPPLY: 'exceedsSupply',
   TOO_MANY_PURCHASES: 'tooManyPurchases',
@@ -18,7 +21,10 @@ export const SALE_REFUSAL = {
   BALANCE_FROZEN: 'balanceFrozen',
   TRUSTLINE_MISSING: 'trustlineMissing',
   ENTRY_EXPIRED: 'entryExpired',
+  VALID_UNTIL_PASSED: 'validUntilPassed',
+  VALID_UNTIL_TOO_LATE: 'validUntilTooLate',
   SIGNATURE_MISMATCH: 'signatureMismatch',
+  BELOW_THRESHOLD: 'belowThreshold',
   UNEXPECTED_AUTHORIZATION: 'unexpectedAuthorization',
   UNEXPECTED_RESPONSE: 'unexpectedResponse',
   UNREADABLE_TRANSACTION: 'unreadableTransaction',
@@ -49,10 +55,20 @@ export type PreparedPurchase = {
   expirationLedger: number
 }
 
+export type PreparedClose = {
+  chainId: StellarChainId
+  treasury: string
+  entry: string
+  entryHash: string
+  expirationLedger: number
+}
+
 export type AuthorizedPurchase = {
   chainId: StellarChainId
   invocation: string
 }
+
+export type AuthorizedClose = AuthorizedPurchase
 
 export type SettledTransaction = {
   chainId: StellarChainId
@@ -66,6 +82,7 @@ export type PurchaseReceipt = {
 
 export type SaleView = {
   state: SaleState
+  finalizableAt?: number
   pricePerQuota: bigint
   supply: bigint
   soldQuotas: bigint
@@ -76,6 +93,8 @@ export type SaleView = {
 export type Sale = {
   buy(purchase: { buyer: string; amount: bigint }): Promise<Result<PreparedPurchase, SaleRefusal>>
   authorize(signed: { prepared: PreparedPurchase; signature: string }): Promise<Result<AuthorizedPurchase, SaleRefusal>>
+  close(closing: { treasury: string; validUntil: number }): Promise<Result<PreparedClose, SaleRefusal>>
+  authorizeClose(signed: { prepared: PreparedClose; signatures: Array<AddressSignature> }): Promise<Result<AuthorizedClose, SaleRefusal>>
   purchaseReceipt(settled: { buyer: string; transaction: SettledTransaction }): Result<PurchaseReceipt, SaleRefusal>
   read(): Promise<Result<SaleView, SaleRefusal>>
 }
