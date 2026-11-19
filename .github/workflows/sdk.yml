@@ -1,12 +1,10 @@
-# TypeScript SDK checks: typecheck, build and the test suite of @bwb-labs/sdk.
+# TypeScript SDK checks and publishing of @bwb-labs/sdk. npm's trusted publisher is bound to this filename.
 name: sdk
 
 on:
   push:
     branches: [main]
-    paths:
-      - "sdk/**"
-      - ".github/workflows/sdk.yml"
+    tags: ["sdk-v*"]
   pull_request:
     paths:
       - "sdk/**"
@@ -38,3 +36,54 @@ jobs:
 
       - name: Test SDK
         run: bun run test
+
+  publish:
+    name: Publish SDK
+    needs: sdk
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: sdk
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Require npm 11.5.1 or later
+        run: npm install --global "npm@>=11.5.1"
+
+      - name: Install SDK deps
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK
+        run: bun run build
+
+      - name: Set the prerelease version
+        if: github.ref == 'refs/heads/main'
+        run: npm version --no-git-tag-version "$(node -p "require('./package.json').version")-next.${GITHUB_SHA::7}"
+
+      - name: Check the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        run: test "${GITHUB_REF_NAME#sdk-v}" = "$(node -p "require('./package.json').version")"
+
+      - name: Publish the prerelease
+        if: github.ref == 'refs/heads/main'
+        run: npm publish --tag next
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        run: npm publish --tag latest
