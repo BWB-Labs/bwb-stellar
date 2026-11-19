@@ -31,11 +31,13 @@ the committed file to pipelines/<network>.local.yaml (ignored by git) with the
 address from WEBHOOK_MANAGER_URL in place of the placeholder; that copy is what
 `goldsky turbo apply` takes.
 
-Every row carries its chain environment (the network) and, for events, the
-contract's kind, from the table that tracks it; a receiver rejects rows for any
-other chain environment. See indexer/README.md.
+Every row carries its chain id (the SHA-256 of the network passphrase in the
+manifest, which is Stellar's network id) and, for events, the contract's kind,
+from the table that tracks it; a receiver rejects rows for any other chain. See
+indexer/README.md.
 """
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -195,7 +197,15 @@ def table_of(network, kind):
     return f"{network}_tracked_{kind}s"
 
 
-def render(args):
+def chain_id_of(manifest):
+    """Stellar's network id: the SHA-256 of the network passphrase, the id the backend knows the chain by."""
+    passphrase = manifest.get("passphrase")
+    if not isinstance(passphrase, str) or not passphrase:
+        sys.exit("the manifest has no passphrase to derive the chain id from")
+    return hashlib.sha256(passphrase.encode()).hexdigest()
+
+
+def render(args, chain_id):
     tables_yaml = "\n".join(
         f"""  {transform_of(kind)}:
     type: dynamic_table
@@ -244,7 +254,7 @@ transforms:
         id, contract_id, topics, data,
         transaction_hash, transaction_successful, in_successful_contract_call,
         ledger_sequence, ledger_closed_at,
-        '{args.network}' AS chain_environment,
+        '{chain_id}' AS chain_id,
         CASE
 {kinds_sql}
         END AS contract_kind
@@ -259,7 +269,7 @@ transforms:
     sql: |
       SELECT
         ledger_sequence, ledger_closed_at,
-        '{args.network}' AS chain_environment
+        '{chain_id}' AS chain_id
       FROM stellar_ledgers
       WHERE ledger_sequence % {args.heartbeat_every} = 0
 sinks:
@@ -355,7 +365,7 @@ def main():
         sys.exit("no deployed contracts found")
     out = pathlib.Path(args.out) if args.out else ROOT / "indexer" / "pipelines" / f"{args.network}.yaml"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(args))
+    out.write_text(render(args, chain_id_of(manifest)))
     seed = out.with_suffix(".seed.sql")
     seed.write_text(render_seed(args.network, contracts))
     print(f"wrote {shown(out)}: start_at={args.start_at}, heartbeat every {args.heartbeat_every} ledgers")

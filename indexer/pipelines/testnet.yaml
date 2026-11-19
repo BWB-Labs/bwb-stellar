@@ -51,7 +51,7 @@ transforms:
         id, contract_id, topics, data,
         transaction_hash, transaction_successful, in_successful_contract_call,
         ledger_sequence, ledger_closed_at,
-        'testnet' AS chain_environment,
+        'cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472' AS chain_id,
         CASE
           WHEN dynamic_table_check('tracked_tokens', contract_id) THEN 'token'
           WHEN dynamic_table_check('tracked_sales', contract_id) THEN 'sale'
@@ -72,7 +72,7 @@ transforms:
     sql: |
       SELECT
         ledger_sequence, ledger_closed_at,
-        'testnet' AS chain_environment
+        'cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472' AS chain_id
       FROM stellar_ledgers
       WHERE ledger_sequence % 720 = 0
 sinks:
