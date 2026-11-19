@@ -1,4 +1,4 @@
-# @bwb/stellar-sdk
+# @bwb-labs/sdk
 
 BWB's Stellar transaction layer. It provisions users' embedded wallets through Privy, opens their accounts and trustlines on reserves the platform sponsors, builds every envelope from a platform channel account, collects the signatures it needs, and submits it under a fee-bump the platform pays. On top of that it creates organizations' multisig treasuries, changes their signers, and deploys tokenized offerings.
 
@@ -31,7 +31,7 @@ Every function that can fail for an expected reason returns a `Result`: `{ succe
 ## Usage
 
 ```ts
-import { connect, createRelay, NETWORK, privySigner, usdcOf, walletOpeningOperations } from '@bwb/stellar-sdk'
+import { connect, createRelay, NETWORK, privySigner, usdcOf, walletOpeningOperations } from '@bwb-labs/sdk'
 
 const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: [alchemyUrl, 'https://soroban-testnet.stellar.org'] })
 const sponsor = privySigner(privy.wallets(), { walletId: sponsorWalletId, address: sponsorAddress })

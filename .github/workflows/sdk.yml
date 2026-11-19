@@ -1,4 +1,4 @@
-# TypeScript SDK checks: typecheck, build and the test suite of @bwb/stellar-sdk.
+# TypeScript SDK checks: typecheck, build and the test suite of @bwb-labs/sdk.
 name: sdk
 
 on:
