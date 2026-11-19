@@ -1,12 +1,12 @@
 import {
-  Account,
   Address,
   authorizeEntry,
-  BASE_FEE,
+  buildAuthorizationEntryPreimage,
+  hash,
+  inspectAuthEntry,
   Operation,
   scValToNative,
   StrKey,
-  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk/base'
 import { Api, type Server } from '@stellar/stellar-sdk/rpc'
@@ -23,9 +23,9 @@ import {
   type SaleState,
   type SaleView,
 } from '../sale.js'
-import { passphraseOf, type Network, type StellarRpc } from './network.js'
+import { passphraseOf, type StellarSetup } from './network.js'
 import { fromHex, toHex } from './signing.js'
-import { scv, simulateRead, SorobanSimulationError } from './soroban.js'
+import { scv, simulateOperation, simulateRead, SorobanSimulationError } from './soroban.js'
 
 const SIMULATION_SOURCE = StrKey.encodeEd25519PublicKey(new Uint8Array(32))
 const ENTRY_LIFETIME_LEDGERS = 360
@@ -60,15 +60,6 @@ function contractRefusal(simulationError: string): ResultError<SaleRefusal> {
   const [, contractCode] = simulationError.match(/Error\(Contract, #(\d+)\)/) ?? []
   const code = contractCode === undefined ? undefined : CONTRACT_REFUSALS[contractCode]
   return refused(code ?? SALE_REFUSAL.CONTRACT_REFUSED, `The sale refused the call: ${simulationError}`)
-}
-
-function simulate(server: Server, passphrase: string, operation: xdr.Operation) {
-  return server.simulateTransaction(
-    new TransactionBuilder(new Account(SIMULATION_SOURCE, '0'), { fee: BASE_FEE, networkPassphrase: passphrase })
-      .addOperation(operation)
-      .setTimeout(0)
-      .build(),
-  )
 }
 
 function contractCallOf(invocation: xdr.SorobanAuthorizedInvocation) {
@@ -126,8 +117,12 @@ function purchaseIn(event: xdr.ContractEvent, sale: string, buyer: string): Purc
   return typeof tokens === 'bigint' && typeof paid === 'bigint' ? { buyer, quotas: tokens, paid } : undefined
 }
 
-export function stellarSale({ rpc, network }: { rpc: StellarRpc; network: Network }, address: string): Sale {
+export function stellarSale({ rpc, network }: StellarSetup, address: string): Sale {
   const passphrase = passphraseOf(network)
+
+  function simulate(server: Server, operation: xdr.Operation) {
+    return simulateOperation(server, passphrase, { source: SIMULATION_SOURCE, operation })
+  }
 
   function buyOperation(buyer: string, amount: bigint, auth: Array<xdr.SorobanAuthorizationEntry>) {
     return Operation.invokeContractFunction({
@@ -140,7 +135,7 @@ export function stellarSale({ rpc, network }: { rpc: StellarRpc; network: Networ
 
   async function onChain<T>(call: (server: Server) => Promise<Result<T, SaleRefusal>>): Promise<Result<T, SaleRefusal>> {
     try {
-      return await rpc((server) => call(server))
+      return await rpc(call)
     } catch (error) {
       if (error instanceof SorobanSimulationError) return contractRefusal(error.message)
       return refused(SALE_REFUSAL.CHAIN_UNAVAILABLE, `The chain did not answer: ${String(error)}`)
@@ -150,35 +145,26 @@ export function stellarSale({ rpc, network }: { rpc: StellarRpc; network: Networ
   return {
     buy: ({ buyer, amount }) =>
       onChain(async (server) => {
-        const simulation = await simulate(server, passphrase, buyOperation(buyer, amount, []))
+        const simulation = await simulate(server, buyOperation(buyer, amount, []))
         if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
         const entries = simulation.result?.auth ?? []
         const [entry] = entries
-        if (entry === undefined || entries.length !== 1 || !coversPurchase(entry, { sale: address, buyer, amount })) {
-          return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, 'The purchase did not ask for one entry covering it')
+        if (
+          entry === undefined ||
+          entries.length !== 1 ||
+          inspectAuthEntry(entry).address !== buyer ||
+          !coversPurchase(entry, { sale: address, buyer, amount })
+        ) {
+          return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, 'The purchase did not ask the buyer for one entry covering it')
         }
         const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
-        let payload: Uint8Array | undefined
-        const bound = await authorizeEntry(
-          entry,
-          async (_preimage, hash) => {
-            payload = hash
-            return { signatureScVal: xdr.ScVal.scvVoid() }
-          },
-          expirationLedger,
-          passphrase,
-          buyer,
-        ).catch(() => undefined)
-        if (bound === undefined || payload === undefined) {
-          return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, 'The purchase asked the buyer for no signature')
-        }
         return succeed(
           {
             chain: CHAIN.STELLAR,
             buyer,
             amount,
-            entry: bound.toXDR('base64'),
-            entryHash: toHex(payload),
+            entry: entry.toXDR('base64'),
+            entryHash: toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR())),
             expirationLedger,
           },
           'Purchase prepared for the buyer to sign',
@@ -200,7 +186,7 @@ export function stellarSale({ rpc, network }: { rpc: StellarRpc; network: Networ
       }
       const operation = buyOperation(buyer, amount, [signed])
       return onChain(async (server) => {
-        const simulation = await simulate(server, passphrase, operation)
+        const simulation = await simulate(server, operation)
         if (simulation.latestLedger >= expirationLedger) {
           return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
         }

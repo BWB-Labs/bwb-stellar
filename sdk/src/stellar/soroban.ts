@@ -153,19 +153,28 @@ export async function prepareSorobanTransaction(
   )
 }
 
-export async function simulateRead(
+export function simulateOperation(
   server: Server,
   passphrase: string,
   { source, operation }: { source: string; operation: xdr.Operation },
+): Promise<Api.SimulateTransactionResponse> {
+  return server.simulateTransaction(
+    new TransactionBuilder(new Account(source, '0'), {
+      fee: BASE_FEE,
+      networkPassphrase: passphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(SIMULATION_TIME_BOUND)
+      .build(),
+  )
+}
+
+export async function simulateRead(
+  server: Server,
+  passphrase: string,
+  call: { source: string; operation: xdr.Operation },
 ): Promise<unknown> {
-  const transaction = new TransactionBuilder(new Account(source, '0'), {
-    fee: BASE_FEE,
-    networkPassphrase: passphrase,
-  })
-    .addOperation(operation)
-    .setTimeout(SIMULATION_TIME_BOUND)
-    .build()
-  const simulation = await server.simulateTransaction(transaction)
+  const simulation = await simulateOperation(server, passphrase, call)
   if (!Api.isSimulationSuccess(simulation)) {
     throw new SorobanSimulationError(simulation.error)
   }

@@ -21,11 +21,10 @@ import { fromHex, keypairSigner, toHex } from '../../src/stellar/signing.js'
 import { scv } from '../../src/stellar/soroban.js'
 import { accountEntry, RPC_URL, stubChain, stubJsonRpc } from './support/chain.js'
 
-const RECEIPT_SALE = 'CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC'
 const RECEIPT_BUYER = 'GBW4N3ZYILVVU3R7B4ONAEMZS7PN6FTGD4OIY2ROPTK4CKHAHPU6JEJM'
 const RECEIPT = readFileSync(join(import.meta.dirname, 'fixtures/purchase-meta.xdr'), 'utf8').trim()
 
-const SALE = RECEIPT_SALE
+const SALE = 'CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC'
 const USDC = 'CCTIP7NU7SLPRO3CL5FXW7BSPZGSTQUZFE44SNVSV6ZBRDPC5Z2JILBM'
 const BUYER = Keypair.random()
 const AMOUNT = 300_000_000n
@@ -266,14 +265,14 @@ describe('outcome', () => {
   const receipt = { chain: CHAIN.STELLAR, resultMeta: RECEIPT }
 
   it('reads the quotas and the amount paid from the purchase event', () => {
-    expect(theSale(RECEIPT_SALE).outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
+    expect(theSale().outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
       success: true,
       data: { buyer: RECEIPT_BUYER, quotas: 3n, paid: 300_000_000n },
     })
   })
 
   it('finds no purchase by another buyer', () => {
-    expect(theSale(RECEIPT_SALE).outcome({ buyer: BUYER.publicKey(), receipt })).toMatchObject({
+    expect(theSale().outcome({ buyer: BUYER.publicKey(), receipt })).toMatchObject({
       success: false,
       error: { code: SALE_REFUSAL.PURCHASE_NOT_FOUND },
     })
@@ -288,7 +287,7 @@ describe('outcome', () => {
 
   it('finds no purchase in a receipt that cannot be read', () => {
     expect(
-      theSale(RECEIPT_SALE).outcome({ buyer: RECEIPT_BUYER, receipt: { chain: CHAIN.STELLAR, resultMeta: 'bm90IHhkcg==' } }),
+      theSale().outcome({ buyer: RECEIPT_BUYER, receipt: { chain: CHAIN.STELLAR, resultMeta: 'bm90IHhkcg==' } }),
     ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.PURCHASE_NOT_FOUND } })
   })
 })

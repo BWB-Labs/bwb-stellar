@@ -1,12 +1,7 @@
 import { refuse, succeed, type Result } from './result.js'
 import { CHAIN, SALE_REFUSAL, type Chain, type Sale, type SaleRefusal } from './sale.js'
-import type { Network, StellarRpc } from './stellar/network.js'
+import type { StellarSetup } from './stellar/network.js'
 import { stellarSale } from './stellar/sale.js'
-
-export type StellarSetup = {
-  rpc: StellarRpc
-  network: Network
-}
 
 export type DeployedOffering = {
   chain: Chain

@@ -27,9 +27,7 @@ const KEY = Keypair.random()
 const CHANNEL = Keypair.random()
 const SPONSOR = Keypair.random()
 const HASH = 'cd'.repeat(32)
-const SIGNATURE = `0x${[...KEY.sign(Uint8Array.from(HASH.match(/../g) ?? [], (byte) => parseInt(byte, 16)))]
-  .map((byte) => byte.toString(16).padStart(2, '0'))
-  .join('')}`
+const SIGNATURE = `0x${toHex(KEY.sign(fromHex(HASH)))}`
 const CHANNEL_ACCOUNT = xdr.LedgerEntryData.fromXDR(accountEntry(CHANNEL.publicKey(), 7n), 'base64')
 
 function terms() {

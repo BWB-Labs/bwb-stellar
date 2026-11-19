@@ -43,6 +43,11 @@ export type StellarRpc = <T>(
   call: (server: Server, passphrase: string) => Promise<T>,
 ) => Promise<T>
 
+export type StellarSetup = {
+  rpc: StellarRpc
+  network: Network
+}
+
 export type RpcSettings = {
   network: Network
   rpcUrls: Array<string>
