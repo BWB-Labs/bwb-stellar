@@ -9,6 +9,7 @@ export type Chain = (typeof CHAIN)[keyof typeof CHAIN]
 export const SALE_REFUSAL = {
   CHAIN_NOT_CONFIGURED: 'chainNotConfigured',
   CHAIN_UNAVAILABLE: 'chainUnavailable',
+  INVALID_BUYER: 'invalidBuyer',
   INVESTOR_NOT_ENABLED: 'investorNotEnabled',
   ALLOCATION_EXCEEDED: 'allocationExceeded',
   TOO_MANY_RECEIPTS: 'tooManyReceipts',
@@ -22,6 +23,8 @@ export const SALE_REFUSAL = {
   ENTRY_EXPIRED: 'entryExpired',
   SIGNATURE_MISMATCH: 'signatureMismatch',
   UNEXPECTED_AUTHORIZATION: 'unexpectedAuthorization',
+  UNEXPECTED_RESPONSE: 'unexpectedResponse',
+  UNREADABLE_RECEIPT: 'unreadableReceipt',
   PURCHASE_NOT_FOUND: 'purchaseNotFound',
   CONTRACT_REFUSED: 'contractRefused',
 } as const
@@ -60,7 +63,6 @@ export type SaleReceipt = {
 }
 
 export type PurchaseOutcome = {
-  buyer: string
   quotas: bigint
   paid: bigint
 }

@@ -149,6 +149,16 @@ describe('buy', () => {
     })
   })
 
+  it('refuses a buyer that is not an account address, without asking the chain', async () => {
+    const requests = stubSimulation(simulated([purchaseEntry()]))
+
+    expect(await theSale().buy({ buyer: 'GNOTANADDRESS', amount: AMOUNT })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.INVALID_BUYER },
+    })
+    expect(requests).toEqual([])
+  })
+
   it('refuses an entry another address would sign', async () => {
     stubSimulation(simulated([purchaseEntry({ signer: Keypair.random().publicKey() })]))
 
@@ -267,7 +277,7 @@ describe('outcome', () => {
   it('reads the quotas and the amount paid from the purchase event', () => {
     expect(theSale().outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
       success: true,
-      data: { buyer: RECEIPT_BUYER, quotas: 3n, paid: 300_000_000n },
+      data: { quotas: 3n, paid: 300_000_000n },
     })
   })
 
@@ -285,10 +295,10 @@ describe('outcome', () => {
     })
   })
 
-  it('finds no purchase in a receipt that cannot be read', () => {
+  it('says so when the receipt cannot be read, rather than reporting no purchase', () => {
     expect(
       theSale().outcome({ buyer: RECEIPT_BUYER, receipt: { chain: CHAIN.STELLAR, resultMeta: 'bm90IHhkcg==' } }),
-    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.PURCHASE_NOT_FOUND } })
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNREADABLE_RECEIPT } })
   })
 })
 
@@ -334,6 +344,12 @@ describe('read', () => {
         paymentAsset: USDC,
       },
     })
+  })
+
+  it('says the response was unexpected when the address does not answer like a sale', async () => {
+    stubSimulation(simulated([]))
+
+    expect(await theSale().read()).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNEXPECTED_RESPONSE } })
   })
 
   it('names the contract’s refusal of the read', async () => {

@@ -93,17 +93,12 @@ function coversPurchase(
   )
 }
 
-function contractEventsOf(meta: xdr.TransactionMeta): Array<xdr.ContractEvent> {
-  if (meta.type === 'v4') return meta.v4.operations.flatMap(({ events }) => events)
-  if (meta.type === 'v3') return meta.v3.sorobanMeta?.events ?? []
-  return []
-}
-
-function eventsOfReceipt(resultMeta: string): Array<xdr.ContractEvent> {
+function eventsOfReceipt(resultMeta: string): Array<xdr.ContractEvent> | undefined {
   try {
-    return contractEventsOf(xdr.TransactionMeta.fromXDR(resultMeta, 'base64'))
+    const meta = xdr.TransactionMeta.fromXDR(resultMeta, 'base64')
+    return meta.type === 'v4' ? meta.v4.operations.flatMap(({ events }) => events) : undefined
   } catch {
-    return []
+    return undefined
   }
 }
 
@@ -114,7 +109,7 @@ function purchaseIn(event: xdr.ContractEvent, sale: string, buyer: string): Purc
   const [name, investor] = topics.map((topic) => scValToNative(topic))
   if (name !== PURCHASED_EVENT || investor !== buyer) return undefined
   const { tokens, paid } = scValToNative(data)
-  return typeof tokens === 'bigint' && typeof paid === 'bigint' ? { buyer, quotas: tokens, paid } : undefined
+  return typeof tokens === 'bigint' && typeof paid === 'bigint' ? { quotas: tokens, paid } : undefined
 }
 
 export function stellarSale({ rpc, network }: StellarSetup, address: string): Sale {
@@ -143,8 +138,11 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
   }
 
   return {
-    buy: ({ buyer, amount }) =>
-      onChain(async (server) => {
+    buy: async ({ buyer, amount }) => {
+      if (!StrKey.isValidEd25519PublicKey(buyer)) {
+        return refused(SALE_REFUSAL.INVALID_BUYER, `${buyer} is not an account address`)
+      }
+      return onChain(async (server) => {
         const simulation = await simulate(server, buyOperation(buyer, amount, []))
         if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
         const entries = simulation.result?.auth ?? []
@@ -169,7 +167,8 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
           },
           'Purchase prepared for the buyer to sign',
         )
-      }),
+      })
+    },
 
     async authorize({ prepared: { buyer, amount, entry, expirationLedger }, signature }) {
       let signed: xdr.SorobanAuthorizationEntry
@@ -196,9 +195,9 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
     },
 
     outcome({ buyer, receipt }) {
-      const purchase = eventsOfReceipt(receipt.resultMeta)
-        .map((event) => purchaseIn(event, address, buyer))
-        .find((found) => found !== undefined)
+      const events = eventsOfReceipt(receipt.resultMeta)
+      if (events === undefined) return refused(SALE_REFUSAL.UNREADABLE_RECEIPT, 'The receipt could not be read')
+      const purchase = events.map((event) => purchaseIn(event, address, buyer)).find((found) => found !== undefined)
       return purchase === undefined
         ? refused(SALE_REFUSAL.PURCHASE_NOT_FOUND, `No purchase by ${buyer} in this transaction`)
         : succeed(purchase, 'Purchase read from its event')
@@ -217,7 +216,10 @@ export function stellarSale({ rpc, network }: StellarSetup, address: string): Sa
           view('accounting'),
           view('contracts'),
         ])
-        return succeed(saleViewOf(state, config, accounting, contracts), 'Sale read from the chain')
+        const sale = saleViewOf(state, config, accounting, contracts)
+        return sale === undefined
+          ? refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, `${address} did not answer like a sale`)
+          : succeed(sale, 'Sale read from the chain')
       }),
   }
 }
@@ -226,23 +228,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function bigintOf(value: unknown): bigint {
-  if (typeof value !== 'bigint') throw new SorobanSimulationError(`Expected an integer, read ${String(value)}`)
-  return value
-}
-
-function saleViewOf(state: unknown, config: unknown, accounting: unknown, contracts: unknown): SaleView {
+function saleViewOf(state: unknown, config: unknown, accounting: unknown, contracts: unknown): SaleView | undefined {
   const [stateName] = Array.isArray(state) ? state : []
   const saleState = SALE_STATES[String(stateName)]
-  if (saleState === undefined || !isRecord(config) || !isRecord(accounting) || !isRecord(contracts)) {
-    throw new SorobanSimulationError('The sale answered with an unknown shape')
+  if (saleState === undefined || !isRecord(config) || !isRecord(accounting) || !isRecord(contracts)) return undefined
+  const { price } = config
+  const { supply, sold_tokens: soldQuotas, raised } = accounting
+  const { payment_asset: paymentAsset } = contracts
+  if (
+    typeof price !== 'bigint' ||
+    typeof supply !== 'bigint' ||
+    typeof soldQuotas !== 'bigint' ||
+    typeof raised !== 'bigint' ||
+    typeof paymentAsset !== 'string'
+  ) {
+    return undefined
   }
-  return {
-    state: saleState,
-    pricePerQuota: bigintOf(config.price),
-    supply: bigintOf(accounting.supply),
-    soldQuotas: bigintOf(accounting.sold_tokens),
-    raised: bigintOf(accounting.raised),
-    paymentAsset: String(contracts.payment_asset),
-  }
+  return { state: saleState, pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
 }

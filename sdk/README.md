@@ -56,6 +56,9 @@ const outcome = sale.data.outcome({ buyer, receipt: { chain: 'stellar', resultMe
 |---|---|
 | `chainNotConfigured` | The builder did not set up the offering's chain |
 | `chainUnavailable` | No endpoint answered |
+| `invalidBuyer` | The buyer is not an account address |
+| `unexpectedResponse` | The address did not answer like a sale |
+| `unreadableReceipt` | The receipt is malformed or in a format this version cannot read |
 | `investorNotEnabled` | The investor is not on the allowlist |
 | `allocationExceeded` | The purchase exceeds the investor's allocation this period |
 | `tooManyReceipts` | The investor holds the most live receipts this sale allows |
