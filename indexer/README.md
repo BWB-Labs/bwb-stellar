@@ -120,8 +120,11 @@ create; the rest is CLI.
    only add rows; create it once, with a password of its own:
    ```bash
    read -rs DATABASE_URL && export DATABASE_URL   # paste postgresql://<owner>:<password>@<host>/<database>?sslmode=require
-   openssl rand -hex 24 > /tmp/backend-db-password && chmod 600 /tmp/backend-db-password
-   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v pw="$(cat /tmp/backend-db-password)" <<< "CREATE ROLE bwb_backend LOGIN PASSWORD :'pw';"
+   (umask 077 && openssl rand -hex 24 > /tmp/backend-db-password)
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+   \set pw `cat /tmp/backend-db-password`
+   CREATE ROLE bwb_backend LOGIN PASSWORD :'pw';
+   SQL
    ```
    Then create the tables and add the manifest's contracts:
    ```bash
@@ -264,7 +267,8 @@ incident, and `feeds` the liveness record the health route reports.
 5. Checkpoint: re-run `render` with no change and `apply` again; `goldsky turbo
    state list` shows the same positions, and no delivery covers ledgers already
    held.
-6. Tracked contracts: `psql "$DATABASE_URL" -c 'SELECT * FROM streamling.testnet_tracked_tokens ORDER BY updated_at'`
+6. Tracked contracts: with the owner's address in `DATABASE_URL` again, as in
+   step 2, `psql "$DATABASE_URL" -c 'SELECT * FROM streamling.testnet_tracked_tokens ORDER BY updated_at'`
    (and `_sales`, `_allowlists`, `_assets`) lists what the pipeline tracks and
    when each row was added.
 
@@ -297,8 +301,12 @@ passed a pipeline that has caught up:
 
 1. Re-render with the committed file's `--start-at` and commit the new
    `testnet.seed.sql`.
-2. Run the seed (see [Setup](#setup), step 2). The pipeline tracks the contract
-   from its current position on.
+2. Run the seed again, with the owner's address in `DATABASE_URL` as in
+   [Setup](#setup), step 2:
+   ```bash
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f indexer/pipelines/testnet.seed.sql
+   ```
+   The pipeline tracks the contract from its current position on.
 3. Recover what it emitted before that with a replay:
    ```bash
    goldsky turbo restart bwb-stellar-testnet --clear-state
