@@ -21,7 +21,7 @@ export const SALE_REFUSAL = {
   SIGNATURE_MISMATCH: 'signatureMismatch',
   UNEXPECTED_AUTHORIZATION: 'unexpectedAuthorization',
   UNEXPECTED_RESPONSE: 'unexpectedResponse',
-  UNREADABLE_RECEIPT: 'unreadableReceipt',
+  UNREADABLE_TRANSACTION: 'unreadableTransaction',
   PURCHASE_NOT_FOUND: 'purchaseNotFound',
   CONTRACT_REFUSED: 'contractRefused',
 } as const
@@ -54,12 +54,12 @@ export type AuthorizedPurchase = {
   invocation: string
 }
 
-export type SaleReceipt = {
+export type SettledTransaction = {
   chainId: StellarChainId
   resultMeta: string
 }
 
-export type PurchaseOutcome = {
+export type PurchaseReceipt = {
   quotas: bigint
   paid: bigint
 }
@@ -76,6 +76,6 @@ export type SaleView = {
 export type Sale = {
   buy(purchase: { buyer: string; amount: bigint }): Promise<Result<PreparedPurchase, SaleRefusal>>
   authorize(signed: { prepared: PreparedPurchase; signature: string }): Promise<Result<AuthorizedPurchase, SaleRefusal>>
-  outcome(settled: { buyer: string; receipt: SaleReceipt }): Result<PurchaseOutcome, SaleRefusal>
+  purchaseReceipt(settled: { buyer: string; transaction: SettledTransaction }): Result<PurchaseReceipt, SaleRefusal>
   read(): Promise<Result<SaleView, SaleRefusal>>
 }

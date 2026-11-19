@@ -13,7 +13,7 @@ describe('createBwbSdk', () => {
       data: {
         buy: expect.any(Function),
         authorize: expect.any(Function),
-        outcome: expect.any(Function),
+        purchaseReceipt: expect.any(Function),
         read: expect.any(Function),
       },
     })

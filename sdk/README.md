@@ -54,7 +54,7 @@ if (!prepared.success) return prepared
 const authorized = await sale.data.authorize({ prepared: prepared.data, signature })
 if (!authorized.success) return authorized
 // Relay authorized.data.invocation, then read the purchase from the settled transaction.
-const outcome = sale.data.outcome({ buyer, receipt: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
+const receipt = sale.data.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
 ```
 
 `buy` returns one authorization entry covering the purchase and its USDC transfer. `authorize` checks the signature against that entry and simulates the signed call again, so the relay assembles resources that cover signature verification. The source of the relayed transaction must not be the buyer.
@@ -67,7 +67,7 @@ const outcome = sale.data.outcome({ buyer, receipt: { chainId: CHAIN_ID.STELLAR_
 | `chainUnavailable` | No endpoint answered |
 | `invalidBuyer` | The buyer is not an account address |
 | `unexpectedResponse` | The address did not answer like a sale |
-| `unreadableReceipt` | The receipt is malformed or in a format this version cannot read |
+| `unreadableTransaction` | The settled transaction is malformed or in a format this version cannot read |
 | `investorNotEnabled` | The investor is not on the allowlist |
 | `allocationExceeded` | The purchase exceeds the investor's allocation this period |
 | `tooManyReceipts` | The investor holds the most live receipts this sale allows |
@@ -81,7 +81,7 @@ const outcome = sale.data.outcome({ buyer, receipt: { chainId: CHAIN_ID.STELLAR_
 | `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
 | `signatureMismatch` | The signature is not the buyer's over this entry |
 | `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase |
-| `purchaseNotFound` | The receipt holds no purchase by this buyer in this sale |
+| `purchaseNotFound` | The settled transaction holds no purchase by this buyer in this sale |
 | `contractRefused` | The contract refused for another reason; the message carries its error |
 
 ## Usage

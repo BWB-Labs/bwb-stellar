@@ -300,34 +300,34 @@ describe('authorize', () => {
   })
 })
 
-describe('outcome', () => {
-  const receipt = { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: RECEIPT }
+describe('purchaseReceipt', () => {
+  const transaction = { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: RECEIPT }
 
   it('reads the quotas and the amount paid from the purchase event', () => {
-    expect(theSale().outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
+    expect(theSale().purchaseReceipt({ buyer: RECEIPT_BUYER, transaction })).toMatchObject({
       success: true,
       data: { quotas: 3n, paid: 300_000_000n },
     })
   })
 
   it('finds no purchase by another buyer', () => {
-    expect(theSale().outcome({ buyer: BUYER.publicKey(), receipt })).toMatchObject({
+    expect(theSale().purchaseReceipt({ buyer: BUYER.publicKey(), transaction })).toMatchObject({
       success: false,
       error: { code: SALE_REFUSAL.PURCHASE_NOT_FOUND },
     })
   })
 
   it('ignores a purchase event another contract emitted', () => {
-    expect(theSale(USDC).outcome({ buyer: RECEIPT_BUYER, receipt })).toMatchObject({
+    expect(theSale(USDC).purchaseReceipt({ buyer: RECEIPT_BUYER, transaction })).toMatchObject({
       success: false,
       error: { code: SALE_REFUSAL.PURCHASE_NOT_FOUND },
     })
   })
 
-  it('says so when the receipt cannot be read, rather than reporting no purchase', () => {
+  it('says so when the transaction cannot be read, rather than reporting no purchase', () => {
     expect(
-      theSale().outcome({ buyer: RECEIPT_BUYER, receipt: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: 'bm90IHhkcg==' } }),
-    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNREADABLE_RECEIPT } })
+      theSale().purchaseReceipt({ buyer: RECEIPT_BUYER, transaction: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: 'bm90IHhkcg==' } }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNREADABLE_TRANSACTION } })
   })
 })
 

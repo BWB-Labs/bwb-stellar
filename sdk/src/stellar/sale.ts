@@ -15,7 +15,7 @@ import { refuse, succeed, type Result, type ResultError } from '../result.js'
 import {
   SALE_REFUSAL,
   SALE_STATE,
-  type PurchaseOutcome,
+  type PurchaseReceipt,
   type Sale,
   type SaleRefusal,
   type SaleRefusalCode,
@@ -92,7 +92,7 @@ function coversPurchase(
   )
 }
 
-function eventsOfReceipt(resultMeta: string): Array<xdr.ContractEvent> | undefined {
+function eventsOf(resultMeta: string): Array<xdr.ContractEvent> | undefined {
   try {
     const meta = xdr.TransactionMeta.fromXDR(resultMeta, 'base64')
     return meta.type === 'v4' ? meta.v4.operations.flatMap(({ events }) => events) : undefined
@@ -101,7 +101,7 @@ function eventsOfReceipt(resultMeta: string): Array<xdr.ContractEvent> | undefin
   }
 }
 
-function purchaseIn(event: xdr.ContractEvent, sale: string, buyer: string): PurchaseOutcome | undefined {
+function purchaseIn(event: xdr.ContractEvent, sale: string, buyer: string): PurchaseReceipt | undefined {
   if (event.contractId === null) return undefined
   if (Address.fromScAddress(xdr.ScAddress.scAddressTypeContract(event.contractId)).toString() !== sale) return undefined
   const { topics, data } = event.body.v0
@@ -198,9 +198,9 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
       })
     },
 
-    outcome({ buyer, receipt }) {
-      const events = eventsOfReceipt(receipt.resultMeta)
-      if (events === undefined) return refused(SALE_REFUSAL.UNREADABLE_RECEIPT, 'The receipt could not be read')
+    purchaseReceipt({ buyer, transaction }) {
+      const events = eventsOf(transaction.resultMeta)
+      if (events === undefined) return refused(SALE_REFUSAL.UNREADABLE_TRANSACTION, 'The settled transaction could not be read')
       const purchase = events.map((event) => purchaseIn(event, address, buyer)).find((found) => found !== undefined)
       return purchase === undefined
         ? refused(SALE_REFUSAL.PURCHASE_NOT_FOUND, `No purchase by ${buyer} in this transaction`)
