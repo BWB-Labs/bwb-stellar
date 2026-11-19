@@ -496,7 +496,7 @@ describe('purchaseReceipt', () => {
 })
 
 describe('read', () => {
-  function answerFor(params: unknown): xdr.ScVal {
+  function answerFor(params: unknown, state = 'Active'): xdr.ScVal {
     if (typeof params !== 'object' || params === null || !('transaction' in params) || typeof params.transaction !== 'string') {
       throw new Error('No transaction simulated')
     }
@@ -505,7 +505,8 @@ describe('read', () => {
       throw new Error('No contract call simulated')
     }
     const method = operation.func.invokeContract.functionName.toString()
-    if (method === 'state') return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Active')])
+    if (method === 'state') return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(state)])
+    if (method === 'finalizable_at') return scv.u64(1_793_086_401n)
     if (method === 'config') return scv.struct({ price: scv.i128(100_000_000n) })
     if (method === 'accounting') {
       return scv.struct({ supply: scv.i128(1_000n), sold_tokens: scv.i128(3n), raised: scv.i128(300_000_000n) })
@@ -513,7 +514,7 @@ describe('read', () => {
     return scv.struct({ payment_asset: nativeToScVal(USDC, { type: 'address' }) })
   }
 
-  it('reports the state, price and accounting of the sale in chain-neutral terms', async () => {
+  function stubSale(state?: string) {
     stubJsonRpc(({ method, params }) =>
       method === 'getNetwork'
         ? { passphrase: Networks.TESTNET, protocolVersion: 23 }
@@ -521,10 +522,14 @@ describe('read', () => {
             latestLedger: LATEST_LEDGER,
             minResourceFee: '100',
             transactionData: new SorobanDataBuilder().build().toXDR('base64'),
-            results: [{ xdr: answerFor(params).toXDR('base64'), auth: [] }],
+            results: [{ xdr: answerFor(params, state).toXDR('base64'), auth: [] }],
             events: [],
           },
     )
+  }
+
+  it('reports the state, price and accounting of the sale in chain-neutral terms', async () => {
+    stubSale()
 
     expect(await theSale().read()).toMatchObject({
       success: true,
@@ -537,6 +542,24 @@ describe('read', () => {
         paymentAsset: USDC,
       },
     })
+  })
+
+  it('reports when a closing sale can be finalized and its distribution begin', async () => {
+    stubSale('Closing')
+
+    expect(await theSale().read()).toMatchObject({
+      success: true,
+      data: { state: SALE_STATE.CLOSING, finalizableAt: 1_793_086_401_000 },
+    })
+  })
+
+  it('reports no finalization time while the sale is still active', async () => {
+    stubSale()
+
+    const sale = await theSale().read()
+
+    if (!sale.success) throw new Error(sale.message)
+    expect(sale.data).not.toHaveProperty('finalizableAt')
   })
 
   it('says the response was unexpected when the address does not answer like a sale', async () => {

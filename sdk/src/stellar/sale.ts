@@ -296,13 +296,14 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
             source: SIMULATION_SOURCE,
             operation: Operation.invokeContractFunction({ contract: address, function: method, args: [] }),
           })
-        const [state, config, accounting, contracts] = await Promise.all([
+        const [state, config, accounting, contracts, finalizableAt] = await Promise.all([
           view('state'),
           view('config'),
           view('accounting'),
           view('contracts'),
+          view('finalizable_at'),
         ])
-        const sale = saleViewOf(state, config, accounting, contracts)
+        const sale = saleViewOf(state, config, accounting, contracts, finalizableAt)
         return sale === undefined
           ? refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, `${address} did not answer like a sale`)
           : succeed(sale, 'Sale read from the chain')
@@ -314,7 +315,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function saleViewOf(state: unknown, config: unknown, accounting: unknown, contracts: unknown): SaleView | undefined {
+function saleViewOf(
+  state: unknown,
+  config: unknown,
+  accounting: unknown,
+  contracts: unknown,
+  finalizableAt: unknown,
+): SaleView | undefined {
   const [stateName] = Array.isArray(state) ? state : []
   const saleState = SALE_STATES[String(stateName)]
   if (saleState === undefined || !isRecord(config) || !isRecord(accounting) || !isRecord(contracts)) return undefined
@@ -326,9 +333,13 @@ function saleViewOf(state: unknown, config: unknown, accounting: unknown, contra
     typeof supply !== 'bigint' ||
     typeof soldQuotas !== 'bigint' ||
     typeof raised !== 'bigint' ||
-    typeof paymentAsset !== 'string'
+    typeof paymentAsset !== 'string' ||
+    typeof finalizableAt !== 'bigint'
   ) {
     return undefined
   }
-  return { state: saleState, pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
+  const terms = { pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
+  return saleState === SALE_STATE.CLOSING
+    ? { state: saleState, finalizableAt: Number(finalizableAt) * 1_000, ...terms }
+    : { state: saleState, ...terms }
 }
