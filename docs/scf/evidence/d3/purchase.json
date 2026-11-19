@@ -1,0 +1,242 @@
+{
+  "what": "Quotas bought on testnet through the SDK sale interface: one invocation of the sale, fee-bumped",
+  "hash": "96dc4b9a4e235e29a8b2397ecc28407076532faba4a1690baca7aadb43afe7de",
+  "explorer_url": "https://stellar.expert/explorer/testnet/tx/96dc4b9a4e235e29a8b2397ecc28407076532faba4a1690baca7aadb43afe7de",
+  "horizon": {
+    "successful": true,
+    "ledger": 5817927,
+    "created_at": "2026-11-19T18:34:35Z",
+    "source_account": "GAB6K4JMQOQXNEZECPRQKZP254BW7AJRJGR2LEND4H4AAYNGHKISD5G2",
+    "fee_account": "GAADWH5KNC4QYCJLCJVGWV5IP7I2KQKCMG4CH2RF5GAKTCFNUA7VAXQY",
+    "fee_charged": "619432",
+    "max_fee": "714450",
+    "operation_count": 1,
+    "envelope_xdr": "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",
+    "result_xdr": "AAAAAAAJc6gAAAAByRZ4wJ0xKUEgRuc0pGHM1NzI7tTkw7qXMTHPgcO/xyIAAAAAAAAAAAAAAAAAAAABAAAAAAAAABgAAAAAIklj1P3HMqHhPdRuo8FrfR+NXVKVN7J1sykaZwyr+ScAAAAAAAAAAA=="
+  },
+  "fee_bump": {
+    "hash": "96dc4b9a4e235e29a8b2397ecc28407076532faba4a1690baca7aadb43afe7de",
+    "signatures": [
+      "Dx9CzBkzLxn5dYdvAZ4jy5o6KM4iGJX+idj6uXYm+baJKEzK4B3h09ufGj+i3vh2sRo53UjZPdfylCyDo3iXAg=="
+    ]
+  },
+  "inner_transaction": {
+    "hash": "c91678c09d3129412046e734a461ccd4dcc8eed4e4c3ba973131cf81c3bfc722",
+    "signatures": [
+      "MF+QCuyA5fdNAaEQpZuqvA1ILV+9wFhwYPkg8M+KA2pk0o0XKjQUsBJ99ULgqsOyVYO27rFfZK4YrGx20qD5BQ=="
+    ],
+    "max_fee": "714350"
+  },
+  "operations": [
+    {
+      "transaction_successful": true,
+      "source_account": "GAB6K4JMQOQXNEZECPRQKZP254BW7AJRJGR2LEND4H4AAYNGHKISD5G2",
+      "type": "invoke_host_function",
+      "type_i": 24,
+      "created_at": "2026-11-19T18:34:35Z",
+      "function": "HostFunctionTypeHostFunctionTypeInvokeContract",
+      "parameters": [
+        {
+          "value": "AAAAEgAAAAHbuCUcVIFFz4j84de7sgvG+26ooNwDULU9DqWsmc0weg==",
+          "type": "Address"
+        },
+        {
+          "value": "AAAADwAAAANidXkA",
+          "type": "Sym"
+        },
+        {
+          "value": "AAAAEgAAAAAAAAAAbcbvOELrWm4/DxzQEZmX3t8WZh8cjGoufNXBKOA76eQ=",
+          "type": "Address"
+        },
+        {
+          "value": "AAAACgAAAAAAAAAAAAAAAAvrwgA=",
+          "type": "I128"
+        }
+      ],
+      "address": "",
+      "salt": "",
+      "asset_balance_changes": [
+        {
+          "asset_type": "credit_alphanum4",
+          "asset_code": "USDC",
+          "asset_issuer": "GBDPLQPJLXBX7DV3EEMW5HXUTYGI76BU4YY42FJXH2ZSTANFJJEELBES",
+          "type": "transfer",
+          "from": "GBW4N3ZYILVVU3R7B4ONAEMZS7PN6FTGD4OIY2ROPTK4CKHAHPU6JEJM",
+          "to": "CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC",
+          "amount": "20.0000000"
+        }
+      ]
+    }
+  ],
+  "contract_events": [
+    [
+      {
+        "ext": "v0",
+        "contract_id": "CCTIP7NU7SLPRO3CL5FXW7BSPZGSTQUZFE44SNVSV6ZBRDPC5Z2JILBM",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "transfer"
+              },
+              {
+                "address": "GBW4N3ZYILVVU3R7B4ONAEMZS7PN6FTGD4OIY2ROPTK4CKHAHPU6JEJM"
+              },
+              {
+                "address": "CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC"
+              },
+              {
+                "string": "USDC:GBDPLQPJLXBX7DV3EEMW5HXUTYGI76BU4YY42FJXH2ZSTANFJJEELBES"
+              }
+            ],
+            "data": {
+              "i128": "200000000"
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CBPP56CTONC3RYHEVWCXSQXH2MK2K7L7FWSRLCAE6P6N4KOCV2ZVXQIB",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "allocation_consumed"
+              },
+              {
+                "address": "GBW4N3ZYILVVU3R7B4ONAEMZS7PN6FTGD4OIY2ROPTK4CKHAHPU6JEJM"
+              },
+              {
+                "address": "CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "amount"
+                  },
+                  "val": {
+                    "i128": "200000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "consumed"
+                  },
+                  "val": {
+                    "i128": "1300000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "period"
+                  },
+                  "val": {
+                    "u32": 24322
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "receipt"
+                  },
+                  "val": {
+                    "u32": 5
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ext": "v0",
+        "contract_id": "CDN3QJI4KSAULT4I7TQ5PO5SBPDPW3VIUDOAGUFVHUHKLLEZZUYHV4AC",
+        "type": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "purchased"
+              },
+              {
+                "address": "GBW4N3ZYILVVU3R7B4ONAEMZS7PN6FTGD4OIY2ROPTK4CKHAHPU6JEJM"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "at"
+                  },
+                  "val": {
+                    "u64": "1795113275"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "paid"
+                  },
+                  "val": {
+                    "i128": "200000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "raised"
+                  },
+                  "val": {
+                    "i128": "1300000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "receipt"
+                  },
+                  "val": {
+                    "u32": 5
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reserved_paid"
+                  },
+                  "val": {
+                    "i128": "1300000000"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "reserved_tokens"
+                  },
+                  "val": {
+                    "i128": "13"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "sold_tokens"
+                  },
+                  "val": {
+                    "i128": "13"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "tokens"
+                  },
+                  "val": {
+                    "i128": "2"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  ]
+}

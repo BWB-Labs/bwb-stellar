@@ -1,0 +1,35 @@
+{
+  "deliverable": "Deliverable 7 — STRIDE Threat Model and On-Chain Monitoring Plan",
+  "source": "https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA",
+  "page": "../../tranche-2-d7.md",
+  "criteria": [
+    {
+      "criterion": 1,
+      "text": "A versioned public data-flow model identifies actors, stores, sensitive flows, custody, dependencies, trust boundaries, and current testnet addresses.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 2,
+      "text": "A public STRIDE register covers all six categories with IDs, severity, affected components, treatment, and residual-risk decisions.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 3,
+      "text": "Each threat maps to a tested monitor or documented off-chain control with baseline, trigger, address, and owner.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 4,
+      "text": "A published drill report demonstrates notification, escalation, guarded pause handling, evidence capture, and monitor updates after address changes.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "deliverable": "Deliverable 6 — DeFindex Soroban Yield Engine Testnet",
+  "source": "https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA",
+  "page": "../../tranche-2-d6.md",
+  "criteria": [
+    {
+      "criterion": 1,
+      "text": "Published vault address and testnet transaction links demonstrate user-authorized deposits and withdrawals.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 2,
+      "text": "A reproducible public export reconciles vault shares, underlying value, deposits, withdrawals, and income snapshots.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 3,
+      "text": "A public application demonstration displays strategy terms, fees, liquidity constraints, performance, and risks separately from real-estate assets.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 4,
+      "text": "Public CI covers authorization, share conversion, stale data, paused vaults, withdrawals, failures, and reconciliation.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    }
+  ]
+}

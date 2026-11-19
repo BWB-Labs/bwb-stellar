@@ -1,0 +1,35 @@
+{
+  "deliverable": "Deliverable 5 — Cross-Chain Liquidity Engine",
+  "source": "https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA",
+  "page": "../../tranche-2-d5.md",
+  "criteria": [
+    {
+      "criterion": 1,
+      "text": "Published Base source transaction, Circle message hash/attestation, Stellar destination transaction, and explorer links demonstrate a reconciled Base-to-Stellar testnet transfer through CctpForwarder.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 2,
+      "text": "Equivalent public evidence demonstrates the reverse Stellar-to-Base flow and its eligible Avenia BRL settlement state.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 3,
+      "text": "A redacted append-only export and public schema reconcile quote, authorization, Avenia ticket, source transaction, CCTP identifiers, destination transaction, and terminal balance under one durable transfer ID.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 4,
+      "text": "Public CI covers six-to-seven-decimal USDC normalization, duplicates/replay, expired quotes, timeout, retry, refund, and incomplete transfers.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    }
+  ]
+}
