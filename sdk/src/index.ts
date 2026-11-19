@@ -1,4 +1,6 @@
+export * from './client.js'
 export * from './result.js'
+export * from './sale.js'
 export * from './stellar/network.js'
 export * from './stellar/offering.js'
 export * from './stellar/relay.js'

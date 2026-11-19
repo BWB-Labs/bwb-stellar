@@ -28,6 +28,50 @@ Every function that can fail for an expected reason returns a `Result`: `{ succe
 | `timeBoundPassed` | The envelope can no longer land |
 | `transactionFailed` | The network applied and refused it; `providerMessage` holds the result code |
 
+## Buying quotas
+
+One sale interface serves every chain. The builder sets up the chains a deployment serves, and the factory returns the strategy for the offering's chain, bound to that offering. Asking for a chain the builder did not set up returns `chainNotConfigured`.
+
+```ts
+import { bwbSdk, connect, NETWORK } from '@bwb-labs/sdk'
+
+const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: ['https://soroban-testnet.stellar.org'] })
+const bwb = bwbSdk().withStellar({ rpc, network: NETWORK.TESTNET }).build()
+
+const sale = bwb.sale({ chain: 'stellar', address: saleAddress })
+if (!sale.success) return sale
+
+const prepared = await sale.data.buy({ buyer, amount })
+if (!prepared.success) return prepared
+// The buyer signs prepared.data.entryHash with their wallet.
+const authorized = await sale.data.authorize({ prepared: prepared.data, signature })
+if (!authorized.success) return authorized
+// Relay authorized.data.invocation, then read the purchase from the settled transaction.
+const outcome = sale.data.outcome({ buyer, receipt: { chain: 'stellar', resultMeta } })
+```
+
+`buy` returns one authorization entry covering the purchase and its USDC transfer. `authorize` checks the signature against that entry and simulates the signed call again, so the relay assembles resources that cover signature verification. The source of the relayed transaction must not be the buyer.
+
+| Refusal | Meaning |
+|---|---|
+| `chainNotConfigured` | The builder did not set up the offering's chain |
+| `chainUnavailable` | No endpoint answered |
+| `investorNotEnabled` | The investor is not on the allowlist |
+| `allocationExceeded` | The purchase exceeds the investor's allocation this period |
+| `tooManyReceipts` | The investor holds the most live receipts this sale allows |
+| `saleNotActive` | The sale is not open for buying |
+| `notWholeQuotas` | The amount is not an exact multiple of the price |
+| `exceedsSupply` | Fewer quotas are left than the amount buys |
+| `tooManyPurchases` | The investor holds the most live purchases this offering allows |
+| `insufficientBalance` | The buyer holds too little of the payment asset |
+| `balanceFrozen` | The asset's issuer froze the balance |
+| `trustlineMissing` | The buyer has no trustline for the payment asset |
+| `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
+| `signatureMismatch` | The signature is not the buyer's over this entry |
+| `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase |
+| `purchaseNotFound` | The receipt holds no purchase by this buyer in this sale |
+| `contractRefused` | The contract refused for another reason; the message carries its error |
+
 ## Usage
 
 ```ts
