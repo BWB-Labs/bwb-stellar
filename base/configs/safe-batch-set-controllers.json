@@ -1,0 +1,164 @@
+{
+  "version": "1.0",
+  "chainId": "8453",
+  "createdAt": 1710388800000,
+  "meta": {
+    "name": "Set Controllers & Remove Deployer",
+    "description": "Add server wallet as controller on all factories + allowlist, remove deployer as controller on factories"
+  },
+  "transactions": [
+    {
+      "to": "0x5Ddda9378D65138A7B2D018228d9C9a9b3F96359",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0x2a1C46B5Db5b14995160C2F8AB3a0C09b28f1aF0",
+        "allowed": "true"
+      }
+    },
+    {
+      "to": "0xea62705E3B267e0361b83A8F40d756f48F771AAF",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0x2a1C46B5Db5b14995160C2F8AB3a0C09b28f1aF0",
+        "allowed": "true"
+      }
+    },
+    {
+      "to": "0x33399F4d15ec11B086C0A5F89FdeD30728C89A56",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0x2a1C46B5Db5b14995160C2F8AB3a0C09b28f1aF0",
+        "allowed": "true"
+      }
+    },
+    {
+      "to": "0xBA28a9704D81B3D88FA6CB6186eEa52394e9C781",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0x2a1C46B5Db5b14995160C2F8AB3a0C09b28f1aF0",
+        "allowed": "true"
+      }
+    },
+    {
+      "to": "0x34f5b0Ba2A8fC0F84e400d7193ABEF41eBDE5bF3",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0x2a1C46B5Db5b14995160C2F8AB3a0C09b28f1aF0",
+        "allowed": "true"
+      }
+    },
+    {
+      "to": "0x5Ddda9378D65138A7B2D018228d9C9a9b3F96359",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0xe3066D77C49efa83af1CEfDCcc9882f10B70B700",
+        "allowed": "false"
+      }
+    },
+    {
+      "to": "0xea62705E3B267e0361b83A8F40d756f48F771AAF",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0xe3066D77C49efa83af1CEfDCcc9882f10B70B700",
+        "allowed": "false"
+      }
+    },
+    {
+      "to": "0x33399F4d15ec11B086C0A5F89FdeD30728C89A56",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0xe3066D77C49efa83af1CEfDCcc9882f10B70B700",
+        "allowed": "false"
+      }
+    },
+    {
+      "to": "0xBA28a9704D81B3D88FA6CB6186eEa52394e9C781",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          { "name": "controller", "type": "address" },
+          { "name": "allowed", "type": "bool" }
+        ],
+        "name": "setController",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "controller": "0xe3066D77C49efa83af1CEfDCcc9882f10B70B700",
+        "allowed": "false"
+      }
+    }
+  ]
+}

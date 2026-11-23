@@ -1,0 +1,13 @@
+{
+  "environment": "staging",
+  "chainId": "8453",
+  "generatedAt": "2026-08-12T21:39:56Z",
+  "contracts": {
+    "offerTokenFactory": "0x43d030a1eDf5441D465dAA2B298C4e4bb8ca5e89",
+    "offerTokenSaleFactory": "0x8a9e06C283C13a72Dd3de4389940B51E43741a1F",
+    "tokenDistributorFactory": "0x8eBAB23733C1D087f7e7c24b51f3d4ff97519CaD",
+    "tokenDistributorByHoldingsFactory": "0xf19b2867239f76A53CD69983db2f0c9e01CdB90e",
+    "offerSaleAllowlist": "0x483E6e894D08101b458aB5fECd4D3f03cA0Cf26A",
+    "brlaToken": "0xfcb34c47f850f452c15ea1b84d51231c38a61783"
+  }
+}
