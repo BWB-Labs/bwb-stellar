@@ -10,9 +10,12 @@ src/typechain/
 /broadcast/**/dry-run/
 
 
-# Dotenv file
+# Environment files: never commit them, this repository is public.
+# Only the .example templates are tracked.
 .env
+.env.*
+!.env.example
+!.env.*.example
 
-# Env
-.env.staging
-.env.base-sepolia
+# Coverage report
+lcov.info

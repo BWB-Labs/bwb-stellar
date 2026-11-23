@@ -1,8 +1,8 @@
 # BWB on Stellar
 
-Soroban contracts and Stellar integration code for BWB Digital Assets. This is
-the public side of the platform; the application, its Convex backend and the
-EVM contracts live in a private repository.
+Soroban contracts and Stellar integration code for BWB Digital Assets. The
+Base (EVM) contracts live next to this folder, in [`base/`](../base/README.md);
+the application and its Convex backend live in a private repository.
 
 **Status:** nothing is deployed to mainnet. No external audit has been
 performed yet.
