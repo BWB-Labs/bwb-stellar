@@ -293,7 +293,7 @@ The Base Sepolia TokenDistributorByHoldingsFactory (`0xFF4EA4e06a4659217601a8E42
 
 ### Deploy to Stellar testnet
 
-The Stellar contracts live in the `stellar/` submodule. Setting up a testnet backend deployment for them is in [STELLAR.md](STELLAR.md).
+The Stellar contracts live next to this folder, in [`stellar/`](../stellar/README.md). Setting up a testnet backend deployment for them is documented in the backend repository.
 
 ### Cast
 
