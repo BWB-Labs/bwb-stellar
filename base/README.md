@@ -363,8 +363,8 @@ Com esses endereços, as interações com o contrato se seguem da seguinte manei
 
 ```
 [nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$  ./create-offer-token.sh --name "Tower One" --symbol TOWER --supply 120 --offer-uri https://example.com/offers/tower.json
-Using deployment summary: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/configs/deployment-base-sepolia.json
-Resolved OfferTokenFactory from /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/configs/deployment-base-sepolia.json: <endereço OfferTokenFactory>
+Using deployment summary: base/configs/deployment-base-sepolia.json
+Resolved OfferTokenFactory from base/configs/deployment-base-sepolia.json: <endereço OfferTokenFactory>
 
 ==> Preparing OfferERC20 deployment
 Token name:    Tower One
@@ -378,8 +378,8 @@ Factory:       <endereço OfferTokenFactory>
 [⠊] Compiling...
 No files changed, compilation skipped
 Warning: Detected artifacts built from source files that no longer exist. Run `forge clean` to make sure builds are in sync with project files.
- - /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/script/DeplorOfferERC20.s.sol
- - /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/src/OfferERC6909.sol
+ - base/script/DeplorOfferERC20.s.sol
+ - base/src/OfferERC6909.sol
 Enter keystore password:
 Script ran successfully.
 
@@ -418,9 +418,9 @@ Paid: 0.0000016140864 ETH (1345072 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/DeployOfferERC20.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/DeployOfferERC20.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/DeployOfferERC20.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/DeployOfferERC20.s.sol/84532/run-latest.json
 
 
 ==> OfferERC20 deployment complete
@@ -437,7 +437,7 @@ Esse script acima vai usar os endereços previamente configurados sempre.
 ```
 [nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-offer-token-sale.sh --offer-token 0x38F7C324078527af3bbDa1c2
 87fb42501B088Ec0 --price 1000000000000000000
-Using deployment summary: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/configs/deployment-base-sepolia.json
+Using deployment summary: base/configs/deployment-base-sepolia.json
 Resolved OfferTokenSaleFactory from config: <endereço OfferTokenSaleFactory>
 Resolved OfferSaleAllowlist from config: <endereço OfferSaleAllowlist>
 Resolved BRLA token from config: <endereço BRLA>
@@ -498,10 +498,10 @@ Paid: 0.0000028390704 ETH (2365892 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/DeployOfferTokenSale.s.sol/84532/run-latest.js
+Transactions saved to: base/broadcast/DeployOfferTokenSale.s.sol/84532/run-latest.js
 on
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/DeployOfferTokenSale.s.sol/84532/run-latest.js
+Sensitive values saved to: base/cache/DeployOfferTokenSale.s.sol/84532/run-latest.js
 on
 
 Detected inventory provider from OfferTokenSale.inventoryProvider(): 0xe248874BD1f07F9B732c9970bF1BF51bd8AE5963
@@ -554,10 +554,10 @@ Paid: 0.0000000562692 ETH (46891 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/ApproveOfferTokenInventory.s.sol/84532/run-lat
+Transactions saved to: base/broadcast/ApproveOfferTokenInventory.s.sol/84532/run-lat
 est.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/ApproveOfferTokenInventory.s.sol/84532/run-lat
+Sensitive values saved to: base/cache/ApproveOfferTokenInventory.s.sol/84532/run-lat
 est.json
 
 
@@ -606,9 +606,9 @@ Paid: 0.0000000771108 ETH (64259 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/SeedOfferTokenSale.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/SeedOfferTokenSale.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/SeedOfferTokenSale.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/SeedOfferTokenSale.s.sol/84532/run-latest.json
 
 \nOfferTokenSale ready at 0x315B3f89D9D755cB02B348CC5AB320de088b3b9f
 
@@ -695,9 +695,9 @@ Paid: 0.00000019932 ETH (166100 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/BuyOfferTokens.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/BuyOfferTokens.s.sol/84532/run-latest.json
 
 
 ==> Buying 40 tokens using investor2
@@ -754,9 +754,9 @@ Paid: 0.00000015828 ETH (131900 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/BuyOfferTokens.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/BuyOfferTokens.s.sol/84532/run-latest.json
 
 
 ==> Buying 40 tokens using investor3
@@ -813,9 +813,9 @@ Paid: 0.0000000563556 ETH (46963 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/BuyOfferTokens.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/BuyOfferTokens.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/BuyOfferTokens.s.sol/84532/run-latest.json
 
 
 Post-purchase sold tokens: 120
@@ -861,9 +861,9 @@ Paid: 0.000000046722125881 ETH (38657 gas * 0.001208633 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/FinalizeOfferTokenSale.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/FinalizeOfferTokenSale.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/FinalizeOfferTokenSale.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/FinalizeOfferTokenSale.s.sol/84532/run-latest.json
 
 
 OfferTokenSale is fully sold out and finalized.
@@ -939,9 +939,9 @@ Paid: 0.0000000666492 ETH (55541 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/WithdrawOfferSaleBrla.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/WithdrawOfferSaleBrla.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/WithdrawOfferSaleBrla.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/WithdrawOfferSaleBrla.s.sol/84532/run-latest.json
 
 
 ==> Releasing offer tokens to investors
@@ -983,9 +983,9 @@ Paid: 0.000000147168 ETH (122640 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/ReleaseOfferTokens.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/ReleaseOfferTokens.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/ReleaseOfferTokens.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/ReleaseOfferTokens.s.sol/84532/run-latest.json
 
 
 ```
@@ -994,7 +994,7 @@ Mas em caso de haver distribuição, usa-se no lugar do endereço do recebedor, 
 
 ```
 [nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-token-distribution.sh --total-brla 120
-Using deployment summary: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/configs/deployment-base-sepolia.json
+Using deployment summary: base/configs/deployment-base-sepolia.json
 Resolved TokenDistributorFactory from config: <endereço TokenDistributorFactory>
 Resolved BRLA token from config: <endereço BRLA>
 
@@ -1055,9 +1055,9 @@ Paid: 0.0000000735252 ETH (61271 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/CreateAndRunTokenDistributor.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/CreateAndRunTokenDistributor.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/CreateAndRunTokenDistributor.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/CreateAndRunTokenDistributor.s.sol/84532/run-latest.json
 
 
 BRLA distribution complete.
@@ -1067,7 +1067,7 @@ BRLA distribution complete.
 
 ```
 [nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-token-distribution-by-holdings.sh --offer-token 0xd0E0549087849d020Fd28E141478F0E7b7804F02 --total-brla 120
-Using deployment summary: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/configs/deployment-base-sepolia.json
+Using deployment summary: base/configs/deployment-base-sepolia.json
 
 ==> TokenDistributorByHoldings configuration
 Factory:      <endereço TokenDistributorByHoldingsFactory>
@@ -1132,9 +1132,9 @@ Paid: 0.0000002016336 ETH (168028 gas * 0.0012 gwei)
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
-Transactions saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/broadcast/CreateAndRunTokenDistributorByHoldings.s.sol/84532/run-latest.json
+Transactions saved to: base/broadcast/CreateAndRunTokenDistributorByHoldings.s.sol/84532/run-latest.json
 
-Sensitive values saved to: /home/pedro/Desktop/git/bwb/bwb-tokenization/contracts/cache/CreateAndRunTokenDistributorByHoldings.s.sol/84532/run-latest.json
+Sensitive values saved to: base/cache/CreateAndRunTokenDistributorByHoldings.s.sol/84532/run-latest.json
 
 
 T
