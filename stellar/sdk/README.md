@@ -87,4 +87,4 @@ bun run test
 
 `bun run test` runs the vitest suite; Bun's own `bun test` runner is not used.
 
-The suites run against a stubbed Stellar RPC, so they need no network and no keys. CI runs the same commands on every pull request that touches `sdk/` ([workflow](../.github/workflows/sdk.yml)).
+The suites run against a stubbed Stellar RPC, so they need no network and no keys. CI runs the same commands on every pull request that touches `sdk/` ([workflow](../../.github/workflows/sdk.yml)).

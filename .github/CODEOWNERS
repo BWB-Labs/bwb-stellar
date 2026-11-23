@@ -1,11 +1,12 @@
-# Soroban contracts, their deploy tooling, manifests and docs.
-/contracts/                        @LeonardoVieira1630
-/scripts/                          @LeonardoVieira1630
-/deployments/                      @LeonardoVieira1630
-/docs/                             @LeonardoVieira1630
-/Cargo.toml                        @LeonardoVieira1630
-/Cargo.lock                        @LeonardoVieira1630
-/rust-toolchain.toml               @LeonardoVieira1630
-/clippy.toml                       @LeonardoVieira1630
-/.github/workflows/contracts.yml   @LeonardoVieira1630
-/.github/CODEOWNERS                @LeonardoVieira1630
+# Soroban contracts (stellar/), their deploy tooling, manifests and docs.
+/stellar/contracts/                        @LeonardoVieira1630
+/stellar/scripts/                          @LeonardoVieira1630
+/stellar/deployments/                      @LeonardoVieira1630
+/stellar/docs/                             @LeonardoVieira1630
+/docs/                                     @LeonardoVieira1630
+/stellar/Cargo.toml                        @LeonardoVieira1630
+/stellar/Cargo.lock                        @LeonardoVieira1630
+/stellar/rust-toolchain.toml               @LeonardoVieira1630
+/stellar/clippy.toml                       @LeonardoVieira1630
+/.github/workflows/contracts.yml           @LeonardoVieira1630
+/.github/CODEOWNERS                        @LeonardoVieira1630

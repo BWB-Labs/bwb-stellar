@@ -34,7 +34,8 @@ DEMO_OFFERINGS="t1-demo-4 t1-demo-5"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 README="$ROOT/README.md"
 MANIFEST="$ROOT/deployments/$NETWORK.json"
-OUT="$ROOT/docs/scf/evidence/demo"
+# The SCF evidence lives at the repository root, shared by both chains.
+OUT="$(cd "$ROOT/.." && pwd)/docs/scf/evidence/demo"
 
 usage() { echo "usage: scripts/capture-evidence.sh [--out <dir>]" >&2; exit 1; }
 while (($#)); do
@@ -149,7 +150,7 @@ done < <(demo_rows)
 # The index: one line per file, in file order.
 jq -n --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg network "$NETWORK" '
   {
-    source: "README.md, section \"L4 demonstration\"",
+    source: "stellar/README.md, section \"L4 demonstration\"",
     network: $network,
     captured_at: $at,
     transactions: [inputs | {

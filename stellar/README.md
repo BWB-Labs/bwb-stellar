@@ -159,7 +159,7 @@ reuses the simulated footprint of a passing twin.
 
 ## License
 
-Everything in this repository is licensed under [Apache 2.0](LICENSE).
+Everything in this repository is licensed under [Apache 2.0](../LICENSE).
 
 ## Contact
 
