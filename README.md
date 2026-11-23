@@ -13,8 +13,8 @@ holds the money until the offering closes.
 Each folder is a self-contained project: build, test and deploy from inside it.
 
 ```bash
-cd stellar && scripts/test.sh     # Stellar: build fixtures, run the tests
-cd base && forge test             # Base: run the tests
+(cd stellar && scripts/test.sh)   # Stellar: build fixtures, run the tests
+(cd base && forge test)           # Base: run the tests
 ```
 
 `base/lib/` holds the Foundry libraries as git submodules. Clone with

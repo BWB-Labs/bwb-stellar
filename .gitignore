@@ -32,6 +32,10 @@ node_modules/
 .env.local
 **/.env
 **/.env.local
+# Every env file, at any depth; only the .example templates are tracked.
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 
 # Stellar
 .stellar/

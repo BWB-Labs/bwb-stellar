@@ -2,6 +2,7 @@
 cache/
 out/
 src/typechain/
+dist/
 .venv/
 
 # Ignores development broadcast logs
