@@ -362,7 +362,7 @@ Com esses endereços, as interações com o contrato se seguem da seguinte manei
 3. Nessa etapa, os tokens de ofertas precisam ser ofertados em um contrato do tipo `OfferTokenSale.sol`. Aqui, então, precisa ser usado o script `DeployOfferTokenSale` para o deploy desse contrato:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$  ./create-offer-token.sh --name "Tower One" --symbol TOWER --supply 120 --offer-uri https://example.com/offers/tower.json
+[nix-shell:base/shells]$  ./create-offer-token.sh --name "Tower One" --symbol TOWER --supply 120 --offer-uri https://example.com/offers/tower.json
 Using deployment summary: base/configs/deployment-base-sepolia.json
 Resolved OfferTokenFactory from base/configs/deployment-base-sepolia.json: <endereço OfferTokenFactory>
 
@@ -435,7 +435,7 @@ Esse script acima vai usar os endereços previamente configurados sempre.
 5. , colocando o `totalSupply` do token criado completamente à venda:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-offer-token-sale.sh --offer-token 0x38F7C324078527af3bbDa1c2
+[nix-shell:base/shells]$ ./create-offer-token-sale.sh --offer-token 0x38F7C324078527af3bbDa1c2
 87fb42501B088Ec0 --price 1000000000000000000
 Using deployment summary: base/configs/deployment-base-sepolia.json
 Resolved OfferTokenSaleFactory from config: <endereço OfferTokenSaleFactory>
@@ -617,7 +617,7 @@ Sensitive values saved to: base/cache/SeedOfferTokenSale.s.sol/84532/run-latest.
 Aqui abaixo é um processo completo da compra de tokens por parte dos investidores, e o contrato sendo marcado como finalizado:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./buyout-offer-token-sale.sh --sale-address 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
+[nix-shell:base/shells]$ ./buyout-offer-token-sale.sh --sale-address 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
 Using OfferTokenSale: 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
 
 ==> OfferTokenSale snapshot
@@ -879,7 +879,7 @@ OfferTokenSale is fully sold out and finalized.
 Na primeira vez, se os tokens da venda forem distribuídos para um endereço apenas, um `TokenDistributor` não é necessário para receber o BRLA do contrato. Por exemplo, abaixo, todos os tokens foram vendidos, enviados os `OfferERC20` depois que a oferta foi finalizada e o `advisor` foi quem recebeu o montante total no seu endereço em BRLA:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./buyout-offer-token-sale.sh --sale-address 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
+[nix-shell:base/shells]$ ./buyout-offer-token-sale.sh --sale-address 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
 Using OfferTokenSale: 0xEEB9c4347C2829234F09e7536960b25d97fe01BD
 
 ==> OfferTokenSale snapshot
@@ -993,7 +993,7 @@ Sensitive values saved to: base/cache/ReleaseOfferTokens.s.sol/84532/run-latest.
 Mas em caso de haver distribuição, usa-se no lugar do endereço do recebedor, o endereço de um contrato de `TokenDistributor` e esse endereço recebe o BRLA, e quanto vai para cada endereço. O script abaixo faz isso:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-token-distribution.sh --total-brla 120
+[nix-shell:base/shells]$ ./create-token-distribution.sh --total-brla 120
 Using deployment summary: base/configs/deployment-base-sepolia.json
 Resolved TokenDistributorFactory from config: <endereço TokenDistributorFactory>
 Resolved BRLA token from config: <endereço BRLA>
@@ -1066,7 +1066,7 @@ BRLA distribution complete.
 5. Em caso de distribuição de dividendos para quem adquiriu essa oferta posteriormente, o processo é similar, só que no lugar de usar um `TokenDistributor` usa-se um `TokenDistributorByHoldings.sol` e esse distribuíra o BRLA com base nos endereços passados para o contrato. Esse contrato consegue pegar os valores de cada parte, em relação ao total supply e enviar o percentual correto. Ele tem uma factory para ele mesmo também. Veja abaixo:
 
 ```
-[nix-shell:~/Desktop/git/bwb/bwb-tokenization/contracts/shells]$ ./create-token-distribution-by-holdings.sh --offer-token 0xd0E0549087849d020Fd28E141478F0E7b7804F02 --total-brla 120
+[nix-shell:base/shells]$ ./create-token-distribution-by-holdings.sh --offer-token 0xd0E0549087849d020Fd28E141478F0E7b7804F02 --total-brla 120
 Using deployment summary: base/configs/deployment-base-sepolia.json
 
 ==> TokenDistributorByHoldings configuration

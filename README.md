@@ -31,8 +31,9 @@ flowchart LR
   Tokenizer -- ends the offering, withdraws --> Sale
 ```
 
-- **Offer token:** the investor's position in one offering. Transfers are
-  limited to approved addresses, and it can be paused.
+- **Offer token:** the investor's position in one offering. A transfer needs
+  an approved address on one side (the sale, a distributor), so investors do
+  not trade it among themselves. It can be paused.
 - **Allowlist:** who may invest and up to how much. A purchase consumes room;
   a refund gives it back.
 - **Sale:** holds the offering's tokens and the investors' money, and decides
@@ -47,7 +48,7 @@ The lifecycle the protocol is designed around:
 ```mermaid
 stateDiagram-v2
   [*] --> Preparing
-  Preparing --> Active: the sale receives the token supply
+  Preparing --> Active: activate, once the sale holds the token supply
   Active --> Closing: buying stops
   Closing --> Active: reopen
   Closing --> Successful: finalize, after the last cooling-off window
@@ -57,6 +58,7 @@ stateDiagram-v2
   Failed --> [*]
 
   note right of Active : buy, cooling-off refund
+  note left of Closing : cooling-off refund
   note right of Successful : tokens released, payment withdrawn
   note right of Failed : everyone refunded
 ```
@@ -91,7 +93,7 @@ The Stellar contracts are a port of the Base ones. Where they differ:
 - **Payment asset.** Base offerings are paid in BRLA. Stellar offerings accept
   the asset chosen at deploy, USDC in BWB's offerings.
 
-Each Stellar contract's document lists its differences from Base in detail.
+Each Stellar contract's document describes its differences from Base in detail.
 
 ## Repository layout
 
