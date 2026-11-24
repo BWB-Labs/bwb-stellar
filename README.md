@@ -42,13 +42,15 @@ After a successful offering, **distributors** pay income to the token holders.
 
 ## Sale lifecycle
 
+The lifecycle the protocol is designed around:
+
 ```mermaid
 stateDiagram-v2
   [*] --> Preparing
   Preparing --> Active: the sale receives the token supply
-  Active --> Closing: buying stops (Stellar only)
-  Closing --> Successful: finalize
-  Active --> Successful: finalize (Base)
+  Active --> Closing: buying stops
+  Closing --> Active: reopen
+  Closing --> Successful: finalize, after the last cooling-off window
   Active --> Failed: cancel
   Closing --> Failed: cancel
   Successful --> [*]
@@ -58,6 +60,11 @@ stateDiagram-v2
   note right of Successful : tokens released, payment withdrawn
   note right of Failed : everyone refunded
 ```
+
+Buying stops when the tokenizer closes the offering or the last token sells.
+The offering then waits in Closing until no purchase can be undone any more,
+and only then becomes Successful. Each chain's documentation describes what
+its contracts implement today.
 
 Two rules hold on both chains:
 
@@ -78,9 +85,6 @@ Two rules hold on both chains:
 
 The Stellar contracts are a port of the Base ones. Where they differ:
 
-- **When success is declared.** On Base the owner finalizes straight from
-  Active. On Stellar buying stops first (Closing), and the offering only
-  becomes Successful after every cooling-off window has run out.
 - **Allowlist periods.** On Stellar an investor's usage is counted per
   calendar month and starts from zero by itself. On Base the platform resets
   it.
