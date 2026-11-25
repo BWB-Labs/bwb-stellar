@@ -1,7 +1,7 @@
 import { Keypair } from '@stellar/stellar-sdk/base'
 import { describe, expect, it, vi } from 'vitest'
 
-import { isSignatureOf, privySigner, toHex } from '../src/signing.js'
+import { isSignatureOf, privySigner, toHex } from '../../src/stellar/signing.js'
 
 const KEY = Keypair.random()
 const HASH = 'cd'.repeat(32)

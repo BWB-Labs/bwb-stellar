@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Print an offering's token and sale contract addresses before deploying.
+# Print an offering's token, sale contract and distributor addresses before
+# deploying.
 #
 #   scripts/offering-addresses.sh <offering-id>
 #
@@ -24,16 +25,20 @@ TOKEN_SALT="$(offering_salt "$OFFERING" token)"
 SALE_SALT="$(offering_salt "$OFFERING" sale)"
 TOKEN_ID="$(offering_address "$NETWORK" "$SOURCE" "$TOKEN_SALT")"
 SALE_ID="$(offering_address "$NETWORK" "$SOURCE" "$SALE_SALT")"
+DISTRIBUTOR_SALT="$(offering_salt "$OFFERING" distributor)"
+DISTRIBUTOR_ID="$(offering_address "$NETWORK" "$SOURCE" "$DISTRIBUTOR_SALT")"
 DEPLOYER="$(stellar keys address "$SOURCE")"
 
-python3 - "$OFFERING" "$NETWORK" "$DEPLOYER" "$TOKEN_SALT" "$TOKEN_ID" "$SALE_SALT" "$SALE_ID" <<'PY'
+python3 - "$OFFERING" "$NETWORK" "$DEPLOYER" "$TOKEN_SALT" "$TOKEN_ID" "$SALE_SALT" "$SALE_ID" \
+  "$DISTRIBUTOR_SALT" "$DISTRIBUTOR_ID" <<'PY'
 import json, sys
-offering, network, deployer, ts, tid, ss, sid = sys.argv[1:]
+offering, network, deployer, ts, tid, ss, sid, ds, did = sys.argv[1:]
 print(json.dumps({
     "offering": offering,
     "network": network,
     "deployer": deployer,
     "token": {"salt": ts, "contract_id": tid},
     "sale": {"salt": ss, "contract_id": sid},
+    "distributor": {"salt": ds, "contract_id": did},
 }, indent=2))
 PY

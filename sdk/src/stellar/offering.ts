@@ -12,7 +12,6 @@ import {
   simulateRead,
 } from './soroban.js'
 
-const STROOPS_PER_USDC = 10_000_000n
 const MIN_SUCCESS_PERCENT = 75
 const SALE_ROLE = 'sale'
 const SALE_PREPARING = 'Preparing'
@@ -35,6 +34,7 @@ export type OfferingRequest = {
   tokenSymbol: string
   offeringURI: string
   totalTokens: string
+  pricePerQuota: string
   coolingOffSeconds: string
 }
 
@@ -102,7 +102,7 @@ export function saleConstructorArgs(terms: OfferingTerms): Array<xdr.ScVal> {
       allowlist: scv.address(terms.allowlist),
     }),
     scv.struct({
-      price: scv.i128(STROOPS_PER_USDC),
+      price: scv.i128(BigInt(terms.pricePerQuota)),
       cooling_off_secs: scv.u64(BigInt(terms.coolingOffSeconds)),
       min_success_percent: scv.u32(MIN_SUCCESS_PERCENT),
     }),
@@ -112,14 +112,14 @@ export function saleConstructorArgs(terms: OfferingTerms): Array<xdr.ScVal> {
 export function deploymentDigest(network: Network, terms: OfferingTerms): string {
   return toHex(
     hash(
-      Buffer.concat([
-        networkIdOf(network),
-        fromHex(terms.tokenSalt),
-        fromHex(terms.saleSalt),
-        fromHex(terms.tokenWasmHash),
-        fromHex(terms.saleWasmHash),
-        scv.vec(tokenConstructorArgs(terms)).toXDR(),
-        scv.vec(saleConstructorArgs(terms)).toXDR(),
+      Uint8Array.from([
+        ...networkIdOf(network),
+        ...fromHex(terms.tokenSalt),
+        ...fromHex(terms.saleSalt),
+        ...fromHex(terms.tokenWasmHash),
+        ...fromHex(terms.saleWasmHash),
+        ...scv.vec(tokenConstructorArgs(terms)).toXDR(),
+        ...scv.vec(saleConstructorArgs(terms)).toXDR(),
       ]),
     ),
   )
