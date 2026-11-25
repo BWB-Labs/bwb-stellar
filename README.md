@@ -82,7 +82,8 @@ Two rules hold on both chains:
 | Offer token | [`offer-token`](stellar/docs/offer-token.md) | `OfferERC20` |
 | Allowlist | [`offer-allowlist`](stellar/docs/offer-allowlist.md) | `OfferSaleAllowlist` |
 | Sale | [`offer-sale`](stellar/docs/offer-sale.md) | `OfferTokenSale` |
-| Distributors | in progress | `TokenDistributor`, `TokenDistributorByHoldings` |
+| Distributor | [`offer-distributor`](stellar/docs/offer-distributor.md) | `TokenDistributor` |
+| Holdings distributor | planned | `TokenDistributorByHoldings` |
 | Factories | planned | `OfferTokenFactory`, `OfferTokenSaleFactory`, `TokenDistributorFactory`, `TokenDistributorByHoldingsFactory` |
 
 The Stellar contracts are a port of the Base ones. Where they differ:
@@ -121,7 +122,7 @@ Continuous integration runs three workflows:
 | Workflow | Runs |
 |---|---|
 | [`contracts`](.github/workflows/contracts.yml) | Stellar: format, tests, clippy, WASM build |
-| [`sdk`](.github/workflows/sdk.yml) | Stellar SDK: typecheck, build, tests |
+| [`sdk`](.github/workflows/sdk.yml) | Stellar SDK: typecheck, build, tests; publishes `@bwb-labs/sdk` to npm |
 | [`base`](.github/workflows/base.yml) | Base: tests, per-file coverage gate, OpenZeppelin upgrade validation |
 
 ## License
