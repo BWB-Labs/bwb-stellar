@@ -1,9 +1,9 @@
 import { BASE_FEE, Keypair, Networks, Operation, Transaction, xdr } from '@stellar/stellar-sdk/base'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { connect, NETWORK } from '../src/network.js'
-import { createRelay } from '../src/relay.js'
-import { keypairSigner, toHex } from '../src/signing.js'
+import { connect, NETWORK } from '../../src/stellar/network.js'
+import { createRelay } from '../../src/stellar/relay.js'
+import { keypairSigner, toHex } from '../../src/stellar/signing.js'
 import {
   accountEntry,
   innerFailed,

@@ -1,6 +1,8 @@
 import { Asset, hash, Keypair, Networks, xdr } from '@stellar/stellar-sdk/base'
 import { Server } from '@stellar/stellar-sdk/rpc'
 
+import { CHAIN_ID, type ChainId } from '../chains.js'
+
 export const NETWORK = {
   TESTNET: 'testnet',
   MAINNET: 'mainnet',
@@ -12,6 +14,17 @@ const PASSPHRASE = {
   [NETWORK.TESTNET]: Networks.TESTNET,
   [NETWORK.MAINNET]: Networks.PUBLIC,
 } satisfies Record<Network, string>
+
+export const STELLAR_NETWORK = {
+  [CHAIN_ID.STELLAR_TESTNET]: NETWORK.TESTNET,
+  [CHAIN_ID.STELLAR_MAINNET]: NETWORK.MAINNET,
+} as const satisfies Partial<Record<ChainId, Network>>
+
+export type StellarChainId = keyof typeof STELLAR_NETWORK
+
+export function isStellarChainId(chainId: ChainId): chainId is StellarChainId {
+  return Object.hasOwn(STELLAR_NETWORK, chainId)
+}
 
 export function passphraseOf(network: Network): string {
   return PASSPHRASE[network]
@@ -34,7 +47,7 @@ export function usdcOf(network: Network): { asset: Asset; contract: string } {
 }
 
 export function networkIdOf(network: Network): Uint8Array {
-  return hash(Buffer.from(passphraseOf(network)))
+  return hash(passphraseOf(network))
 }
 
 export class StellarChainMismatchError extends Error {}

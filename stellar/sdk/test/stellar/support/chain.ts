@@ -39,7 +39,7 @@ export function stubJsonRpc(answer: (request: JsonRpcRequest) => unknown): Array
   return requests
 }
 
-function firstRequestedKey(params: unknown): string {
+export function firstRequestedKey(params: unknown): string {
   if (
     typeof params === 'object' &&
     params !== null &&

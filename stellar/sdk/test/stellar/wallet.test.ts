@@ -1,7 +1,7 @@
 import { Asset, Keypair, Operation, type xdr } from '@stellar/stellar-sdk/base'
 import { describe, expect, it, vi } from 'vitest'
 
-import { ensureStellarWallet, walletOpeningOperations, type PrivyUser } from '../src/wallet.js'
+import { ensureStellarWallet, walletOpeningOperations, type PrivyUser } from '../../src/stellar/wallet.js'
 
 const ADDRESS = Keypair.random().publicKey()
 const SPONSOR = Keypair.random().publicKey()

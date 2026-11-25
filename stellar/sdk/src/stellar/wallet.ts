@@ -1,6 +1,6 @@
 import { type Asset, Operation, StrKey, type xdr } from '@stellar/stellar-sdk/base'
 
-import { refuse, succeed, type Result } from './result.js'
+import { refuse, succeed, type Result } from '../result.js'
 
 export type PrivyLinkedAccount = {
   type: string

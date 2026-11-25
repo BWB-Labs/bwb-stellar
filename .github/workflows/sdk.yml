@@ -1,12 +1,10 @@
-# TypeScript SDK checks: typecheck, build and the test suite of @bwb/stellar-sdk.
+# TypeScript SDK checks and publishing of @bwb-labs/sdk. npm's trusted publisher is bound to this filename.
 name: sdk
 
 on:
   push:
     branches: [main]
-    paths:
-      - "stellar/sdk/**"
-      - ".github/workflows/sdk.yml"
+    tags: ["sdk-v*"]
   pull_request:
     paths:
       - "stellar/sdk/**"
@@ -38,3 +36,77 @@ jobs:
 
       - name: Test SDK
         run: bun run test
+
+  changes:
+    name: Detect SDK changes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.decide.outputs.publish }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether this push publishes
+        id: decide
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]] \
+            || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+            || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- stellar/sdk .github/workflows/sdk.yml; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish SDK
+    needs: [sdk, changes]
+    if: needs.changes.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: stellar/sdk
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install the pinned npm
+        run: npm install --global npm@11.21.2
+
+      - name: Install SDK deps
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK
+        run: bun run build
+
+      - name: Set the prerelease version
+        if: github.ref == 'refs/heads/main'
+        run: npm version --no-git-tag-version "$(node -p "require('./package.json').version")-next.g${GITHUB_SHA::7}"
+
+      - name: Check the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        run: test "${GITHUB_REF_NAME#sdk-v}" = "$(node -p "require('./package.json').version")"
+
+      - name: Publish
+        env:
+          DIST_TAG: ${{ github.ref == 'refs/heads/main' && 'next' || 'latest' }}
+        run: npm publish --tag "$DIST_TAG"

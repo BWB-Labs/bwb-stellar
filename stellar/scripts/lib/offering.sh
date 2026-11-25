@@ -1,11 +1,11 @@
 # Shared by deploy.sh and offering-addresses.sh. Sourced, not run.
 #
-# An offering's token and sale contract live at addresses derived from the
-# deployer and a salt, known before either is deployed. The salt comes from
-# the offering identifier, so a retry or a second operator recomputes the
-# same addresses:
+# An offering's token, sale contract and distributor live at addresses
+# derived from the deployer and a salt, known before any is deployed. The
+# salt comes from the offering identifier, so a retry or a second operator
+# recomputes the same addresses:
 #
-#   salt = sha256("bwb:<offering-id>:<role>"), role = token | sale
+#   salt = sha256("bwb:<offering-id>:<role>"), role = token | sale | distributor
 #
 # The network is deliberately not in the salt: the contract address already
 # includes the network ID, and the CLI's name for a network is local config
@@ -38,12 +38,24 @@ resolve_source() {
   esac
 }
 
-# crate_role <crate> -> token | sale; fails for crates that are not per-offering
+# crate_role <crate> -> token | sale | distributor; fails for crates that are
+# not per-offering
 crate_role() {
   case "$1" in
     offer-token) echo token ;;
     offer-sale) echo sale ;;
+    offer-distributor) echo distributor ;;
     *) return 1 ;;
+  esac
+}
+
+# sibling_role <role> -> the role whose address this one's deploy depends on:
+# the token mints to the sale's address and the sale names its token. The
+# distributor names neither, so it has no sibling and prints nothing.
+sibling_role() {
+  case "$1" in
+    token) echo sale ;;
+    sale) echo token ;;
   esac
 }
 

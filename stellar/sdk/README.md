@@ -1,4 +1,4 @@
-# @bwb/stellar-sdk
+# @bwb-labs/sdk
 
 BWB's Stellar transaction layer. It provisions users' embedded wallets through Privy, opens their accounts and trustlines on reserves the platform sponsors, builds every envelope from a platform channel account, collects the signatures it needs, and submits it under a fee-bump the platform pays. On top of that it creates organizations' multisig treasuries, changes their signers, and deploys tokenized offerings.
 
@@ -8,13 +8,13 @@ Balance and payment reads are not part of this release.
 
 | Module | Exports | What it does |
 |---|---|---|
-| [`network`](src/network.ts) | `connect`, `NETWORK`, `passphraseOf`, `networkIdOf`, `usdcOf`, `accountKey` | An RPC connection that tries each endpoint in order and refuses one that serves another network. |
-| [`signing`](src/signing.ts) | `HashSigner`, `privySigner`, `keypairSigner`, `isSignatureOf` | A signer is an address and a function that signs a hash. `privySigner` signs through Privy's raw signing, so no key ever leaves Privy. `isSignatureOf` checks a signature made in the browser before it is used. |
-| [`wallet`](src/wallet.ts) | `ensureStellarWallet`, `walletOpeningOperations` | Reuses the user's Privy embedded Stellar wallet or pregenerates one, and builds the sponsored account creation and USDC trustline. |
-| [`relay`](src/relay.ts) | `createRelay`, `RELAY_FAILURE` | `submitAsPlatform` for envelopes only platform keys sign; `prepareForSigners` and `submitSigned` for envelopes users or officers sign. Every envelope is sourced from a channel and fee-bumped by the sponsor. |
-| [`treasury`](src/treasury.ts) | `treasuryCreationOperations`, `signerChangeOperations`, `readSignerSet` | An organization's treasury is a native multisig: its officers are its signers, at one threshold, with the master key disabled. |
-| [`offering`](src/offering.ts) | `offeringTerms`, `deploymentDigest`, `deploymentOperation`, `isStepApplied`, `DEPLOYMENT_STEPS` | Derives an offering's contract addresses, the digest its officers sign, and the four deployment steps: token, sale, allowlist grant and activation. |
-| [`soroban`](src/soroban.ts) | `createContractOperation`, `invokeContractOperation`, `prepareSorobanTransaction`, `simulateRead`, `contractExists`, `scv` | Contract calls: simulation, resource assembly and read-only views. |
+| [`network`](src/stellar/network.ts) | `connect`, `NETWORK`, `passphraseOf`, `networkIdOf`, `usdcOf`, `accountKey` | An RPC connection that tries each endpoint in order and refuses one that serves another network. |
+| [`signing`](src/stellar/signing.ts) | `HashSigner`, `privySigner`, `keypairSigner`, `isSignatureOf` | A signer is an address and a function that signs a hash. `privySigner` signs through Privy's raw signing, so no key ever leaves Privy. `isSignatureOf` checks a signature made in the browser before it is used. |
+| [`wallet`](src/stellar/wallet.ts) | `ensureStellarWallet`, `walletOpeningOperations` | Reuses the user's Privy embedded Stellar wallet or pregenerates one, and builds the sponsored account creation and USDC trustline. |
+| [`relay`](src/stellar/relay.ts) | `createRelay`, `RELAY_FAILURE` | `submitAsPlatform` for envelopes only platform keys sign; `prepareForSigners` and `submitSigned` for envelopes users or officers sign. Every envelope is sourced from a channel and fee-bumped by the sponsor. |
+| [`treasury`](src/stellar/treasury.ts) | `treasuryCreationOperations`, `signerChangeOperations`, `readSignerSet` | An organization's treasury is a native multisig: its officers are its signers, at one threshold, with the master key disabled. |
+| [`offering`](src/stellar/offering.ts) | `offeringTerms`, `deploymentDigest`, `deploymentOperation`, `isStepApplied`, `DEPLOYMENT_STEPS` | Derives an offering's contract addresses, the digest its officers sign, and the four deployment steps: token, sale, allowlist grant and activation. |
+| [`soroban`](src/stellar/soroban.ts) | `createContractOperation`, `invokeContractOperation`, `prepareSorobanTransaction`, `simulateRead`, `contractExists`, `scv` | Contract calls: simulation, resource assembly and read-only views. |
 
 Every function that can fail for an expected reason returns a `Result`: `{ success: true, data }` or `{ success: false, error: { code } }`. The relay's codes are:
 
@@ -28,10 +28,69 @@ Every function that can fail for an expected reason returns a `Result`: `{ succe
 | `timeBoundPassed` | The envelope can no longer land |
 | `transactionFailed` | The network applied and refused it; `providerMessage` holds the result code |
 
+## Buying quotas
+
+One sale interface serves every chain. The configuration holds a client for each chain id a deployment serves, and the SDK returns the strategy for the offering's chain id, bound to that offering. Each chain is named by its own identifier: a Stellar chain by its network id, the SHA-256 of its passphrase, and a Base chain by its EVM chain id. The client must serve that chain, or every call returns `chainMismatch`. The caller builds the client and owns any fallback across endpoints; `connect` is one way to build it.
+
+| Constant | Chain id | Strategy |
+|---|---|---|
+| `CHAIN_ID.STELLAR_TESTNET` | `cee0302d…ecd472`, the testnet network id | Stellar |
+| `CHAIN_ID.STELLAR_MAINNET` | `7ac33997…45a979`, the mainnet network id | Stellar |
+| `CHAIN_ID.BASE_TESTNET` | `84532` | None yet, refused with `chainNotSupported` |
+| `CHAIN_ID.BASE_MAINNET` | `8453` | None yet, refused with `chainNotSupported` |
+
+```ts
+import { CHAIN_ID, connect, createBwbSdk, NETWORK } from '@bwb-labs/sdk'
+
+const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: ['https://soroban-testnet.stellar.org'] })
+const bwb = createBwbSdk({ chains: { [CHAIN_ID.STELLAR_TESTNET]: { rpc } } })
+
+const client = bwb.select(CHAIN_ID.STELLAR_TESTNET)
+if (!client.success) return client
+const sale = client.data.sale({ address: saleAddress })
+
+const prepared = await sale.buy({ buyer, amount })
+if (!prepared.success) return prepared
+// The buyer signs prepared.data.entryHash with their wallet.
+const authorized = await sale.authorize({ prepared: prepared.data, signature })
+if (!authorized.success) return authorized
+// Relay authorized.data.invocation, then read the purchase from the settled transaction.
+const receipt = sale.purchaseReceipt({ buyer, transaction: { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta } })
+```
+
+`select` returns a client bound to one chain, so its `sale` takes only the offering's address. `bwb.sale({ chainId, address })` does both steps at once and returns the same refusals as `select`.
+
+`buy` returns one authorization entry covering the purchase and its USDC transfer. `authorize` checks the signature against that entry and simulates the signed call again, so the relay assembles resources that cover signature verification. The source of the relayed transaction must not be the buyer.
+
+| Refusal | Meaning |
+|---|---|
+| `chainNotConfigured` | The configuration holds no client for the offering's chain id |
+| `chainNotSupported` | The SDK has no strategy for that chain id yet |
+| `chainMismatch` | The configured client reports another network id than its chain id |
+| `chainUnavailable` | No endpoint answered |
+| `invalidBuyer` | The buyer is not an account address |
+| `unexpectedResponse` | The address did not answer like a sale |
+| `unreadableTransaction` | The settled transaction is malformed or in a format this version cannot read |
+| `investorNotEnabled` | The investor is not on the allowlist |
+| `allocationExceeded` | The purchase exceeds the investor's allocation this period |
+| `tooManyReceipts` | The investor holds the most live receipts this sale allows |
+| `saleNotActive` | The sale is not open for buying |
+| `notWholeQuotas` | The amount is not an exact multiple of the price |
+| `exceedsSupply` | Fewer quotas are left than the amount buys |
+| `tooManyPurchases` | The investor holds the most live purchases this offering allows |
+| `insufficientBalance` | The buyer holds too little of the payment asset |
+| `balanceFrozen` | The asset's issuer froze the balance |
+| `trustlineMissing` | The buyer has no trustline for the payment asset |
+| `entryExpired` | The signed entry reached its expiration ledger; prepare the purchase again |
+| `signatureMismatch` | The signature is not the buyer's over this entry |
+| `unexpectedAuthorization` | The simulation asked for something other than one entry covering this purchase |
+| `purchaseNotFound` | The settled transaction holds no purchase by this buyer in this sale |
+| `contractRefused` | The contract refused for another reason; the message carries its error |
+
 ## Usage
 
 ```ts
-import { connect, createRelay, NETWORK, privySigner, usdcOf, walletOpeningOperations } from '@bwb/stellar-sdk'
+import { connect, createRelay, NETWORK, privySigner, usdcOf, walletOpeningOperations } from '@bwb-labs/sdk'
 
 const rpc = connect({ network: NETWORK.TESTNET, rpcUrls: [alchemyUrl, 'https://soroban-testnet.stellar.org'] })
 const sponsor = privySigner(privy.wallets(), { walletId: sponsorWalletId, address: sponsorAddress })
