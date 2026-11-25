@@ -1,0 +1,35 @@
+{
+  "deliverable": "Deliverable 4 — Compliance Eligibility and BRL Settlement Orchestration Testnet",
+  "source": "https://communityfund.stellar.org/submissions/rec8bhUAafIcSJUzA",
+  "page": "../../tranche-2-d4.md",
+  "criteria": [
+    {
+      "criterion": 1,
+      "text": "Public interface schemas and anonymized fixtures demonstrate that normalized verification states control offering access.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 2,
+      "text": "Testnet transaction links and redacted reconciliation exports join BRL deposit/withdrawal records to terminal Stellar states.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 3,
+      "text": "Public CI covers failed, expired, rejected, refunded, duplicate, and retried operations without state loss.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    },
+    {
+      "criterion": 4,
+      "text": "The public evidence index demonstrates that no PII is written to the published Stellar transactions or contract events.",
+      "status": "open",
+      "evidence": [],
+      "ci_run": null
+    }
+  ]
+}
