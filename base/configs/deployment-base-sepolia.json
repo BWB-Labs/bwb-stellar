@@ -1,0 +1,13 @@
+{
+  "environment": "base-sepolia",
+  "chainId": "84532",
+  "generatedAt": "2026-10-19T19:25:57Z",
+  "contracts": {
+    "offerTokenFactory": "0x41Ff8fcdd03a4e6653F95BADD990C1346B8291Ee",
+    "offerTokenSaleFactory": "0x883dc50FcF4D554B3716056fCca407879b22E2C6",
+    "tokenDistributorFactory": "0xa97e476e6693676Df9e69C843708df1A9c3ea85B",
+    "tokenDistributorByHoldingsFactory": "0xFF4EA4e06a4659217601a8E42dbA86B320FaeBad",
+    "offerSaleAllowlist": "0x6F439c1dfA411B189EDDBe123976C482d1ca0734",
+    "brlaToken": "0xA8AA3b44Afb4aA219ee12Ca4CE93C2081767BfDb"
+  }
+}

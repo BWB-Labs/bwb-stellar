@@ -7,7 +7,7 @@ on:
     tags: ["sdk-v*"]
   pull_request:
     paths:
-      - "sdk/**"
+      - "stellar/sdk/**"
       - ".github/workflows/sdk.yml"
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: sdk
+        working-directory: stellar/sdk
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -57,7 +57,7 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]] \
             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
-            || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- sdk .github/workflows/sdk.yml; then
+            || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- stellar/sdk .github/workflows/sdk.yml; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -73,7 +73,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: sdk
+        working-directory: stellar/sdk
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 

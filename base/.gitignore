@@ -1,0 +1,22 @@
+# Compiler files
+cache/
+out/
+src/typechain/
+dist/
+.venv/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/**/31337/
+/broadcast/**/dry-run/
+
+
+# Environment files: never commit them, this repository is public.
+# Only the .example templates are tracked.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Coverage report
+lcov.info

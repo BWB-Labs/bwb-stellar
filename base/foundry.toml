@@ -1,0 +1,35 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+fs_permissions = [
+  { access = "read", path = "allowlist-payload.generated.json" },
+  { access = "write", path = "allowlist-payload.generated.json" },
+  { access = "read", path = "./allowlist-payload.generated.json" },
+  { access = "write", path = "./allowlist-payload.generated.json" },
+  { access = "read-write", path = "./" }
+]
+
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
+
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+  "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+  "openzeppelin-foundry-upgrades/=lib/openzeppelin-foundry-upgrades/src/",
+  "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+  "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/",
+]
+
+
+[dependencies]
+forge-std = "foundry-rs/forge-std@v1.14.0"
+openzeppelin-contracts = "OpenZeppelin/openzeppelin-contracts@fcbae539"
+openzeppelin-contracts-upgradeable = "OpenZeppelin/openzeppelin-contracts-upgradeable@aa677e9d"
+openzeppelin-foundry-upgrades = "OpenZeppelin/openzeppelin-foundry-upgrades@v0.4.0"
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,0 +1,13 @@
+{
+  "environment": "production",
+  "chainId": "8453",
+  "generatedAt": "2026-03-31T22:35:54Z",
+  "contracts": {
+    "offerTokenFactory": "0xBC2904b8C3b6cf6C882E68F34Fe0AD633B201009",
+    "offerTokenSaleFactory": "0x8308dD18bA9927567728E3d2Ce0955D6A3D68dd5",
+    "tokenDistributorFactory": "0xbaF31BAd298A93B2A62042fbFb03b50b95d2d9C0",
+    "tokenDistributorByHoldingsFactory": "0xBA28a9704D81B3D88FA6CB6186eEa52394e9C781",
+    "offerSaleAllowlist": "0x8d1Ea182C4003af8eF64d1DBb286903f5Cf2E859",
+    "brlaToken": "0xfcb34c47f850f452c15ea1b84d51231c38a61783"
+  }
+}

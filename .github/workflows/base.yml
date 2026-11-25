@@ -1,0 +1,93 @@
+# Base (EVM) contracts: tests, coverage gate and OpenZeppelin upgrade
+# validation. Moved here from bwb-tokenization together with the code (#65).
+name: base
+
+# Pull requests run without a path filter so the jobs can be required checks
+# (same reason as contracts.yml). Pushes to main stay filtered.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "base/**"
+      - ".github/workflows/base.yml"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: base
+
+jobs:
+  test:
+    name: Test the contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+
+      - name: Build
+        run: forge build --sizes
+
+      - name: Test
+        run: forge test
+
+  coverage:
+    name: Coverage (src >= 90% per file)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+        with:
+          version: nightly
+
+      - name: Forge coverage (lcov)
+        run: forge coverage --report lcov
+
+      - name: Enforce per-file coverage >= 90% (src/)
+        env:
+          COVERAGE_THRESHOLD: "0.90"
+          COVERAGE_ENFORCE_PREFIX: "src"
+          COVERAGE_EXCLUDE_PREFIXES: "script/,test/,src/test/"
+        run: python3 scripts/check_forge_coverage.py lcov.info
+
+  upgrade-validation:
+    name: Upgrade validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build contracts
+        run: |
+          forge clean
+          forge build
+
+      - name: Validate upgrade safety
+        run: npm run oz-validate

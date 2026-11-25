@@ -6,8 +6,8 @@ bwb-main-120626/
 handoff.md
 
 # IP protection scripts — internal tooling only
-scripts/pre-commit-guard.sh
-scripts/install-hooks.sh
+**/scripts/pre-commit-guard.sh
+**/scripts/install-hooks.sh
 .github/workflows/ip-guard.yml
 
 # Rust/Cargo build artifacts
@@ -32,6 +32,10 @@ node_modules/
 .env.local
 **/.env
 **/.env.local
+# Every env file, at any depth; only the .example templates are tracked.
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 
 # Stellar
 .stellar/
@@ -41,7 +45,7 @@ node_modules/
 Thumbs.db
 
 # SDK build output
-sdk/dist/
+**/sdk/dist/
 
 # Filled Goldsky pipelines: they carry the Webhook Manager hook secret
-indexer/pipelines/*.local.yaml
+**/indexer/pipelines/*.local.yaml

@@ -8,17 +8,22 @@ on:
   push:
     branches: [main]
     paths:
-      - "contracts/**"
-      - "scripts/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - "clippy.toml"
+      - "stellar/contracts/**"
+      - "stellar/scripts/**"
+      - "stellar/Cargo.toml"
+      - "stellar/Cargo.lock"
+      - "stellar/rust-toolchain.toml"
+      - "stellar/clippy.toml"
       - ".github/workflows/contracts.yml"
   pull_request:
 
 env:
   CARGO_TERM_COLOR: always
+
+# The Rust workspace lives in stellar/ (the Base contracts sit next to it in base/).
+defaults:
+  run:
+    working-directory: stellar
 
 # Third-party actions are pinned to commit SHAs (tag in the comment): this job
 # produces the WASM hashes recorded as deliverable evidence.
@@ -35,13 +40,15 @@ jobs:
         run: rustup show
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: stellar
 
       - name: Format
         run: cargo fmt --all -- --check
 
       # OpenZeppelin 0.7.2 enables soroban-sdk's spec-shaking feature, which
       # only builds through the Stellar CLI. Pin the CLI to the version used
-      # for deploys so hashes match deployments/*.json.
+      # for deploys so hashes match stellar/deployments/*.json.
       # The action reads the CLI version from its own ref, which is the SHA
       # when pinned, so the version is passed explicitly.
       - name: Install Stellar CLI

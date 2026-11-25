@@ -1,0 +1,18 @@
+[
+  {
+    "label": "Tower One",
+    "brlaPerToken": "1000000000000000000",
+    "tokenName": "Tower One Equity",
+    "tokenSymbol": "TOWER1",
+    "tokenInitialSupply": "1000000",
+    "tokenOfferURI": "https://offers.example.com/tower-one.json"
+  },
+  {
+    "label": "Tower One - Tranche B",
+    "brlaPerToken": "1000000000000000000",
+    "tokenName": "Tower One Tranche B",
+    "tokenSymbol": "TRANCHB",
+    "tokenInitialSupply": "250000",
+    "tokenOfferURI": "https://offers.example.com/tower-one-tranche-b.json"
+  }
+]
