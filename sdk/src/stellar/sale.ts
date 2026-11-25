@@ -15,6 +15,7 @@ import { refuse, succeed, type Result, type ResultError } from '../result.js'
 import {
   SALE_REFUSAL,
   SALE_STATE,
+  type AuthorizedPurchase,
   type PurchaseReceipt,
   type Sale,
   type SaleRefusal,
@@ -23,8 +24,9 @@ import {
   type SaleView,
 } from '../sale.js'
 import { passphraseOf, STELLAR_NETWORK, StellarChainMismatchError, type StellarChainId, type StellarRpc } from './network.js'
-import { fromHex, toHex } from './signing.js'
+import { fromHex, isSignatureOf, toHex } from './signing.js'
 import { scv, simulateOperation, simulateRead, SorobanSimulationError } from './soroban.js'
+import { readSignerSet } from './treasury.js'
 
 const SIMULATION_SOURCE = StrKey.encodeEd25519PublicKey(new Uint8Array(32))
 const ENTRY_LIFETIME_LEDGERS = 360
@@ -41,6 +43,7 @@ const CONTRACT_REFUSALS: Record<string, SaleRefusalCode> = {
   6206: SALE_REFUSAL.NOT_WHOLE_QUOTAS,
   6207: SALE_REFUSAL.EXCEEDS_SUPPLY,
   6220: SALE_REFUSAL.TOO_MANY_PURCHASES,
+  6228: SALE_REFUSAL.BELOW_MINIMUM,
 }
 
 const SALE_STATES: Record<string, SaleState> = {
@@ -92,6 +95,50 @@ function coversPurchase(
   )
 }
 
+function coversClose({ rootInvocation }: xdr.SorobanAuthorizationEntry, { sale, treasury }: { sale: string; treasury: string }) {
+  const root = contractCallOf(rootInvocation)
+  return (
+    rootInvocation.subInvocations.length === 0 &&
+    root?.contract === sale &&
+    root.method === 'close' &&
+    root.args.length === 1 &&
+    root.args[0] === treasury
+  )
+}
+
+function configSettingKey(configSettingId: xdr.ConfigSettingId) {
+  return xdr.LedgerKey.configSetting(new xdr.LedgerKeyConfigSetting({ configSettingId }))
+}
+
+async function expirationLedgerFor(server: Server, validUntil: number): Promise<Result<number, SaleRefusal>> {
+  const [latest, { entries }] = await Promise.all([
+    server._getLatestLedger(),
+    server.getLedgerEntries(
+      configSettingKey(xdr.ConfigSettingId.configSettingScpTiming),
+      configSettingKey(xdr.ConfigSettingId.configSettingStateArchival),
+    ),
+  ])
+  const settings = entries.flatMap(({ val }) => (val.type === 'configSetting' ? [val.configSetting] : []))
+  const timing = settings.find((setting) => setting.type === 'configSettingScpTiming')
+  const archival = settings.find((setting) => setting.type === 'configSettingStateArchival')
+  if (timing?.type !== 'configSettingScpTiming' || archival?.type !== 'configSettingStateArchival') {
+    return refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, 'The network did not report its ledger time and entry lifetime')
+  }
+  const closedAt = Number(latest.closeTime) * 1_000
+  if (!Number.isFinite(closedAt)) {
+    return refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, 'The network did not report when its latest ledger closed')
+  }
+  if (validUntil <= closedAt) {
+    return refused(SALE_REFUSAL.VALID_UNTIL_PASSED, `${new Date(validUntil).toISOString()} has already passed on chain`)
+  }
+  const expirationLedger =
+    latest.sequence + Math.ceil((validUntil - closedAt) / timing.contractScpTiming.ledgerTargetCloseTimeMilliseconds)
+  const latestAllowed = latest.sequence + archival.stateArchivalSettings.maxEntryTtl - 1
+  return expirationLedger > latestAllowed
+    ? refused(SALE_REFUSAL.VALID_UNTIL_TOO_LATE, `Ledger ${expirationLedger} is past the latest ledger the network allows, ${latestAllowed}`)
+    : succeed(expirationLedger, `The entry expires at ledger ${expirationLedger}`)
+}
+
 function eventsOf(resultMeta: string): Array<xdr.ContractEvent> | undefined {
   try {
     const meta = xdr.TransactionMeta.fromXDR(resultMeta, 'base64')
@@ -116,6 +163,57 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
 
   function simulate(server: Server, operation: xdr.Operation) {
     return simulateOperation(server, passphrase, { source: SIMULATION_SOURCE, operation })
+  }
+
+  function entryHashOf(entry: xdr.SorobanAuthorizationEntry, expirationLedger: number) {
+    return toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR()))
+  }
+
+  async function requestedEntry(
+    server: Server,
+    operation: xdr.Operation,
+    { signer, covers }: { signer: string; covers: (entry: xdr.SorobanAuthorizationEntry) => boolean },
+  ): Promise<Result<{ entry: xdr.SorobanAuthorizationEntry; latestLedger: number }, SaleRefusal>> {
+    const simulation = await simulate(server, operation)
+    if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
+    const entries = simulation.result?.auth ?? []
+    const [entry] = entries
+    if (entry === undefined || entries.length !== 1 || inspectAuthEntry(entry).address !== signer || !covers(entry)) {
+      return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, `The call did not ask ${signer} for one entry covering it`)
+    }
+    return succeed({ entry, latestLedger: simulation.latestLedger }, `The call asks ${signer} for one entry`)
+  }
+
+  function signable(entry: xdr.SorobanAuthorizationEntry, expirationLedger: number) {
+    return { entry: entry.toXDR('base64'), entryHash: entryHashOf(entry, expirationLedger), expirationLedger }
+  }
+
+  async function authorized(
+    server: Server,
+    operation: xdr.Operation,
+    expirationLedger: number,
+  ): Promise<Result<AuthorizedPurchase, SaleRefusal>> {
+    const simulation = await simulate(server, operation)
+    if (simulation.latestLedger >= expirationLedger) {
+      return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
+    }
+    if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
+    return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Signed call authorized')
+  }
+
+  function closeEntryOf(entry: string, treasury: string): xdr.SorobanAuthorizationEntry | undefined {
+    try {
+      const unsigned = xdr.SorobanAuthorizationEntry.fromXDR(entry, 'base64')
+      return inspectAuthEntry(unsigned).address === treasury && coversClose(unsigned, { sale: address, treasury })
+        ? unsigned
+        : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  function closeOperation(treasury: string, auth: Array<xdr.SorobanAuthorizationEntry>) {
+    return Operation.invokeContractFunction({ contract: address, function: 'close', args: [scv.address(treasury)], auth })
   }
 
   function buyOperation(buyer: string, amount: bigint, auth: Array<xdr.SorobanAuthorizationEntry>) {
@@ -147,28 +245,14 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
         return refused(SALE_REFUSAL.INVALID_BUYER, `${buyer} is not an account address`)
       }
       return onChain(async (server) => {
-        const simulation = await simulate(server, buyOperation(buyer, amount, []))
-        if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
-        const entries = simulation.result?.auth ?? []
-        const [entry] = entries
-        if (
-          entry === undefined ||
-          entries.length !== 1 ||
-          inspectAuthEntry(entry).address !== buyer ||
-          !coversPurchase(entry, { sale: address, buyer, amount })
-        ) {
-          return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, 'The purchase did not ask the buyer for one entry covering it')
-        }
-        const expirationLedger = simulation.latestLedger + ENTRY_LIFETIME_LEDGERS
+        const requested = await requestedEntry(server, buyOperation(buyer, amount, []), {
+          signer: buyer,
+          covers: (entry) => coversPurchase(entry, { sale: address, buyer, amount }),
+        })
+        if (!requested.success) return requested
+        const { entry, latestLedger } = requested.data
         return succeed(
-          {
-            chainId,
-            buyer,
-            amount,
-            entry: entry.toXDR('base64'),
-            entryHash: toHex(hash(buildAuthorizationEntryPreimage(entry, expirationLedger, passphrase).toXDR())),
-            expirationLedger,
-          },
+          { chainId, buyer, amount, ...signable(entry, latestLedger + ENTRY_LIFETIME_LEDGERS) },
           'Purchase prepared for the buyer to sign',
         )
       })
@@ -187,14 +271,80 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
       } catch (error) {
         return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `The signature is not of the entry: ${String(error)}`)
       }
-      const operation = buyOperation(buyer, amount, [signed])
+      return onChain((server) => authorized(server, buyOperation(buyer, amount, [signed]), expirationLedger))
+    },
+
+    close: async ({ treasury, validUntil }) => {
+      if (!StrKey.isValidEd25519PublicKey(treasury)) {
+        return refused(SALE_REFUSAL.INVALID_TREASURY, `${treasury} is not an account address`)
+      }
       return onChain(async (server) => {
-        const simulation = await simulate(server, operation)
-        if (simulation.latestLedger >= expirationLedger) {
-          return refused(SALE_REFUSAL.ENTRY_EXPIRED, `The entry expired at ledger ${expirationLedger}`)
+        const [expiration, requested] = await Promise.all([
+          expirationLedgerFor(server, validUntil),
+          requestedEntry(server, closeOperation(treasury, []), {
+            signer: treasury,
+            covers: (entry) => coversClose(entry, { sale: address, treasury }),
+          }),
+        ])
+        if (!expiration.success) return expiration
+        if (!requested.success) return requested
+        const { entry, latestLedger } = requested.data
+        if (expiration.data <= latestLedger) {
+          return refused(SALE_REFUSAL.VALID_UNTIL_PASSED, `The chain reached ledger ${expiration.data} while the close was prepared`)
         }
-        if (!Api.isSimulationSuccess(simulation)) return contractRefusal(simulation.error)
-        return succeed({ chainId, invocation: operation.toXDR('base64') }, 'Purchase authorized')
+        return succeed({ chainId, treasury, ...signable(entry, expiration.data) }, 'Close prepared for the officers to sign')
+      })
+    },
+
+    async authorizeClose({ prepared: { treasury, entry, expirationLedger }, signatures }) {
+      const unsigned = closeEntryOf(entry, treasury)
+      if (unsigned === undefined) {
+        return refused(SALE_REFUSAL.UNEXPECTED_AUTHORIZATION, `The entry is not ${treasury}'s close of ${address}`)
+      }
+      const byOfficer = new Map(signatures.map(({ address: signer, signature }) => [signer, signature]))
+      let signed: xdr.SorobanAuthorizationEntry
+      try {
+        const entryHash = entryHashOf(unsigned, expirationLedger)
+        const forged = [...byOfficer].find(([signer, signature]) => !isSignatureOf(signer, entryHash, signature))
+        if (forged !== undefined) {
+          return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `The signature of ${forged[0]} is not of the entry`)
+        }
+        const sorted = [...byOfficer]
+          .map(([signer, signature]) => {
+            const publicKey = StrKey.decodeEd25519PublicKey(signer)
+            return { publicKey, signature: fromHex(signature), order: toHex(publicKey) }
+          })
+          .sort((a, b) => (a.order < b.order ? -1 : 1))
+        signed = await authorizeEntry(
+          unsigned,
+          async () => ({
+            signatureScVal: scv.vec(
+              sorted.map(({ publicKey, signature }) =>
+                scv.struct({ public_key: xdr.ScVal.scvBytes(publicKey), signature: xdr.ScVal.scvBytes(signature) }),
+              ),
+            ),
+          }),
+          expirationLedger,
+          passphrase,
+          treasury,
+        )
+      } catch (error) {
+        return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `The signatures cannot sign the entry: ${String(error)}`)
+      }
+      return onChain(async (server) => {
+        const signerSet = await readSignerSet(rpc, treasury)
+        if (signerSet === null) return refused(SALE_REFUSAL.INVALID_TREASURY, `${treasury} has no account`)
+        const outsider = [...byOfficer.keys()].find((signer) => !signerSet.signers.includes(signer))
+        if (outsider !== undefined) {
+          return refused(SALE_REFUSAL.SIGNATURE_MISMATCH, `${outsider} is not a signer of ${treasury}`)
+        }
+        if (byOfficer.size < signerSet.threshold) {
+          return refused(
+            SALE_REFUSAL.BELOW_THRESHOLD,
+            `${byOfficer.size} of the ${signerSet.threshold} signatures ${treasury} requires`,
+          )
+        }
+        return authorized(server, closeOperation(treasury, [signed]), expirationLedger)
       })
     },
 
@@ -214,13 +364,14 @@ export function stellarSale(chainId: StellarChainId, rpc: StellarRpc, address: s
             source: SIMULATION_SOURCE,
             operation: Operation.invokeContractFunction({ contract: address, function: method, args: [] }),
           })
-        const [state, config, accounting, contracts] = await Promise.all([
+        const [state, config, accounting, contracts, finalizableAt] = await Promise.all([
           view('state'),
           view('config'),
           view('accounting'),
           view('contracts'),
+          view('finalizable_at'),
         ])
-        const sale = saleViewOf(state, config, accounting, contracts)
+        const sale = saleViewOf(state, config, accounting, contracts, finalizableAt)
         return sale === undefined
           ? refused(SALE_REFUSAL.UNEXPECTED_RESPONSE, `${address} did not answer like a sale`)
           : succeed(sale, 'Sale read from the chain')
@@ -232,7 +383,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function saleViewOf(state: unknown, config: unknown, accounting: unknown, contracts: unknown): SaleView | undefined {
+function saleViewOf(
+  state: unknown,
+  config: unknown,
+  accounting: unknown,
+  contracts: unknown,
+  finalizableAt: unknown,
+): SaleView | undefined {
   const [stateName] = Array.isArray(state) ? state : []
   const saleState = SALE_STATES[String(stateName)]
   if (saleState === undefined || !isRecord(config) || !isRecord(accounting) || !isRecord(contracts)) return undefined
@@ -244,9 +401,11 @@ function saleViewOf(state: unknown, config: unknown, accounting: unknown, contra
     typeof supply !== 'bigint' ||
     typeof soldQuotas !== 'bigint' ||
     typeof raised !== 'bigint' ||
-    typeof paymentAsset !== 'string'
+    typeof paymentAsset !== 'string' ||
+    typeof finalizableAt !== 'bigint'
   ) {
     return undefined
   }
-  return { state: saleState, pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
+  const terms = { state: saleState, pricePerQuota: price, supply, soldQuotas, raised, paymentAsset }
+  return finalizableAt === 0n ? terms : { ...terms, finalizableAt: Number(finalizableAt) * 1_000 }
 }

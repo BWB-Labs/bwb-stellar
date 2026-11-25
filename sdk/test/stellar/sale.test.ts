@@ -8,6 +8,7 @@ import {
   Keypair,
   nativeToScVal,
   Networks,
+  scValToNative,
   SorobanDataBuilder,
   Transaction,
   xdr,
@@ -41,11 +42,7 @@ function contractCall(contract: string, method: string, args: Array<xdr.ScVal>) 
   )
 }
 
-function purchaseEntry({
-  recipient = SALE,
-  buyer = BUYER.publicKey(),
-  signer = BUYER.publicKey(),
-}: { recipient?: string; buyer?: string; signer?: string } = {}) {
+function unsignedEntry(signer: string, rootInvocation: xdr.SorobanAuthorizedInvocation) {
   return new xdr.SorobanAuthorizationEntry({
     credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(
       new xdr.SorobanAddressCredentials({
@@ -55,7 +52,18 @@ function purchaseEntry({
         signature: xdr.ScVal.scvVoid(),
       }),
     ),
-    rootInvocation: new xdr.SorobanAuthorizedInvocation({
+    rootInvocation,
+  })
+}
+
+function purchaseEntry({
+  recipient = SALE,
+  buyer = BUYER.publicKey(),
+  signer = BUYER.publicKey(),
+}: { recipient?: string; buyer?: string; signer?: string } = {}) {
+  return unsignedEntry(
+    signer,
+    new xdr.SorobanAuthorizedInvocation({
       function: contractCall(SALE, 'buy', [scv.address(buyer), scv.i128(AMOUNT)]),
       subInvocations: [
         new xdr.SorobanAuthorizedInvocation({
@@ -64,7 +72,7 @@ function purchaseEntry({
         }),
       ],
     }),
-  })
+  )
 }
 
 function simulated(auth: Array<xdr.SorobanAuthorizationEntry>, latestLedger = LATEST_LEDGER, resourceFee = '500') {
@@ -300,6 +308,280 @@ describe('authorize', () => {
   })
 })
 
+const TREASURY = Keypair.random().publicKey()
+
+function closeEntry({ caller = TREASURY, signer = TREASURY }: { caller?: string; signer?: string } = {}) {
+  return unsignedEntry(
+    signer,
+    new xdr.SorobanAuthorizedInvocation({ function: contractCall(SALE, 'close', [scv.address(caller)]), subInvocations: [] }),
+  )
+}
+
+const LATEST_CLOSE_TIME = 1_795_000_000
+const LEDGER_MS = 5_000
+const MAX_ENTRY_TTL = 3_110_400
+const VALID_UNTIL = (LATEST_CLOSE_TIME + 1_800) * 1_000
+
+function stubCloseChain(simulation: Record<string, unknown>, { reportsSettings = true } = {}) {
+  const scpTiming = xdr.LedgerEntryData.configSetting(
+    xdr.ConfigSettingEntry.configSettingScpTiming(
+      new xdr.ConfigSettingScpTiming({
+        ledgerTargetCloseTimeMilliseconds: LEDGER_MS,
+        nominationTimeoutInitialMilliseconds: 1_000,
+        nominationTimeoutIncrementMilliseconds: 1_000,
+        ballotTimeoutInitialMilliseconds: 1_000,
+        ballotTimeoutIncrementMilliseconds: 1_000,
+      }),
+    ),
+  )
+  const stateArchival = xdr.LedgerEntryData.configSetting(
+    xdr.ConfigSettingEntry.configSettingStateArchival(
+      new xdr.StateArchivalSettings({
+        maxEntryTtl: MAX_ENTRY_TTL,
+        minTemporaryTtl: 16,
+        minPersistentTtl: 120_960,
+        persistentRentRateDenominator: 1n,
+        tempRentRateDenominator: 1n,
+        maxEntriesToArchive: 1_000,
+        liveSorobanStateSizeWindowSampleSize: 30,
+        liveSorobanStateSizeWindowSamplePeriod: 64,
+        evictionScanSize: 100_000,
+        startingEvictionScanLevel: 7,
+      }),
+    ),
+  )
+  return stubJsonRpc(({ method }) => {
+    if (method === 'getNetwork') return { passphrase: Networks.TESTNET, protocolVersion: 23 }
+    if (method === 'getLatestLedger') {
+      return { id: 'ab'.repeat(32), sequence: LATEST_LEDGER, protocolVersion: 23, closeTime: String(LATEST_CLOSE_TIME) }
+    }
+    if (method === 'getLedgerEntries') {
+      return {
+        entries: (reportsSettings ? [
+          { configSettingId: xdr.ConfigSettingId.configSettingScpTiming, entry: scpTiming },
+          { configSettingId: xdr.ConfigSettingId.configSettingStateArchival, entry: stateArchival },
+        ] : []).map(({ configSettingId, entry }) => ({
+          key: xdr.LedgerKey.configSetting(new xdr.LedgerKeyConfigSetting({ configSettingId })).toXDR('base64'),
+          xdr: entry.toXDR('base64'),
+          lastModifiedLedgerSeq: 1,
+        })),
+        latestLedger: LATEST_LEDGER,
+      }
+    }
+    return simulation
+  })
+}
+
+describe('close', () => {
+  it('returns the one entry the treasury signs to close the sale, with its hash and expiration ledger', async () => {
+    stubCloseChain(simulated([closeEntry()]))
+
+    const closing = await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })
+
+    if (!closing.success) throw new Error(closing.message)
+    const entry = xdr.SorobanAuthorizationEntry.fromXDR(closing.data.entry, 'base64')
+    const expectedHash = hash(buildAuthorizationEntryPreimage(entry, EXPIRATION_LEDGER, Networks.TESTNET).toXDR())
+    expect(closing.data).toMatchObject({
+      chainId: CHAIN_ID.STELLAR_TESTNET,
+      treasury: TREASURY,
+      expirationLedger: EXPIRATION_LEDGER,
+      entryHash: toHex(expectedHash),
+    })
+  })
+
+  it.each([
+    ['closes for another caller', closeEntry({ caller: Keypair.random().publicKey() })],
+    ['another address would sign', closeEntry({ signer: Keypair.random().publicKey() })],
+    ['covers a purchase', purchaseEntry({ signer: TREASURY })],
+  ])('refuses an entry that %s', async (_, entry) => {
+    stubCloseChain(simulated([entry]))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.UNEXPECTED_AUTHORIZATION },
+    })
+  })
+
+  it('refuses a treasury that is not an account address, without asking the chain', async () => {
+    const requests = stubCloseChain(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: SALE, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.INVALID_TREASURY },
+    })
+    expect(requests).toEqual([])
+  })
+
+  it.each([
+    [6228, SALE_REFUSAL.BELOW_MINIMUM],
+    [6201, SALE_REFUSAL.SALE_NOT_ACTIVE],
+  ])('names contract error %i as %s', async (contractError, code) => {
+    stubCloseChain({ latestLedger: LATEST_LEDGER, error: `HostError: Error(Contract, #${contractError})`, events: [] })
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({ success: false, error: { code } })
+  })
+
+  it.each([
+    ['a moment between two ledgers, rounded up to the next ledger', VALID_UNTIL - 1, EXPIRATION_LEDGER],
+    ['the latest moment the network allows', (LATEST_CLOSE_TIME + (MAX_ENTRY_TTL - 1) * 5) * 1_000, LATEST_LEDGER + MAX_ENTRY_TTL - 1],
+  ])('keeps the entry valid until %s', async (_, validUntil, expirationLedger) => {
+    stubCloseChain(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil })).toMatchObject({ success: true, data: { expirationLedger } })
+  })
+
+  it.each([
+    ['already past', LATEST_CLOSE_TIME * 1_000, SALE_REFUSAL.VALID_UNTIL_PASSED],
+    ['beyond what the network allows', (LATEST_CLOSE_TIME + MAX_ENTRY_TTL * 5) * 1_000, SALE_REFUSAL.VALID_UNTIL_TOO_LATE],
+  ])('refuses a moment %s', async (_, validUntil, code) => {
+    stubCloseChain(simulated([closeEntry()]))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil })).toMatchObject({ success: false, error: { code } })
+  })
+
+  it('refuses a moment the chain reached while the close was being prepared', async () => {
+    stubCloseChain(simulated([closeEntry()], EXPIRATION_LEDGER))
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.VALID_UNTIL_PASSED },
+    })
+  })
+
+  it('says the response was unexpected when the network does not report its ledger time and entry lifetime', async () => {
+    stubCloseChain(simulated([closeEntry()]), { reportsSettings: false })
+
+    expect(await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.UNEXPECTED_RESPONSE },
+    })
+  })
+})
+
+describe('authorizeClose', () => {
+  const officer = (seed: number) => Keypair.fromRawEd25519Seed(new Uint8Array(32).fill(seed))
+  const FIRST = officer(3)
+  const SECOND = officer(9)
+  const THIRD = officer(1)
+  const OFFICERS = [FIRST, SECOND, THIRD]
+
+  async function preparedClose() {
+    stubCloseChain(simulated([closeEntry()]))
+    const closing = await theSale().close({ treasury: TREASURY, validUntil: VALID_UNTIL })
+    if (!closing.success) throw new Error(closing.message)
+    return closing.data
+  }
+
+  function stubTreasury(simulation: Record<string, unknown> = simulated([])) {
+    return stubChain({
+      accounts: [
+        accountEntry(TREASURY, 1n, { thresholds: [0, 2, 2, 2], signers: OFFICERS.map((signer) => [signer.publicKey(), 1]) }),
+      ],
+      simulated: simulation,
+    })
+  }
+
+  function signedBy(entryHash: string, officers: Array<Keypair>) {
+    return officers.map((officer) => ({ address: officer.publicKey(), signature: signatureOver(entryHash, officer) }))
+  }
+
+  it('refuses fewer officers than the treasury’s threshold, without simulating', async () => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    expect(await theSale().authorizeClose({ prepared: closing, signatures: signedBy(closing.entryHash, [FIRST]) })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.BELOW_THRESHOLD },
+    })
+    expect(requests.map(({ method }) => method)).not.toContain('simulateTransaction')
+  })
+
+  it('refuses signatures over a close whose expiration was changed after it was prepared, without asking the chain', async () => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    expect(
+      await theSale().authorizeClose({
+        prepared: { ...closing, expirationLedger: closing.expirationLedger + 1 },
+        signatures: signedBy(closing.entryHash, [FIRST, SECOND]),
+      }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.SIGNATURE_MISMATCH } })
+    expect(requests).toEqual([])
+  })
+
+  it.each([
+    ['another call', () => purchaseEntry({ signer: TREASURY }).toXDR('base64')],
+    ['another address', () => closeEntry({ signer: Keypair.random().publicKey() }).toXDR('base64')],
+    ['no entry at all', () => 'bm90IHhkcg=='],
+  ])('refuses a prepared close whose entry was swapped for %s, without asking the chain', async (_, entry) => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    expect(
+      await theSale().authorizeClose({ prepared: { ...closing, entry: entry() }, signatures: signedBy(closing.entryHash, [FIRST, SECOND]) }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.UNEXPECTED_AUTHORIZATION } })
+    expect(requests).toEqual([])
+  })
+
+  it('counts an officer who signed twice once', async () => {
+    const closing = await preparedClose()
+    stubTreasury()
+
+    expect(
+      await theSale().authorizeClose({ prepared: closing, signatures: signedBy(closing.entryHash, [FIRST, FIRST]) }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.BELOW_THRESHOLD } })
+  })
+
+  it.each([
+    ['made over another hash', () => signedBy('ab'.repeat(32), [FIRST, SECOND])],
+    ['made by someone who is not an officer', (entryHash: string) => signedBy(entryHash, [FIRST, SECOND, Keypair.random()])],
+  ])('refuses a signature %s', async (_, signatures) => {
+    const closing = await preparedClose()
+    stubTreasury()
+
+    expect(await theSale().authorizeClose({ prepared: closing, signatures: signatures(closing.entryHash) })).toMatchObject({
+      success: false,
+      error: { code: SALE_REFUSAL.SIGNATURE_MISMATCH },
+    })
+  })
+
+  it('signs the entry with the officers’ signatures in raw public key order and simulates it again', async () => {
+    const closing = await preparedClose()
+    const requests = stubTreasury()
+
+    const authorized = await theSale().authorizeClose({ prepared: closing, signatures: signedBy(closing.entryHash, OFFICERS) })
+
+    if (!authorized.success) throw new Error(authorized.message)
+    const [entry] = simulatedEntries(requests.find(({ method }) => method === 'simulateTransaction')?.params)
+    if (entry?.credentials.type !== 'sorobanCredentialsAddressV2') throw new Error('No address entry simulated')
+    const { signature, signatureExpirationLedger } = entry.credentials.addressV2
+    const signers: Array<{ public_key: Uint8Array }> = scValToNative(signature)
+    expect(signers.map(({ public_key }) => toHex(public_key))).toEqual([THIRD, FIRST, SECOND].map((key) => toHex(key.rawPublicKey())))
+    expect(signatureExpirationLedger).toBe(closing.expirationLedger)
+    const relayed = xdr.Operation.fromXDR(authorized.data.invocation, 'base64').body
+    if (relayed.type !== 'invokeHostFunction') throw new Error('No contract call relayed')
+    expect(relayed.invokeHostFunctionOp.auth.map((signed) => signed.toXDR('base64'))).toEqual([entry.toXDR('base64')])
+  })
+
+  it('refuses an entry whose expiration ledger has been reached', async () => {
+    const closing = await preparedClose()
+    stubTreasury(simulated([], EXPIRATION_LEDGER))
+
+    expect(
+      await theSale().authorizeClose({ prepared: closing, signatures: signedBy(closing.entryHash, [FIRST, SECOND]) }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.ENTRY_EXPIRED } })
+  })
+
+  it('names the contract’s refusal of the signed close', async () => {
+    const closing = await preparedClose()
+    stubTreasury({ latestLedger: LATEST_LEDGER, error: 'HostError: Error(Contract, #6228)', events: [] })
+
+    expect(
+      await theSale().authorizeClose({ prepared: closing, signatures: signedBy(closing.entryHash, [FIRST, SECOND]) }),
+    ).toMatchObject({ success: false, error: { code: SALE_REFUSAL.BELOW_MINIMUM } })
+  })
+})
+
 describe('purchaseReceipt', () => {
   const transaction = { chainId: CHAIN_ID.STELLAR_TESTNET, resultMeta: RECEIPT }
 
@@ -332,7 +614,7 @@ describe('purchaseReceipt', () => {
 })
 
 describe('read', () => {
-  function answerFor(params: unknown): xdr.ScVal {
+  function answerFor(params: unknown, state: string, finalizableAt: bigint): xdr.ScVal {
     if (typeof params !== 'object' || params === null || !('transaction' in params) || typeof params.transaction !== 'string') {
       throw new Error('No transaction simulated')
     }
@@ -341,7 +623,8 @@ describe('read', () => {
       throw new Error('No contract call simulated')
     }
     const method = operation.func.invokeContract.functionName.toString()
-    if (method === 'state') return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Active')])
+    if (method === 'state') return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(state)])
+    if (method === 'finalizable_at') return scv.u64(finalizableAt)
     if (method === 'config') return scv.struct({ price: scv.i128(100_000_000n) })
     if (method === 'accounting') {
       return scv.struct({ supply: scv.i128(1_000n), sold_tokens: scv.i128(3n), raised: scv.i128(300_000_000n) })
@@ -349,7 +632,7 @@ describe('read', () => {
     return scv.struct({ payment_asset: nativeToScVal(USDC, { type: 'address' }) })
   }
 
-  it('reports the state, price and accounting of the sale in chain-neutral terms', async () => {
+  function stubSale(state = 'Active', finalizableAt = 1_793_086_401n) {
     stubJsonRpc(({ method, params }) =>
       method === 'getNetwork'
         ? { passphrase: Networks.TESTNET, protocolVersion: 23 }
@@ -357,10 +640,14 @@ describe('read', () => {
             latestLedger: LATEST_LEDGER,
             minResourceFee: '100',
             transactionData: new SorobanDataBuilder().build().toXDR('base64'),
-            results: [{ xdr: answerFor(params).toXDR('base64'), auth: [] }],
+            results: [{ xdr: answerFor(params, state, finalizableAt).toXDR('base64'), auth: [] }],
             events: [],
           },
     )
+  }
+
+  it('reports the state, price and accounting of the sale in chain-neutral terms', async () => {
+    stubSale()
 
     expect(await theSale().read()).toMatchObject({
       success: true,
@@ -373,6 +660,29 @@ describe('read', () => {
         paymentAsset: USDC,
       },
     })
+  })
+
+  it.each([
+    ['Active', SALE_STATE.ACTIVE],
+    ['Closing', SALE_STATE.CLOSING],
+    ['Successful', SALE_STATE.SUCCESSFUL],
+    ['Failed', SALE_STATE.FAILED],
+  ])('reports the finalization time while the sale is %s, once it has a purchase', async (state, saleState) => {
+    stubSale(state)
+
+    expect(await theSale().read()).toMatchObject({
+      success: true,
+      data: { state: saleState, finalizableAt: 1_793_086_401_000 },
+    })
+  })
+
+  it('reports no finalization time before the first purchase', async () => {
+    stubSale('Active', 0n)
+
+    const sale = await theSale().read()
+
+    if (!sale.success) throw new Error(sale.message)
+    expect(sale.data).not.toHaveProperty('finalizableAt')
   })
 
   it('says the response was unexpected when the address does not answer like a sale', async () => {
