@@ -132,3 +132,28 @@ fn a_holder_the_distributor_cannot_afford_is_skipped() {
     assert_eq!(s.usdc.balance(&s.bob), 100 * USDC);
     assert_eq!(s.pot(), 0);
 }
+
+/// A share that does not fit an `i128` cannot be worked out. It takes a
+/// counter no real deposit reaches, so the test writes one. The holder is
+/// skipped like any other the claim cannot pay, and the read says why.
+#[test]
+fn a_holder_whose_share_overflows_is_skipped() {
+    use crate::{storage, OfferHoldingsDistributorError};
+    let s = setup();
+    s.give(&s.alice, 2);
+    s.e.as_contract(&s.id, || storage::set_per_quota(&s.e, i128::MAX));
+    s.claim(&[&s.alice]);
+    let skipped = ClaimSkipped {
+        holder: s.alice.clone(),
+    };
+    let claimed = Claimed { count: 0, total: 0 };
+    assert_eq!(
+        emitted(&s.e, &s.id),
+        [skipped.to_xdr(&s.e, &s.id), claimed.to_xdr(&s.e, &s.id)]
+    );
+    assert_eq!(s.client.credited(&s.alice), 0);
+    assert_eq!(
+        super::err(s.client.try_claimable(&s.alice)),
+        OfferHoldingsDistributorError::AmountOverflow.into()
+    );
+}

@@ -22,7 +22,7 @@ pub enum OfferHoldingsDistributorError {
     /// A deposit while the quota token has no supply: there is nobody to
     /// divide it among.
     NoSupply = 6406,
-    /// A deposit too large for the per-quota counter, or a share too large
-    /// for an `i128`.
+    /// A deposit too large for the per-quota counter, or a read of a share
+    /// too large for an `i128`.
     AmountOverflow = 6407,
 }

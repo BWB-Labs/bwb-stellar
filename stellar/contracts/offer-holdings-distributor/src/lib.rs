@@ -87,7 +87,8 @@ impl OfferHoldingsDistributor {
 
     /// Takes `amount` of the payment asset from the owner's account and
     /// divides it among the quotas that exist now. Owner only (6400). The
-    /// amount is positive (6405) and the token has a supply (6406).
+    /// amount is positive (6405), the token has a supply (6406) and the
+    /// per-quota counter can take the amount (6407).
     ///
     /// The owner's authorization must cover this call and the one
     /// `transfer` the asset makes in its name. No holder is touched; each
@@ -128,8 +129,9 @@ impl OfferHoldingsDistributor {
     /// A holder with nothing to receive is passed over. A holder on the
     /// token's whitelist, or one whose payment the asset refuses, is passed
     /// over with `claim_skipped`: its share stays here and its record does
-    /// not change, so one holder never fails the call. Emits `claimed`
-    /// once, after the payments.
+    /// not change, so one holder never fails the call. So is a holder
+    /// whose share does not fit an `i128`. Emits `claimed` once, after the
+    /// payments.
     #[when_not_paused]
     pub fn claim(e: &Env, holders: Vec<Address>) {
         if holders.is_empty() {
@@ -146,8 +148,10 @@ impl OfferHoldingsDistributor {
         let mut count = 0u32;
         let mut total = 0i128;
         for holder in holders.iter() {
-            let credited = storage::credited(e, &holder);
-            let owed = earned(e, &quota_token, &holder, per_quota) - credited;
+            let Some((earned, owed)) = share(e, &quota_token, &holder, per_quota) else {
+                events::ClaimSkipped { holder }.publish(e);
+                continue;
+            };
             if owed <= 0 {
                 continue;
             }
@@ -161,8 +165,12 @@ impl OfferHoldingsDistributor {
                 events::ClaimSkipped { holder }.publish(e);
                 continue;
             }
-            storage::set_credited(e, &holder, credited + owed);
+            // Paid so far and what was just paid add up to what the
+            // holder's quotas have earned.
+            storage::set_credited(e, &holder, earned);
             count += 1;
+            // Every `owed` counted here left the distributor's balance,
+            // itself an `i128`, so the sum fits.
             total += owed;
         }
         storage::extend_instance_ttl(e);
@@ -195,11 +203,13 @@ impl OfferHoldingsDistributor {
     }
 
     /// What a claim would try to pay `holder` now: zero for an account on
-    /// the token's whitelist.
+    /// the token's whitelist. Fails (6407) for a share that does not fit
+    /// an `i128`, which a claim skips.
     pub fn claimable(e: &Env, holder: Address) -> i128 {
         let quota_token = QuotaTokenClient::new(e, &storage::contracts(e).token);
-        let owed =
-            earned(e, &quota_token, &holder, storage::per_quota(e)) - storage::credited(e, &holder);
+        let Some((_, owed)) = share(e, &quota_token, &holder, storage::per_quota(e)) else {
+            panic_with_error!(e, OfferHoldingsDistributorError::AmountOverflow);
+        };
         if owed <= 0 || quota_token.is_transfer_whitelisted(&holder) {
             return 0;
         }
@@ -231,12 +241,18 @@ impl OfferHoldingsDistributor {
 }
 
 /// What the quotas `holder` has now earned from every deposit, rounded
-/// down.
-fn earned(e: &Env, quota_token: &QuotaTokenClient, holder: &Address, per_quota: i128) -> i128 {
-    match quota_token.balance(holder).checked_mul(per_quota) {
-        Some(scaled) => scaled / MAGNITUDE,
-        None => panic_with_error!(e, OfferHoldingsDistributorError::AmountOverflow),
-    }
+/// down, and how much of it is still to be paid, which is negative when
+/// the holder was paid for quotas it no longer has. Nothing when either
+/// does not fit an `i128`.
+fn share(
+    e: &Env,
+    quota_token: &QuotaTokenClient,
+    holder: &Address,
+    per_quota: i128,
+) -> Option<(i128, i128)> {
+    let earned = quota_token.balance(holder).checked_mul(per_quota)? / MAGNITUDE;
+    let owed = earned.checked_sub(storage::credited(e, holder))?;
+    Some((earned, owed))
 }
 
 fn require_owner(e: &Env, caller: &Address) {

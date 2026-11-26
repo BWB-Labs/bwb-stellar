@@ -40,15 +40,18 @@ sequenceDiagram
 - **The supply of the moment.** Each deposit is divided among the quotas that exist when it arrives. Quotas burned before a deposit take no part of it.
 - **Rounding goes down.** The counter is kept times 10^18 and every division rounds down, so the contract never owes more than it holds. What the divisions leave stays in the contract: less than one stroop per quota in each deposit's division, and less than one stroop per holder in its share.
 
+- **No arithmetic wraps.** The two multiplications that take free inputs, the deposit times the magnitude and a balance times the counter, are checked, as are the counter's addition and the subtraction of what was paid. A deposit that does not fit is refused (6407) and a share that does not fit is skipped. The build also keeps overflow checks on in release, so any other operation would stop the call instead of wrapping.
+
 ## Who cannot be paid
 
-A claim passes over a holder in three cases, and the rest of the list is paid. No holder can make a claim fail: what the payment asset refuses is skipped. A claim still fails whole, like any transaction, when it is sent without the resources or the footprint its simulation gave, or with an archived entry not restored; that is the sender's doing and costs the sender the fee.
+A claim passes over a holder in four cases, and the rest of the list is paid. No holder can make a claim fail: what the payment asset refuses is skipped. A claim still fails whole, like any transaction, when it is sent without the resources or the footprint its simulation gave, or with an archived entry not restored; that is the sender's doing and costs the sender the fee.
 
 | Case | What happens |
 |---|---|
 | Nothing to receive | Passed over, no event |
 | The holder is on the token's whitelist | `claim_skipped`, nothing paid |
 | The payment asset refuses the transfer | `claim_skipped`, nothing paid |
+| The share does not fit an `i128` | `claim_skipped`, nothing paid |
 
 - **Whitelisted accounts are operational accounts**: the sale contract, a treasury that took quotas back. The sale can only pay out what it raised, so return money sent to it would be stuck; and a quota it later releases would be paid a second time in its investor's hands. With the refusal, the share of quotas held by a whitelisted account waits in the distributor. A deposit made before every `release` is therefore safe: the investor claims the share after receiving the quotas.
 - **A refused transfer** is a holder without a trustline for the payment asset, one whose balance the asset's issuer froze, or a claim the distributor cannot afford because the owner withdrew the money. The holder's record does not change, so the same share is paid by a later claim once the cause is gone.
@@ -108,7 +111,7 @@ Reads, none of which needs a signature or extends any of the distributor's entri
 
 | Read | Answers |
 |---|---|
-| `claimable(holder)` | What a claim would try to pay the holder now; zero for a whitelisted account |
+| `claimable(holder)` | What a claim would try to pay the holder now; zero for a whitelisted account; fails (6407) for a share that does not fit an `i128` |
 | `credited(holder)` | What the holder was paid so far |
 | `cumulative_per_quota()` | The counter: what one quota has earned, times 10^18 |
 | `contracts()` | `{token, payment_asset}` |
@@ -188,7 +191,7 @@ Also emitted, by the payment asset: one `transfer` from the owner to the distrib
 | 6404 | `BatchTooLarge` | More than 50 holders |
 | 6405 | `NonPositiveAmount` | A deposit, or a withdrawal, of zero or less |
 | 6406 | `NoSupply` | A deposit while the token has no supply |
-| 6407 | `AmountOverflow` | A deposit too large for the counter, or a share too large for an `i128`. The second fails a whole claim; it takes deposits beyond about 1.7 × 10^13 USDC in all, which the payment asset cannot hold |
+| 6407 | `AmountOverflow` | A deposit too large for the counter, or `claimable` for a share too large for an `i128`. A claim skips such a holder instead. The second case takes deposits beyond about 1.7 × 10^13 USDC in all |
 
 Codes from the contracts it calls, which surface unchanged:
 
@@ -215,7 +218,7 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 | `authorization` | A signed wrong caller per privileged call gets the power's code, a funded stranger included; an unsigned call fails at authorization; `claim` and the reads with no auths at all; the owner's exact authorization for a deposit with its one `transfer`; a signature for another amount is refused; a withdrawal is signed as the call alone |
 | `deposit` | The money pulled and the counter raised; deposits add up; no holder is paid; zero and negative amounts; no supply; an amount too large for the counter; rounding down and the dust left; a deposit smaller than the supply; the supply of the moment |
 | `claim` | Holders paid by what they hold; no signature; a second claim pays nothing; the difference after a new deposit; several deposits in one claim; a holder listed twice; an account with no quotas; a claim before any deposit; a holder who returned quotas after claiming; the accepted risk pinned, by a forced transfer and by a resale through a whitelisted account; a holder who returns quotas before claiming; an empty list and 51 holders; a full list of 50 classic accounts measured against the network limits |
-| `skip` | A whitelisted account is skipped with the event and paid nothing; a deposit before the quotas are handed out waits for the holder; an account taken off the whitelist claims; a holder without a trustline is skipped and paid once it has one; a frozen balance, which leaves no event of the asset's; a distributor the owner emptied, with the event |
+| `skip` | A whitelisted account is skipped with the event and paid nothing; a deposit before the quotas are handed out waits for the holder; an account taken off the whitelist claims; a holder without a trustline is skipped and paid once it has one; a frozen balance, which leaves no event of the asset's; a distributor the owner emptied, with the event; a share that overflows, skipped by the claim and refused by the read |
 | `withdraw` | Into the owner's own account with the exact event, after the asset's `transfer`; nobody else; zero and negative amounts; more than the balance; no record changes; a stray asset; while paused |
 | `pause` | A paused distributor blocks `deposit` and `claim` until the owner unpauses; the owner may pause too; the reads answer while paused; OpenZeppelin's 1000 and 1001 |
 | `events` | Exact events and order for construction, a deposit, a claim with paid and skipped holders, a claim that pays nobody, pause and unpause; the measured sizes of `claimed` and `claim_skipped` |
