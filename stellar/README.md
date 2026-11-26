@@ -32,9 +32,10 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 | `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much, per UTC month; one global instance ([docs](docs/offer-allowlist.md)) | 1 |
 | `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, close, finalize, cancel, cooling-off, refund, release ([docs](docs/offer-sale.md)) | 1 |
 | `offer-distributor` | `TokenDistributor` | A list of recipients paid in one call from the owner's account; an id is paid at most once ([docs](docs/offer-distributor.md)) | 2 |
+| `offer-holdings-distributor` | `TokenDistributorByHoldings` | An offering's returns, deposited by the issuer and claimed per holder by quota balance ([docs](docs/offer-holdings-distributor.md)) | 2 |
 
-`offer-token-upgrade-fixture`, `offer-allowlist-upgrade-fixture`, `offer-sale-upgrade-fixture` and
-`offer-distributor-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are test-only second versions of the contracts, used by their upgrade tests. They are never deployed.
+`offer-token-upgrade-fixture`, `offer-allowlist-upgrade-fixture`, `offer-sale-upgrade-fixture`,
+`offer-distributor-upgrade-fixture` and `offer-holdings-distributor-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are test-only second versions of the contracts, used by their upgrade tests. They are never deployed.
 
 The holdings distributor and the factories follow in Tranche 2.
 

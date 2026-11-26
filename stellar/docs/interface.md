@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 1.1 |
-| Status | Tranche 1 delivered; under review ([#26](https://github.com/BWB-Labs/bwb-stellar/issues/26)). `offer-distributor` added in Tranche 2 ([#28](https://github.com/BWB-Labs/bwb-stellar/issues/28)) |
-| Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1); `offer-distributor` (Tranche 2) |
+| Version | 1.2 |
+| Status | Tranche 1 delivered; under review ([#26](https://github.com/BWB-Labs/bwb-stellar/issues/26)). `offer-distributor` and `offer-holdings-distributor` added in Tranche 2 ([#28](https://github.com/BWB-Labs/bwb-stellar/issues/28), [#29](https://github.com/BWB-Labs/bwb-stellar/issues/29)) |
+| Contracts | `offer-token`, `offer-allowlist`, `offer-sale` (Tranche 1); `offer-distributor`, `offer-holdings-distributor` (Tranche 2) |
 | Stack | soroban-sdk 26.1, OpenZeppelin Stellar Contracts 0.7.2; mainnet on protocol 29, testnet on 30 |
 
 This document defines how the BWB backend works with the Soroban contracts that carry BWB's offerings on Stellar. Each contract has its own document with its calls, events and errors:
@@ -13,6 +13,7 @@ This document defines how the BWB backend works with the Soroban contracts that 
 - [offer-allowlist.md](offer-allowlist.md): who may invest and up to how much, one for the whole platform.
 - [offer-sale.md](offer-sale.md): escrow and lifecycle of one offering.
 - [offer-distributor.md](offer-distributor.md): a list of recipients paid in one call from the owner's account, one per offering (Tranche 2).
+- [offer-holdings-distributor.md](offer-holdings-distributor.md): an offering's returns paid to whoever holds its quotas, deposited by the issuer and claimed per holder, one per offering (Tranche 2).
 
 ## Contents
 
@@ -133,7 +134,7 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 
 - **Investor:** a user buying through their **wallet** (one signer), or an organization buying through its **treasury** (a threshold of officers; on Stellar, a native multisig account). The contracts treat both the same: an address that authorized the call.
 - **Tokenizer:** the organization that administers an offering. Its treasury owns the offering's contracts. On Base, the owner and `transferAdmin` of every offering contract is the tokenizer organization's Safe (`tokenizerOrgId`); the issuer (the SPE, `issuerOrgId`) owns nothing on chain and only receives a payout share. This document follows that: **tokenizer** is the owner, **issuer** is a payout recipient.
-- **Issuer:** the organization (SPE) that raises the money. It receives one share of the payout and holds no role on the contracts.
+- **Issuer:** the organization (SPE) that raises the money. It receives one share of the payout and holds one role on the contracts: it owns its offering's holdings distributor, through which it pays returns.
 - **Offering:** one `offer-token` contract plus one `offer-sale` contract.
 - **Platform multisig:** BWB's own threshold account. It is used rarely.
 - **Platform hot key:** a single BWB key held by the backend, which signs without a human.
@@ -145,8 +146,9 @@ Vocabulary follows the glossary of BWB's Base application and this repository's 
 | owner (stored address) | `offer-sale` | tokenizer's treasury | close, reopen, cancel, withdraw payment, withdraw tokens after failure, pause and unpause |
 | owner (stored address) | `offer-distributor` | the treasury that pays, chosen at deploy | distribute from its own account, rescue a balance sent to the distributor by mistake, pause and unpause |
 | access-control admin | `offer-allowlist` | platform multisig | grant and revoke the roles below; it is also the only upgrader (ADR 0008), and it can never renounce |
-| `pauser` (stored address) | `offer-token`, `offer-sale`, `offer-distributor` | platform multisig | pause only, never unpause (ADR 0003, flagged for the team) |
-| `upgrader` (stored address) | `offer-token`, `offer-sale`, `offer-distributor`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
+| owner (stored address) | `offer-holdings-distributor` | the issuer's treasury | deposit returns from its own account, withdraw any balance into its own account, pause and unpause |
+| `pauser` (stored address) | `offer-token`, `offer-sale`, `offer-distributor`, `offer-holdings-distributor` | platform multisig | pause only, never unpause (ADR 0003, flagged for the team) |
+| `upgrader` (stored address) | `offer-token`, `offer-sale`, `offer-distributor`, `offer-holdings-distributor`; on `offer-allowlist` the access-control admin itself | platform multisig | replace the contract's code |
 | `allocator` | `offer-allowlist` | platform hot key | write allocations; grant and revoke `sale`. Granted only by the admin |
 | `sale` | `offer-allowlist` | each offering's `offer-sale` | consume room, nothing else. Restoring its own receipts needs no role, so revoking `sale` stops a sale contract's purchases, never its refunds |
 
@@ -447,6 +449,7 @@ The batch limits come from events, not storage. A transaction may carry at most 
 | `restore` (inside a cooling-off refund) | one `allocation_restored` per receipt | 20 receipts of one investor; an investor holds at most 20 live purchases |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 30 |
 | `distribute` (`offer-distributor`) | asset `transfer` + `distributed`, per payout, and one `distribution_completed` | 30 |
+| `claim` (`offer-holdings-distributor`) | asset `transfer` per paid holder, `claim_skipped` per holder it could not pay, and one `claimed` | 50 |
 
 The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 both networks allow ([R7](#r7-network-limits)); the SDK's bundled table still says 50, which is out of date ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
 
@@ -578,7 +581,7 @@ Decided later. Each one changes this document through the changelog. The first r
 - **USDC is `AUTH_REVOCABLE`.** Circle's issuer account (mainnet and testnet) has `auth_revocable` set and clawback disabled. The Stellar Asset Contract applies issuer authorization to contract balances too, so Circle can deauthorize the sale contract's own USDC balance, not just an investor's. Refunds, cooling-off and payouts then fail with `Error(Contract, #11)` until it is reauthorized. Clawback is disabled today.
 - **The yield plan may press on the single-payment-asset premise.** The kickoff's option (a) for yield lets an offering pick an already-yielding token as its payment asset. The global cap in USDC stroops can't mix assets ([3](#3-premises)). Whether "swap de token" means paying with a yield token or swapping into USDC is pending André, Ariel and Matheus; confirm with Bruno.
 - **Closed on 2026-11-13: mainnet's per-transaction limits are the testnet's.** `stellar network settings` on both networks gives 200 write entries, 200 disk-read entries, 400 footprint entries, 400 M instructions and 16,384 B of events. The risk recorded here in 1.0 was that soroban-sdk 26.1's test host enforces 50 write entries and 100 footprint entries as mainnet's values; that table is out of date, not the network stricter. The measuring tests still lift the host's check and assert the documented values, and the backend still sizes every batch by simulation ([6.4](#64-batch-sizes)).
-- **Dropping `snapshot` removes Base's planned NF-03 mitigation.** The audit response relies on `snapshot()` / `balanceOfAt()` as the record-date mechanism for holdings distributions, to be wired before any investor wallet is whitelisted. The Base app never calls them and the Stellar token has none. Any future pull distributor on Stellar needs its own record-date design.
+- **Dropping `snapshot` removes Base's planned NF-03 mitigation.** The audit response relies on `snapshot()` / `balanceOfAt()` as the record-date mechanism for holdings distributions, to be wired before any investor wallet is whitelisted. The Base app never calls them and the Stellar token has none. The holdings distributor delivered in L7 has no record date: it follows Base and accepts the risk, which the whitelist narrows to the token's forced transfer ([offer-holdings-distributor.md](offer-holdings-distributor.md#accepted-risk-quotas-that-move-after-a-claim)).
 
 ---
 
@@ -691,6 +694,7 @@ Each contract's block:
 | `offer-allowlist` | 6100–6199 |
 | `offer-sale` | 6200–6299 |
 | `offer-distributor` | 6300–6399 |
+| `offer-holdings-distributor` | 6400–6499 |
 
 OpenZeppelin codes the backend will meet:
 
@@ -704,7 +708,7 @@ OpenZeppelin codes the backend will meet:
 | 2000 | `Unauthorized` | the caller lacks the role (contracts with OpenZeppelin access control) |
 | 2007 | `RoleNotHeld` | revoking a role the account doesn't hold (same) |
 
-`offer-token`, `offer-sale` and `offer-distributor` never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token, 6222–6224 on the sale and 6300–6302 on the distributor ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors), [offer-distributor.md](offer-distributor.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
+`offer-token`, `offer-sale` and the two distributors never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token, 6222–6224 on the sale, 6300–6302 on the distributor and 6400–6402 on the holdings distributor ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors), [offer-distributor.md](offer-distributor.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
 
 USDC (Stellar Asset Contract) codes the backend will meet. They come back unchanged as `Error(Contract, #n)` and don't collide with the blocks above:
 
@@ -761,6 +765,16 @@ Read live on 2026-10-02 and re-read on 2026-10-06 under protocol 29; the per-tra
 - **Offerings and the allowlist:** [`deployments/testnet.json`](../deployments/testnet.json). These IDs change with every testnet redeploy.
 
 ## Changelog
+
+**1.2, 2026-11-26.** `offer-holdings-distributor` delivered (L7). Changes here:
+
+- **A holdings distributor per offering**, tied to the offering's token and one payment asset. The issuer's treasury, its owner, calls `deposit(amount, caller)`, which pulls the money from the owner's account and raises a per-quota counter without touching any holder. Anyone calls `claim(holders)` for up to 50 holders; each is paid its quota balance times the counter, less what it was already paid ([offer-holdings-distributor.md](offer-holdings-distributor.md)).
+- **The issuer has a role on a contract** for the first time: it owns its offering's holdings distributor, because the return money is its own ([1](#1-parties-roles-and-keys)).
+- **The backend relays the claims** after each deposit, for every account holding quotas, and reads `claim_skipped` to learn who was left out: an account on the token's whitelist, or a holder the payment asset refused (no trustline, a frozen balance). A skipped holder's share stays in the distributor and a later claim pays it.
+- **A paid holder has no event of the distributor's.** The payment asset's `transfer` from the distributor's address to the holder is the record; `claimed {count, total}` closes each call ([6.4](#64-batch-sizes)).
+- **`withdraw(asset, amount, caller)`** sends any balance to the owner's own account and nowhere else, unclaimed returns included, as Base's `withdrawTokens` can.
+- **Errors:** block 6400–6499 ([R6](#r6-error-codes), [offer-holdings-distributor.md](offer-holdings-distributor.md#errors)).
+- **Accepted risk:** quotas forced to another account after their holder claimed can be claimed again, as on Base. No `admin_transfer` after an offering's first deposit without checking both accounts' claims ([offer-holdings-distributor.md](offer-holdings-distributor.md#accepted-risk-quotas-that-move-after-a-claim)).
 
 **1.1, 2026-11-13.** `offer-distributor` delivered (L6), the first Tranche 2 contract. Changes here:
 
