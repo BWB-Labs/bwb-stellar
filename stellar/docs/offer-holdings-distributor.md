@@ -67,6 +67,8 @@ What limits it on Stellar:
 
 **Operating rule.** After an offering's first deposit, no forced transfer, and no quotas out of a whitelisted account other than a `release`, without first checking both accounts: `claimable` for the sender should be zero (claim for it first), and the receiver's `credited` is compared with what its new balance will earn. Tests pin both paths (`quotas_moved_after_a_claim_are_paid_again`, `quotas_resold_through_a_whitelisted_account_are_paid_again`).
 
+**The sender's side.** A holder who returns quotas gives up money with them. Returned before a claim, the quotas take their unclaimed share along. Returned after a claim, what was paid on them is discounted from what the remaining quotas earn next: a holder of 100 quotas paid 100, who returns 60 and then earns 80 on the other 40, can claim only 20. No flow returns quotas after an offering succeeds today; one that does should claim for the holder first and expect this.
+
 Removing the risk at the root, by paying from balances read in the same call as the deposit, is recorded as a future change on [#59](https://github.com/BWB-Labs/bwb-stellar/issues/59).
 
 ## Powers
