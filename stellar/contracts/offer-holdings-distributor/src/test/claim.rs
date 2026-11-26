@@ -1,11 +1,11 @@
 //! A claim pays each listed holder what its quotas earned and it has not
 //! received. Anyone sends it; the money goes to the holder.
-use soroban_sdk::{testutils::Address as _, Address, Vec};
+use soroban_sdk::{testutils::Address as _, Address, Event as _, Vec};
 
-use super::{err, setup, SUPPLY, USDC};
+use super::{emitted, err, setup, SUPPLY, USDC};
 
 extern crate std;
-use crate::{OfferHoldingsDistributorError, MAX_HOLDERS};
+use crate::{events::Claimed, OfferHoldingsDistributorError, MAX_HOLDERS};
 
 #[test]
 fn holders_are_paid_by_what_they_hold() {
@@ -53,7 +53,15 @@ fn a_claim_after_a_new_deposit_pays_the_difference() {
     s.deposit(2 * SUPPLY * USDC);
     assert_eq!(s.client.claimable(&s.alice), 200 * USDC);
     s.claim(&[&s.alice]);
+    // The summary counts what this claim paid, and the record what the
+    // holder was paid in all.
+    let claimed = Claimed {
+        count: 1,
+        total: 200 * USDC,
+    };
+    assert_eq!(emitted(&s.e, &s.id), [claimed.to_xdr(&s.e, &s.id)]);
     assert_eq!(s.usdc.balance(&s.alice), 300 * USDC);
+    assert_eq!(s.client.credited(&s.alice), 300 * USDC);
 }
 
 /// A holder who skipped a deposit loses nothing: the next claim pays every
