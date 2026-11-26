@@ -63,9 +63,9 @@ Quotas a whitelisted account keeps for good still count in the supply, so their 
 What limits it on Stellar:
 
 - An investor cannot transfer quotas to another investor, only to a whitelisted account, and those cannot claim.
-- What remains is the token's forced transfer (`admin_transfer`), signed by the token's transfer admin.
+- What remains is the token's forced transfer (`admin_transfer`), signed by the token's transfer admin, and a whitelisted account that passes quotas on. An ordinary transfer passes when either side is on the whitelist, so an account on it can take quotas back from one investor and hand them to another. Today only the sale contract is on the whitelist, and it sends quotas out only in a `release`, so this path is closed; it opens the day an account that resells quotas is whitelisted, or an account holding quotas is taken off the whitelist.
 
-**Operating rule.** After an offering's first deposit, no forced transfer without first checking both accounts: `claimable` for the sender should be zero (claim for it first), and the receiver's `credited` is compared with what its new balance will earn. A test pins the behaviour (`quotas_moved_after_a_claim_are_paid_again`).
+**Operating rule.** After an offering's first deposit, no forced transfer, and no quotas out of a whitelisted account other than a `release`, without first checking both accounts: `claimable` for the sender should be zero (claim for it first), and the receiver's `credited` is compared with what its new balance will earn. Tests pin both paths (`quotas_moved_after_a_claim_are_paid_again`, `quotas_resold_through_a_whitelisted_account_are_paid_again`).
 
 Removing the risk at the root, by paying from balances read in the same call as the deposit, is recorded as a future change on [#59](https://github.com/BWB-Labs/bwb-stellar/issues/59).
 
