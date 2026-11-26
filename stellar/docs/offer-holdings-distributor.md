@@ -5,7 +5,7 @@
 - **Who uses it.** The owner, the issuer's treasury, deposits, withdraws, pauses and unpauses. The platform relays the claims after each deposit and reads the events. The platform multisig pauses and upgrades.
 - **Where it comes from.** A port of Base's `TokenDistributorByHoldings`, following it wherever Stellar allows ([Differences from Base](#differences-from-base)).
 
-**Delivered in L7.** The design decisions are on issue [#29](https://github.com/BWB-Labs/bwb-stellar/issues/29). The cross-cutting rules are in [interface.md](interface.md). The other distributor, [`offer-distributor`](offer-distributor.md), pays a list the owner writes and holds no balance; this one works out each share from the token and holds the money until it is claimed.
+**Delivered in L7.** Testnet deployment: [`deployments/testnet.json`](../deployments/testnet.json), offering `t1-demo-4`; `scripts/demo-offer-holdings-distributor.sh` exercises it. The design decisions are on issue [#29](https://github.com/BWB-Labs/bwb-stellar/issues/29). The cross-cutting rules are in [interface.md](interface.md). The other distributor, [`offer-distributor`](offer-distributor.md), pays a list the owner writes and holds no balance; this one works out each share from the token and holds the money until it is claimed.
 
 ## A deposit and its claims
 

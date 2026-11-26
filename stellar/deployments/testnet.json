@@ -369,6 +369,31 @@
         "previous_wasm_hash": "e488d1f6e566cfbcc28a58299b6a4cf39f0cd934023c5b4368381d4d58cdb68a",
         "upgrade_tx": "a1a171a4d9d83630edc306956d42842b7f087e4efbe27dfcf6cf2b592f01ca41",
         "upgraded_at": "2026-11-13T20:01:36Z"
+      },
+      "holdings_distributor": {
+        "status": "deployed",
+        "salt": "0b76561bdb64a55e87937656ea5dd4af850e47353fada0f1b5d3c1cdc868c9f5",
+        "crate": "offer-holdings-distributor",
+        "contract_id": "CCJ5MOSXNJUXANFVQS7JKYC7UCMNUDLZ7EOAPXKOU2CXQGDZV365EYGG",
+        "wasm_hash": "897653d7d35a343a118f1804ef05402d16866b49ebe944497bc95b27c05f20b0",
+        "deploy_tx": "86be887f9ac12cd218f9d0c09aadbc237c571ea80a19bde154809fd8a27cf109",
+        "deployer": "GABDEXIHWESSJFO64VR2GUVZ25JDTTNWEMF3EFPC7Z5I5QMVOFQDYENI",
+        "deployed_at": "2026-11-26T17:54:05Z",
+        "constructor_args": [
+          "--power_holders",
+          "{\"owner\":\"GCNVKLDVCW2UIVIOZVDB26E4SH4VP4KPKTQV4QY3WHIBBY4ROCLSJDIZ\",\"pauser\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\",\"upgrader\":\"GAOX52N3TDQ3SUAXJ6O4GL55JUOR5HNT5V4KQOVEBJB7FWLKCFS67EC2\"}",
+          "--contracts",
+          "{\"token\":\"CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT\",\"payment_asset\":\"CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY\"}"
+        ],
+        "toolchain": {
+          "rustc": "1.97.1",
+          "soroban_sdk": "26.1.1",
+          "stellar_cli": "28.1.0"
+        },
+        "explorer": {
+          "contract": "https://stellar.expert/explorer/testnet/contract/CCJ5MOSXNJUXANFVQS7JKYC7UCMNUDLZ7EOAPXKOU2CXQGDZV365EYGG",
+          "tx": "https://stellar.expert/explorer/testnet/tx/86be887f9ac12cd218f9d0c09aadbc237c571ea80a19bde154809fd8a27cf109"
+        }
       }
     },
     "t1-demo-5": {

@@ -10,7 +10,8 @@
 #             Defaults to bwb-testnet-deployer on testnet only; every other
 #             network requires it explicitly.
 #   OFFERING  offering identifier, required for the per-offering crates
-#             (offer-token, offer-sale, offer-distributor). The contract is
+#             (offer-token, offer-sale, offer-distributor,
+#             offer-holdings-distributor). The contract is
 #             deployed at the address derived from SOURCE and a salt built
 #             from it (see scripts/lib/offering.sh), and recorded under
 #             offerings.<id> in the manifest; a token or a sale is recorded
