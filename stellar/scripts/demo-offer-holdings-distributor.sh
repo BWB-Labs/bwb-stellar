@@ -131,8 +131,12 @@ HOLDERS="[\"$INV_A\",\"$INV_B\"]"
 echo "offering $OFFERING: holdings distributor $DISTRIBUTOR ($EXPLORER/contract/$DISTRIBUTOR)"
 read_fn "$DISTRIBUTOR" powers
 echo "powers: $READ"
+[[ "$READ" == *"owner:$ISSUER"* && "$READ" == *"pauser:$PLATFORM"* ]] \
+  || { echo "the powers are not the issuer and the platform" >&2; exit 1; }
 read_fn "$DISTRIBUTOR" contracts
 echo "contracts: $READ"
+[[ "$READ" == *"token:$TOKEN"* && "$READ" == *"payment_asset:$USDC"* ]] \
+  || { echo "the contracts are not the offering's token and the demo USDC" >&2; exit 1; }
 read_fn "$DISTRIBUTOR" paused
 expect "paused" "$READ" false
 read_fn "$TOKEN" total_supply
@@ -148,6 +152,11 @@ expect_claimable "$INV_B" 0
 step "Before the run"
 balances
 POT_BEFORE="$READ"
+# Step 11 needs a distributor that cannot afford the smaller share.
+((POT_BEFORE < 30 * USDC_UNIT)) || {
+  echo "the distributor holds $POT_BEFORE stroops before the run; the issuer must withdraw it first" >&2
+  exit 1
+}
 balance_of "$INV_A"; A_BEFORE="$READ"
 balance_of "$INV_B"; B_BEFORE="$READ"
 balance_of "$ISSUER"; ISSUER_BEFORE="$READ"
@@ -168,9 +177,12 @@ balance_of "$INV_A"
 expect "investor A's balance" "$READ" "$((A_BEFORE + 300 * USDC_UNIT))"
 read_fn "$DISTRIBUTOR" credited --holder "$INV_A"
 echo "credited(A): $READ"
+CREDITED_A="$READ"
 
 step "4. A claim for both: A was paid and is passed over, B receives 500"
 ok bwb-testnet-deployer claim --holders "$HOLDERS"
+read_fn "$DISTRIBUTOR" credited --holder "$INV_A"
+expect "credited(A)" "$READ" "$CREDITED_A"
 balance_of "$INV_A"
 expect "investor A's balance" "$READ" "$((A_BEFORE + 300 * USDC_UNIT))"
 balance_of "$INV_B"
@@ -201,18 +213,24 @@ echo "simulation failed with Error(Contract, #1000) EnforcedPause"
 
 step "9. The issuer withdraws the 80 USDC while paused: it can only go to the issuer's own account"
 ok bwb-testnet-issuer withdraw --asset "$USDC" --amount "$((80 * USDC_UNIT))" --caller "$ISSUER"
+balance_of "$ISSUER"
+expect "the issuer's balance" "$READ" "$((ISSUER_BEFORE - 800 * USDC_UNIT))"
+balance_of "$DISTRIBUTOR"
+expect "the distributor's balance" "$READ" "$POT_BEFORE"
 
 step "10. Only the owner unpauses"
 ok bwb-testnet-issuer unpause --caller "$ISSUER"
 PAUSED_BY_RUN=0
 
 step "11. A claim the distributor cannot pay: both holders are skipped, the call succeeds"
-ok bwb-testnet-deployer claim --holders "$HOLDERS"
+OUT="$(ok bwb-testnet-deployer claim --holders "$HOLDERS")"
+echo "$OUT"
+[[ "$(grep -c 'claim_skipped' <<<"$OUT")" == 2 ]] || { echo "expected two claim_skipped events" >&2; exit 1; }
 # Skipped, not charged: what they earned is still owed.
 expect_claimable "$INV_A" 30
 expect_claimable "$INV_B" 50
 
-step "12. The issuer puts the 80 USDC back with an ordinary payment"
+step "12. The issuer puts the 80 USDC back with a plain transfer on the asset"
 invoke_ok "$USDC" bwb-testnet-issuer transfer --from "$ISSUER" --to "$DISTRIBUTOR" --amount "$((80 * USDC_UNIT))"
 
 step "13. The same claim now pays both: 30 to A, 50 to B"

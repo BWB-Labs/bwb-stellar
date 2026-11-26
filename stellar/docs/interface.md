@@ -133,7 +133,7 @@ Activate, finalize, release and refund are open to anyone; the diagram shows the
 Vocabulary follows the glossary of BWB's Base application and this repository's [`CONTEXT.md`](../CONTEXT.md).
 
 - **Investor:** a user buying through their **wallet** (one signer), or an organization buying through its **treasury** (a threshold of officers; on Stellar, a native multisig account). The contracts treat both the same: an address that authorized the call.
-- **Tokenizer:** the organization that administers an offering. Its treasury owns the offering's contracts. On Base, the owner and `transferAdmin` of every offering contract is the tokenizer organization's Safe (`tokenizerOrgId`); the issuer (the SPE, `issuerOrgId`) owns nothing on chain and only receives a payout share. This document follows that: **tokenizer** is the owner, **issuer** is a payout recipient.
+- **Tokenizer:** the organization that administers an offering. Its treasury owns the offering's contracts. On Base, the owner and `transferAdmin` of every offering contract is the tokenizer organization's Safe (`tokenizerOrgId`); the issuer (the SPE, `issuerOrgId`) owns nothing on chain and only receives a payout share. This document follows that: **tokenizer** is the owner, **issuer** is a payout recipient. The one exception, added in 1.2, is the holdings distributor, which the issuer owns.
 - **Issuer:** the organization (SPE) that raises the money. It receives one share of the payout and holds one role on the contracts: it owns its offering's holdings distributor, through which it pays returns.
 - **Offering:** one `offer-token` contract plus one `offer-sale` contract.
 - **Platform multisig:** BWB's own threshold account. It is used rarely.
@@ -451,7 +451,7 @@ The batch limits come from events, not storage. A transaction may carry at most 
 | `distribute` (`offer-distributor`) | asset `transfer` + `distributed`, per payout, and one `distribution_completed` | 30 |
 | `claim` (`offer-holdings-distributor`) | asset `transfer` per paid holder, `claim_skipped` per holder it could not pay, and one `claimed` | 50 |
 
-The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 both networks allow ([R7](#r7-network-limits)); the SDK's bundled table still says 50, which is out of date ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
+The sizes are measured XDR encodings, pinned by tests ([R5](#r5-event-sizes)). At the limits: `release` 10,680 B, `refund` at most 14,016 B (48 × 292 B, since an investor's two events, 244 + 296 B, fit in two units), `withdraw_payment` 12,360 B, `set_allocations` about 7.2 KB, `claim` 12,340 B. The unit rule is checked before any transfer, so an over-budget refund moves nothing. Write entries come next: a full refund writes about 66 (per investor the USDC balance, the reservation, the receipt book and one usage entry per month), a full release 62, against the 200 both networks allow ([R7](#r7-network-limits)); the SDK's bundled table still says 50, which is out of date ([12](#12-risks)). The backend sizes every batch by simulation; the contract's limits are upper bounds.
 
 Each investor keeps their own event so that the backend's ledger can record one leg per account, which is how its `operations` table is shaped. Base's ledger has no intent kind for release, refund or cooling-off today; the backend team adds them.
 
@@ -667,6 +667,8 @@ A transaction may carry at most 16,384 bytes of events, including the call's ret
 | `payment_withdrawn` | 168 B |
 | `distributed` (3 topics) `{amount, asset}` | 260 B to a classic account, 256 B to a contract |
 | `distribution_completed` `{asset, count, total}` | 252 B |
+| `claimed` `{count, total}` | 140 B |
+| `claim_skipped` (2 topics) `{}` | 132 B to a classic account, 128 B to a contract |
 | `allocation_restored` (3 topics) `{amount, consumed, period, receipt}` | 292 B |
 | `allocation_consumed` (3 topics) `{amount, consumed, period, receipt}` | 292 B |
 | `allocation_set` `{caller, enabled, max}` | 240 B |
@@ -681,6 +683,7 @@ Per call:
 | `set_allocations` | one allowlist event | 240 B | 30 | about 7.2 KB | 56% |
 | `withdraw_payment` | USDC `transfer` + `payment_withdrawn`, per payout | 412 B | 30 | 12,360 B | 25% |
 | `distribute` | USDC `transfer` + `distributed`, per payout; `distribution_completed` once | 504 B, plus 252 B once | 30 | 15,372 B | 6% |
+| `claim` | USDC `transfer` per paid holder (a skipped holder's `claim_skipped` is smaller); `claimed` once | 244 B, plus 140 B once | 50 | 12,340 B | 25% |
 
 The refund unit rule is sound because an investor's own two events (540 B) weigh less than two units (584 B), so a call's events never exceed 292 B × 48. The margins leave room for the additive rule ([6.1](#61-rules)). `distribute` is the exception: its 30 is a cap accepted with little room, because going over the limit fails the call in simulation and loses nothing, and a field added to `distributed` lowers the cap in the same release ([offer-distributor.md](offer-distributor.md#calls)).
 
@@ -708,7 +711,7 @@ OpenZeppelin codes the backend will meet:
 | 2000 | `Unauthorized` | the caller lacks the role (contracts with OpenZeppelin access control) |
 | 2007 | `RoleNotHeld` | revoking a role the account doesn't hold (same) |
 
-`offer-token`, `offer-sale` and the two distributors never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token, 6222–6224 on the sale, 6300–6302 on the distributor and 6400–6402 on the holdings distributor ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors), [offer-distributor.md](offer-distributor.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
+`offer-token`, `offer-sale` and the two distributors never return 2000 or 2007: a signed but wrong caller gets the power's own code, 6003–6006 on the token, 6222–6224 on the sale, 6300–6302 on the distributor and 6400–6402 on the holdings distributor ([offer-token.md](offer-token.md#errors), [offer-sale.md](offer-sale.md#errors), [offer-distributor.md](offer-distributor.md#errors), [offer-holdings-distributor.md](offer-holdings-distributor.md#errors)). `offer-allowlist` returns them unchanged, and 2000 also for a non-admin operator on `upgrade` ([offer-allowlist.md](offer-allowlist.md#errors)); a sale contract whose `sale` was revoked surfaces 2000 from `buy`.
 
 USDC (Stellar Asset Contract) codes the backend will meet. They come back unchanged as `Error(Contract, #n)` and don't collide with the blocks above:
 

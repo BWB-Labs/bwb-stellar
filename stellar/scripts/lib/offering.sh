@@ -40,8 +40,7 @@ resolve_source() {
 }
 
 # crate_role <crate> -> token | sale | distributor | holdings_distributor;
-# fails for crates that are
-# not per-offering
+# fails for crates that are not per-offering
 crate_role() {
   case "$1" in
     offer-token) echo token ;;

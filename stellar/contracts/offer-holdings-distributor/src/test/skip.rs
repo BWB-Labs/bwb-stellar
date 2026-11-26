@@ -3,7 +3,7 @@
 //! rest of the list is paid.
 use soroban_sdk::Event as _;
 
-use super::{emitted, setup, SUPPLY, USDC};
+use super::{emitted, emitters, setup, SUPPLY, USDC};
 use crate::events::{ClaimSkipped, Claimed};
 
 #[test]
@@ -93,6 +93,8 @@ fn a_holder_whose_balance_is_frozen_is_skipped() {
         emitted(&s.e, &s.id),
         [skipped.to_xdr(&s.e, &s.id), claimed.to_xdr(&s.e, &s.id)]
     );
+    // The refused transfer left no event of the asset's.
+    assert_eq!(emitters(&s.e), [s.id.clone(), s.id.clone()]);
     assert_eq!(s.client.credited(&carol), 0);
     assert_eq!(s.pot(), SUPPLY * USDC);
     s.usdc_admin.set_authorized(&carol, &true);
@@ -111,6 +113,17 @@ fn a_holder_the_distributor_cannot_afford_is_skipped() {
     s.deposit(SUPPLY * USDC);
     s.client.withdraw(&s.usdc.address, &(850 * USDC), &s.owner);
     s.claim(&[&s.alice, &s.bob]);
+    let skipped = ClaimSkipped {
+        holder: s.bob.clone(),
+    };
+    let claimed = Claimed {
+        count: 1,
+        total: 100 * USDC,
+    };
+    assert_eq!(
+        emitted(&s.e, &s.id),
+        [skipped.to_xdr(&s.e, &s.id), claimed.to_xdr(&s.e, &s.id)]
+    );
     assert_eq!(s.usdc.balance(&s.alice), 100 * USDC);
     assert_eq!(s.usdc.balance(&s.bob), 0);
     assert_eq!(s.client.credited(&s.bob), 0);

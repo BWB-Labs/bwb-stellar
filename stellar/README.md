@@ -132,11 +132,11 @@ Run on 2026-11-26 against 0.1.0, from `d5d5782`:
 | 9 | The issuer withdraws the 80 USDC while paused, into its own account | [`ca006d73…`](https://stellar.expert/explorer/testnet/tx/ca006d73a56df9695fdb9a1b282cf001df2ce8849158c6284e3b5e45097364c5) |
 | 10 | Only the owner unpauses | [`a434c3d0…`](https://stellar.expert/explorer/testnet/tx/a434c3d0a4df355c0d369c1515555349e88aaa544b382cd828f70bc4562d5f90) |
 | 11 | A claim the distributor cannot pay: both holders are skipped with `claim_skipped`, the call succeeds and their shares stay owed | [`4f1be544…`](https://stellar.expert/explorer/testnet/tx/4f1be54410536e07e07f2ac720badab0f8fbe1dd095f537db2411b39aeb4ebf1) |
-| 12 | The issuer puts the 80 USDC back with an ordinary payment | [`df0d1b6f…`](https://stellar.expert/explorer/testnet/tx/df0d1b6ff5352ada3254d66282a529949b95d392a1699a827934cf1da64e6c48) |
+| 12 | The issuer puts the 80 USDC back with a plain transfer on the asset | [`df0d1b6f…`](https://stellar.expert/explorer/testnet/tx/df0d1b6ff5352ada3254d66282a529949b95d392a1699a827934cf1da64e6c48) |
 | 13 | The same claim now pays both: 30 to A, 50 to B | [`c1314914…`](https://stellar.expert/explorer/testnet/tx/c1314914fd718b8f7ecef69536e31e6923b93ec315d01f6fb3dd6c46986cb2a9) |
 | 14 | Authorization: investor A cannot withdraw (6400 NotOwner) | [`5475a6bb…`](https://stellar.expert/explorer/testnet/tx/5475a6bbdcab1730b9c68233ee38b938d50e73b8737348625af32c5ea9e727f5) |
 
-Each run deposits 880 USDC and pays 330 to investor A and 550 to investor B; the distributor ends holding what it held before, nothing.
+Each run deposits 880 USDC and pays 330 to investor A and 550 to investor B; the distributor ends holding what it held before, nothing. A second run the same day, after the script gained more checks, did the same.
 
 ## Build and test
 

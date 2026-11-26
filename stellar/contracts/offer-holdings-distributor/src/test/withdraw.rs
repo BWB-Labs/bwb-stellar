@@ -2,7 +2,7 @@
 //! own account.
 use soroban_sdk::{testutils::Address as _, token::StellarAssetClient, Address, Event as _};
 
-use super::{code, emitted, err, setup, FUNDS, SUPPLY, USDC};
+use super::{code, emitted, emitters, err, setup, FUNDS, SUPPLY, USDC};
 use crate::events::Withdrawn;
 use crate::OfferHoldingsDistributorError;
 
@@ -19,6 +19,8 @@ fn the_owner_withdraws_into_its_own_account() {
         amount: 300 * USDC,
     };
     assert_eq!(emitted(&s.e, &s.id), [withdrawn.to_xdr(&s.e, &s.id)]);
+    // The asset's `transfer` comes first.
+    assert_eq!(emitters(&s.e), [s.usdc.address.clone(), s.id.clone()]);
     assert_eq!(s.pot(), 700 * USDC);
     assert_eq!(s.usdc.balance(&s.owner), FUNDS - 700 * USDC);
 }

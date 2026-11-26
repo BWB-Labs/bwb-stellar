@@ -145,7 +145,7 @@ pub fn setup_with_supply<'a>(supply: i128) -> Setup<'a> {
 impl Setup<'_> {
     /// Hands `quotas` from the desk to `holder`, as a release would.
     pub fn give(&self, holder: &Address, quotas: i128) {
-        TokenClient::new(&self.e, &self.token.address).transfer(&self.desk, holder, &quotas);
+        self.token.transfer(&self.desk, holder, &quotas);
     }
 
     /// The owner deposits `amount`.

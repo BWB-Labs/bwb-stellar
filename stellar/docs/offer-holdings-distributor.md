@@ -38,11 +38,11 @@ sequenceDiagram
 - **A share is worked out when it is claimed.** `balance × counter − paid so far`. A holder who skipped three deposits gets all three in one claim; a second claim with nothing new pays nothing.
 - **Anyone sends a claim; the holder gets the money.** Nobody signs. The sender gains nothing, so the platform relays claims for every holder without holding any key of theirs.
 - **The supply of the moment.** Each deposit is divided among the quotas that exist when it arrives. Quotas burned before a deposit take no part of it.
-- **Rounding goes down.** The counter is kept times 10^18 and every division rounds down, so the contract never owes more than it holds. What the divisions leave, at most a few stroops per deposit, stays in the contract.
+- **Rounding goes down.** The counter is kept times 10^18 and every division rounds down, so the contract never owes more than it holds. What the divisions leave stays in the contract: less than one stroop per quota in each deposit's division, and less than one stroop per holder in its share.
 
 ## Who cannot be paid
 
-A claim passes over a holder in three cases, and the rest of the list is paid:
+A claim passes over a holder in three cases, and the rest of the list is paid. No holder can make a claim fail: what the payment asset refuses is skipped. A claim still fails whole, like any transaction, when it is sent without the resources or the footprint its simulation gave, or with an archived entry not restored; that is the sender's doing and costs the sender the fee.
 
 | Case | What happens |
 |---|---|
@@ -102,7 +102,7 @@ Stores both and emits `configured`. Neither can be changed later. The counter is
 | `unpause(caller)` | owner | Resumes |
 | `upgrade(new_wasm_hash, operator)` | upgrader | Replaces the code; storage is kept |
 
-Reads, none of which needs a signature or extends an entry's lifetime:
+Reads, none of which needs a signature or extends any of the distributor's entries (`claimable` reads the token, which renews the holder's balance entry and whitelist entry by its own rules):
 
 | Read | Answers |
 |---|---|
@@ -135,6 +135,10 @@ A claim takes at most 50 holders. The limit that binds is the 16,384 B of events
 | Write entries | 101 (a trustline and a record per holder, and the distributor's balance) | 200 |
 | Footprint entries | 205 | 400 |
 
+A skipped holder weighs less than a paid one: `claim_skipped` is 132 B to a classic account and 128 B to a contract.
+
+The figures are for holders whose entries are live. A holder whose token balance or record was archived needs it restored in the same transaction, which adds a disk read per entry and, for the balance, a write (the record is written anyway). A claim of 50 holders with both archived comes to about 150 disk reads of the 200 allowed and about 151 writes of 200: an estimate, not a measurement. The instruction count is not in the table: the test runs the contracts as native code, which leaves out the cost of running WASM, so the figure a transaction pays comes from its simulation.
+
 50 is a cap, not a promise. A list that does not fit fails whole in simulation, before anything is sent, and the sender splits it. 120 holders are three calls.
 
 ## Differences from Base
@@ -147,7 +151,7 @@ A claim takes at most 50 holders. The limit that binds is the 16,384 B of events
 | One failing holder reverts `claimMany` | The holder is skipped with `claim_skipped` | A batch keeps moving and the backend learns who was left out |
 | `withdrawTokens(token, recipient)` sends the whole balance anywhere | `withdraw(asset, amount, caller)` pays only the owner | A mistaken or coerced withdrawal lands in the issuer's treasury |
 | No pause, no upgrade | Both, as on the other contracts | |
-| Storage never expires | Each record is persistent and renewed on claim | [Storage and expiry](#storage-and-expiry) |
+| Storage never expires | Each record is persistent and renewed when its holder is paid | [Storage and expiry](#storage-and-expiry) |
 
 The same on both: the counter and its 10^18 magnitude, the per-account record, claims open to anyone, and the accepted risk above.
 
@@ -169,7 +173,7 @@ Also emitted, by the payment asset: one `transfer` from the owner to the distrib
 
 **Reading them.** A paid holder has no event of the distributor's: the asset's `transfer` from the distributor's address to the holder is the record of who received how much, and an indexer reads it. `claimed` closes each call with how many holders were paid and their sum; it is emitted even when nobody was paid. A refused call emits nothing.
 
-**Sizes.** `claimed` is 140 B, pinned by the measuring test.
+**Sizes.** Measured XDR encodings, pinned by a test: `claimed` 140 B, `claim_skipped` 132 B to a classic account and 128 B to a contract.
 
 ## Errors
 
@@ -182,7 +186,7 @@ Also emitted, by the payment asset: one `transfer` from the owner to the distrib
 | 6404 | `BatchTooLarge` | More than 50 holders |
 | 6405 | `NonPositiveAmount` | A deposit, or a withdrawal, of zero or less |
 | 6406 | `NoSupply` | A deposit while the token has no supply |
-| 6407 | `AmountOverflow` | A deposit too large for the counter, or a share too large for an `i128` |
+| 6407 | `AmountOverflow` | A deposit too large for the counter, or a share too large for an `i128`. The second fails a whole claim; it takes deposits beyond about 1.7 × 10^13 USDC in all, which the payment asset cannot hold |
 
 Codes from the contracts it calls, which surface unchanged:
 
@@ -196,7 +200,7 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 - Each holder's "paid so far": one persistent entry, written when the holder is first paid and never removed.
 - The counter, the powers and the two contracts: instance, with OpenZeppelin's pause flag and schema version.
 
-**Policy.** Every state-changing call tops the instance up to the network maximum once it falls a month below it, and a claim writes each paid holder's entry with the maximum lifetime. The reads extend nothing.
+**Policy.** Every state-changing call tops the instance up to the network maximum once it falls a month below it, and a claim writes each paid holder's entry with the maximum lifetime. The reads extend none of the distributor's entries.
 
 **A record cannot read as zero again.** A persistent entry that runs out is archived, not deleted. A claim for that holder needs the entry restored first, which the transaction does and its sender pays for, and it comes back with the same value. There is no path by which a holder paid years ago looks unpaid.
 
@@ -208,10 +212,10 @@ A missing signature fails as `Error(Auth, InvalidAction)`, not as a contract cod
 |---|---|
 | `authorization` | A signed wrong caller per privileged call gets the power's code, a funded stranger included; an unsigned call fails at authorization; `claim` and the reads with no auths at all; the owner's exact authorization for a deposit with its one `transfer`; a signature for another amount is refused; a withdrawal is signed as the call alone |
 | `deposit` | The money pulled and the counter raised; deposits add up; no holder is paid; zero and negative amounts; no supply; an amount too large for the counter; rounding down and the dust left; a deposit smaller than the supply; the supply of the moment |
-| `claim` | Holders paid by what they hold; no signature; a second claim pays nothing; the difference after a new deposit; several deposits in one claim; a holder listed twice; an account with no quotas; a claim before any deposit; a holder who returned quotas after claiming; the accepted risk pinned; an empty list and 51 holders; a full list of 50 classic accounts measured against the network limits |
-| `skip` | A whitelisted account is skipped with the event and paid nothing; a deposit before the quotas are handed out waits for the holder; an account taken off the whitelist claims; a holder without a trustline is skipped and paid once it has one; a frozen balance; a distributor the owner emptied |
-| `withdraw` | Into the owner's own account with the exact event; nobody else; zero and negative amounts; more than the balance; no record changes; a stray asset; while paused |
+| `claim` | Holders paid by what they hold; no signature; a second claim pays nothing; the difference after a new deposit; several deposits in one claim; a holder listed twice; an account with no quotas; a claim before any deposit; a holder who returned quotas after claiming; the accepted risk pinned, by a forced transfer and by a resale through a whitelisted account; a holder who returns quotas before claiming; an empty list and 51 holders; a full list of 50 classic accounts measured against the network limits |
+| `skip` | A whitelisted account is skipped with the event and paid nothing; a deposit before the quotas are handed out waits for the holder; an account taken off the whitelist claims; a holder without a trustline is skipped and paid once it has one; a frozen balance, which leaves no event of the asset's; a distributor the owner emptied, with the event |
+| `withdraw` | Into the owner's own account with the exact event, after the asset's `transfer`; nobody else; zero and negative amounts; more than the balance; no record changes; a stray asset; while paused |
 | `pause` | A paused distributor blocks `deposit` and `claim` until the owner unpauses; the owner may pause too; the reads answer while paused; OpenZeppelin's 1000 and 1001 |
-| `events` | Exact events and order for construction, a deposit, a claim with paid and skipped holders, a claim that pays nobody, pause and unpause |
+| `events` | Exact events and order for construction, a deposit, a claim with paid and skipped holders, a claim that pays nobody, pause and unpause; the measured sizes of `claimed` and `claim_skipped` |
 | `upgrade` | Swap to `offer-holdings-distributor-upgrade-fixture`, a test-only second binary, with the exact `upgraded` event; the powers, the contracts, the counter, the records, the pause flag and `schema_version` survive; the upgraded code can upgrade again under the same gate; a hash never uploaded fails; neither the owner nor the pauser can swap; an upgrade tops the instance up |
 | `ttl` | The instance on construction, after a quiet month and not before it, on a claim, a withdrawal, pause and unpause; a paid holder's record written with the maximum lifetime; reads extend nothing |

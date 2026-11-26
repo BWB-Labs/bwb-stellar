@@ -7,8 +7,6 @@ use stellar_contract_utils::pausable::{Paused, Unpaused};
 use super::{emitted, emitters, setup, SUPPLY, USDC};
 use crate::events::{ClaimSkipped, Claimed, Configured, Deposited, PauseChanged};
 
-extern crate std;
-
 #[test]
 fn construction_emits_configured() {
     let s = setup();
@@ -102,4 +100,27 @@ fn pause_and_unpause_emit_open_zeppelins_event_then_pause_changed() {
         emitted(&s.e, &s.id),
         [Unpaused {}.to_xdr(&s.e, &s.id), changed.to_xdr(&s.e, &s.id)]
     );
+}
+
+/// The sizes the batch cap rests on, as XDR encodings.
+#[test]
+fn the_claim_events_have_the_documented_sizes() {
+    use soroban_sdk::xdr::{self, Limits, WriteXdr};
+    let s = setup();
+    let size = |ev: xdr::ContractEvent| ev.to_xdr(Limits::none()).unwrap().len();
+    let claimed = Claimed {
+        count: 50,
+        total: 500 * USDC,
+    };
+    assert_eq!(size(claimed.to_xdr(&s.e, &s.id)), 140);
+    // To a classic account and to a contract: both smaller than the
+    // asset's `transfer` a paid holder costs, so a skip never weighs more.
+    let classic = ClaimSkipped {
+        holder: s.create_account(1),
+    };
+    let contract = ClaimSkipped {
+        holder: s.alice.clone(),
+    };
+    assert_eq!(size(classic.to_xdr(&s.e, &s.id)), 132);
+    assert_eq!(size(contract.to_xdr(&s.e, &s.id)), 128);
 }

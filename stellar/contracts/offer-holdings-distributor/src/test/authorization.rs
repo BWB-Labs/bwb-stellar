@@ -11,8 +11,6 @@ use soroban_sdk::{
 use super::{err, setup, FUNDS, SUPPLY, USDC};
 use crate::OfferHoldingsDistributorError;
 
-extern crate std;
-
 /// A funded account with no power cannot deposit, even its own money.
 #[test]
 fn only_the_owner_deposits() {

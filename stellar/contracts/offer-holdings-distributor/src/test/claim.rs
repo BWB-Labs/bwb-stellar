@@ -131,6 +131,37 @@ fn quotas_moved_after_a_claim_are_paid_again() {
     assert_eq!(s.usdc.balance(&s.bob), 100 * USDC);
 }
 
+/// The same risk without a forced transfer: an ordinary transfer passes
+/// when either side is on the whitelist, so quotas a holder returned to an
+/// operational account can be handed on to another investor.
+#[test]
+fn quotas_resold_through_a_whitelisted_account_are_paid_again() {
+    let s = setup();
+    s.give(&s.alice, 100);
+    s.deposit(SUPPLY * USDC);
+    s.claim(&[&s.alice]);
+    s.token.transfer(&s.alice, &s.desk, &100);
+    s.token.transfer(&s.desk, &s.bob, &100);
+    assert_eq!(s.client.claimable(&s.bob), 100 * USDC);
+    s.claim(&[&s.bob]);
+    assert_eq!(s.usdc.balance(&s.alice), 100 * USDC);
+    assert_eq!(s.usdc.balance(&s.bob), 100 * USDC);
+}
+
+/// The share follows the quotas until it is claimed: a holder who returns
+/// quotas before anyone claimed for it gives up what they had earned.
+#[test]
+fn a_holder_who_returns_quotas_before_claiming_gives_up_their_share() {
+    let s = setup();
+    s.give(&s.alice, 100);
+    s.deposit(SUPPLY * USDC);
+    s.token.transfer(&s.alice, &s.desk, &100);
+    assert_eq!(s.client.claimable(&s.alice), 0);
+    s.claim(&[&s.alice, &s.desk]);
+    assert_eq!(s.usdc.balance(&s.alice), 0);
+    assert_eq!(s.pot(), SUPPLY * USDC);
+}
+
 #[test]
 fn an_empty_list_is_refused() {
     let s = setup();
@@ -160,6 +191,7 @@ fn a_list_over_the_cap_is_refused() {
 const EVENT_BYTES: u32 = 16_384;
 const WRITE_ENTRIES: u32 = 200;
 const FOOTPRINT_ENTRIES: u32 = 400;
+const DISK_READ_ENTRIES: u32 = 200;
 const INSTRUCTIONS: i64 = 400_000_000;
 
 /// A full list of classic accounts, each paid: what the platform's relay
@@ -193,13 +225,20 @@ fn a_full_list_pays_every_holder_under_the_network_limits() {
     // One trustline and one record per holder, and the distributor's own
     // balance.
     assert_eq!(used.write_entries, 101);
-    // The test asset's code is one character shorter than USDC's, which
-    // pads each of its `transfer` events by 4 B more: 12,340 B with USDC.
+    // The test asset's code is one character shorter than USDC's, so each
+    // of its `transfer` events is 4 B smaller: 12,340 B with USDC.
     let with_usdc = used.contract_events_size_bytes + MAX_HOLDERS * 4;
     assert!(with_usdc <= EVENT_BYTES);
     assert!(used.write_entries <= WRITE_ENTRIES);
+    assert_eq!(used.memory_read_entries + used.disk_read_entries, 205);
     assert!(used.memory_read_entries + used.disk_read_entries <= FOOTPRINT_ENTRIES);
-    assert!(used.instructions <= INSTRUCTIONS);
+    // One trustline per holder is read from disk; a holder whose balance
+    // or record was archived adds a restore, a disk read and a write each.
+    assert_eq!(used.disk_read_entries, 50);
+    assert!(used.disk_read_entries <= DISK_READ_ENTRIES);
+    // Counted on native code, without the cost of running the token's and
+    // the distributor's WASM: a floor, not the figure a transaction pays.
+    assert!(used.instructions <= INSTRUCTIONS / 4);
     for holder in holders.iter() {
         assert_eq!(s.usdc.balance(&holder), 10 * USDC);
     }
