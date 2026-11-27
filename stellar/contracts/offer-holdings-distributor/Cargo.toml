@@ -1,0 +1,22 @@
+[package]
+name = "offer-holdings-distributor"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+stellar-contract-utils = { workspace = true }
+stellar-macros = { workspace = true }
+
+# The real token, for the tests only: the contract code talks to it through
+# a hand-written client trait, so this WASM exports nothing of its.
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+offer-token = { path = "../offer-token" }

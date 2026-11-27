@@ -10,7 +10,8 @@
 #             Defaults to bwb-testnet-deployer on testnet only; every other
 #             network requires it explicitly.
 #   OFFERING  offering identifier, required for the per-offering crates
-#             (offer-token, offer-sale, offer-distributor). The contract is
+#             (offer-token, offer-sale, offer-distributor,
+#             offer-holdings-distributor). The contract is
 #             deployed at the address derived from SOURCE and a salt built
 #             from it (see scripts/lib/offering.sh), and recorded under
 #             offerings.<id> in the manifest; a token or a sale is recorded
@@ -150,6 +151,21 @@ PY
     done
     if [[ "$HOLDER" != "$SIBLING_ID" ]]; then
       echo "--initial_holder must be the sale contract's precomputed address $SIBLING_ID (got '${HOLDER:-none}')" >&2
+      exit 1
+    fi
+  fi
+
+  # The holdings distributor is tied for good to the token named in
+  # --contracts, which must be this offering's token and no other's.
+  if [[ "$ROLE" == holdings_distributor ]]; then
+    CONTRACTS=""
+    for ((i = 0; i < ${#CTOR_ARGS[@]}; i++)); do
+      [[ "${CTOR_ARGS[$i]}" == --contracts ]] && CONTRACTS="${CTOR_ARGS[$((i + 1))]:-}"
+    done
+    NAMED_TOKEN="$(jq -r '.token // empty' <<<"$CONTRACTS" 2>/dev/null || true)"
+    OFFERING_TOKEN="$(jq -r --arg o "$OFFERING" '.offerings[$o].token | select(.status == "deployed") | .contract_id' "$MANIFEST" 2>/dev/null || true)"
+    if [[ -z "$OFFERING_TOKEN" || "$NAMED_TOKEN" != "$OFFERING_TOKEN" ]]; then
+      echo "--contracts must name offering $OFFERING's deployed token '${OFFERING_TOKEN:-none recorded}' (got '${NAMED_TOKEN:-none}')" >&2
       exit 1
     fi
   fi

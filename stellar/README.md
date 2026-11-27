@@ -32,15 +32,16 @@ semantics, built on [OpenZeppelin Stellar Contracts](https://github.com/OpenZepp
 | `offer-allowlist` | `OfferSaleAllowlist` | Who may invest and up to how much, per UTC month; one global instance ([docs](docs/offer-allowlist.md)) | 1 |
 | `offer-sale` | `OfferTokenSale` | Escrow and lifecycle: reserve, close, finalize, cancel, cooling-off, refund, release ([docs](docs/offer-sale.md)) | 1 |
 | `offer-distributor` | `TokenDistributor` | A list of recipients paid in one call from the owner's account; an id is paid at most once ([docs](docs/offer-distributor.md)) | 2 |
+| `offer-holdings-distributor` | `TokenDistributorByHoldings` | An offering's returns, deposited by the issuer and claimed per holder by quota balance ([docs](docs/offer-holdings-distributor.md)) | 2 |
 
-`offer-token-upgrade-fixture`, `offer-allowlist-upgrade-fixture`, `offer-sale-upgrade-fixture` and
-`offer-distributor-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are test-only second versions of the contracts, used by their upgrade tests. They are never deployed.
+`offer-token-upgrade-fixture`, `offer-allowlist-upgrade-fixture`, `offer-sale-upgrade-fixture`,
+`offer-distributor-upgrade-fixture` and `offer-holdings-distributor-upgrade-fixture` (each under its crate's `upgrade-fixture/`) are test-only second versions of the contracts, used by their upgrade tests. They are never deployed.
 
-The holdings distributor and the factories follow in Tranche 2.
+The factories follow in Tranche 2.
 
 ### Testnet
 
-From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract, and `t1-demo-4` also has a distributor. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22`; on 2026-10-28 both sale contracts were upgraded in place to the WASM of the branch head, so `stellar contract build` of the head gives every hash below. The two sales still report `schema_version` 2: the constructor stored it under the earlier build, and the head's constant is 1; nothing else differs.
+From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is global; each offering has a token and a sale contract, and `t1-demo-4` also has a distributor and a holdings distributor. `t1-demo-4` and `t1-demo-5` are the demonstration's offerings; `l2-demo-3` is L2's, whose sale address was never deployed. The allowlist and the four contracts of `t1-demo-4` and `t1-demo-5` were deployed fresh on 2026-10-27 from commit `e888a22`; on 2026-10-28 both sale contracts were upgraded in place to the WASM of the branch head, so `stellar contract build` of the head gives every hash below. The two sales still report `schema_version` 2: the constructor stored it under the earlier build, and the head's constant is 1; nothing else differs.
 
 | Contract | Contract ID | WASM hash | Deploy |
 |---|---|---|---|
@@ -48,6 +49,7 @@ From [`deployments/testnet.json`](deployments/testnet.json). The allowlist is gl
 | `offer-token` t1-demo-4 (0.2.0) | [`CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT`](https://stellar.expert/explorer/testnet/contract/CACNDXN74YKAIIGATVUZCSZHAKKWA5MARPX7FV4IEIDPGYIN6XLSZZWT) | `a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0` | [`a9f4dd7c…`](https://stellar.expert/explorer/testnet/tx/a9f4dd7cc2882ccb4ac0d82e50232cc5a653cc534eae7803fcd6513ad1eece2a) |
 | `offer-sale` t1-demo-4 (0.2.0) | [`CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT`](https://stellar.expert/explorer/testnet/contract/CAYQ6SOR3AL4XOTFMBEUATJ56X2KLSTUUJVXKXXYYHJWCKJIEJNDQJUT) | `49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd` (upgraded in place from `7a6d8026…`, [tx](https://stellar.expert/explorer/testnet/tx/779a16b639b7dfbfb7c360ba8477bdcd3d4b1e512f6964d615e8920ef50fede1)) | [`a9855097…`](https://stellar.expert/explorer/testnet/tx/a985509755d5127c6256d38e38c2ae83e2d1e750ad9c0f97989efe2d56522631) |
 | `offer-distributor` t1-demo-4 (0.2.0) | [`CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE`](https://stellar.expert/explorer/testnet/contract/CC73QGCTWB2XFWHNFKENYMT7ML6BI2NIZTZF2SN32EC24FRU4QWQZKXE) | `c61da4d91e3ba7d272f150ef10d4eb281c0f47ec72a345fc350b85e46aca7e84` | [`3c3b73b0…`](https://stellar.expert/explorer/testnet/tx/3c3b73b0a955306e599bb38cb3117075352d6b7782cbcb0c2517b125812b601d), upgraded in place by [`a1a171a4…`](https://stellar.expert/explorer/testnet/tx/a1a171a4d9d83630edc306956d42842b7f087e4efbe27dfcf6cf2b592f01ca41) |
+| `offer-holdings-distributor` t1-demo-4 (0.2.0) | [`CCJ5MOSXNJUXANFVQS7JKYC7UCMNUDLZ7EOAPXKOU2CXQGDZV365EYGG`](https://stellar.expert/explorer/testnet/contract/CCJ5MOSXNJUXANFVQS7JKYC7UCMNUDLZ7EOAPXKOU2CXQGDZV365EYGG) | `df93ec9f7ea7b08ed57aff5bc430affc9b77100afb13d32911d9a086f7073d18` | [`86be887f…`](https://stellar.expert/explorer/testnet/tx/86be887f9ac12cd218f9d0c09aadbc237c571ea80a19bde154809fd8a27cf109), upgraded in place by [`65e15934…`](https://stellar.expert/explorer/testnet/tx/65e15934ca37cd52e219a2e8b5019c2c0febae794e0e06dc35b3f7cbcfba031c) |
 | `offer-token` t1-demo-5 (0.2.0) | [`CDSY2PJZUBY5EQCYEP2QGZE7GP3NF3IUFRQ2A7CTJLZQHN2Y7F343653`](https://stellar.expert/explorer/testnet/contract/CDSY2PJZUBY5EQCYEP2QGZE7GP3NF3IUFRQ2A7CTJLZQHN2Y7F343653) | `a209117501d643638a1b434b38a5d8bb203394bdb98daa8678e82b6e231cadd0` | [`80fccdd7…`](https://stellar.expert/explorer/testnet/tx/80fccdd77e86435110c654ce909b0613f37151f424c5bbe894472b0c160e2a32) |
 | `offer-sale` t1-demo-5 (0.2.0) | [`CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER`](https://stellar.expert/explorer/testnet/contract/CAGFA4RWRBBATYCJQAE5O5GECPTOKMLDVHM4R5BR454JN6UOCIKYDFER) | `49edfc275630882ce01e9a190a84f0f833ad3e48183ddd17ea2487463b0af6bd` (upgraded in place from `7a6d8026…`, [tx](https://stellar.expert/explorer/testnet/tx/65e74d917e0c2f7033e3289a7d19ee9aad79391e8cd461f8cb69b70f21cd9ade)) | [`4ea3f9a8…`](https://stellar.expert/explorer/testnet/tx/4ea3f9a8e90919308d15d6b63eea91eec0168a7d0abc5081e3244bdda659b1a1) |
 | demo USDC (payment asset) | [`CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY`](https://stellar.expert/explorer/testnet/contract/CCW4PRV5CXNVX3NBPXL5GJ4AEGRNCGQAE3TYBXXK3E6E3HPR3DTXNJGY) | a Stellar Asset Contract for `USDC:GDGBRCFA…`, issued by the `bwb-testnet-usdc` identity; not Circle's | — |
@@ -111,6 +113,31 @@ The distributor was first deployed as 0.1.0 (`e488d1f6…`, from `6e8deb5`) and 
 
 Distribution ids of the run: `9892da96…21fa` (step 1) and `a60ab58a…ff3a` (step 5). Each run pays 100 USDC to investor A and 75 to investor B; two earlier runs against 0.1.0 did the same.
 
+### L7 demonstration
+
+`scripts/demo-offer-holdings-distributor.sh` exercises the holdings distributor of `t1-demo-4`, whose 800 quotas are held by investor A (300) and investor B (500). Its owner is `bwb-testnet-issuer`, a testnet account standing in for an issuer's treasury. Claims are sent by a third account: nobody signs for a holder. Rejected calls are submitted anyway, as in the L4 demonstration, and the script checks every read and the final balances itself.
+
+The distributor was first deployed as 0.1.0 (`897653d7…`, from `d38e615`) and upgraded in place to 0.2.0 by the platform identity, its upgrader ([`65e15934…`](https://stellar.expert/explorer/testnet/tx/65e15934ca37cd52e219a2e8b5019c2c0febae794e0e06dc35b3f7cbcfba031c)); what each holder was paid before the upgrade still reads the same after it. Run on 2026-11-26 against 0.2.0:
+
+| Step | What | Transaction |
+|---|---|---|
+| 1 | Authorization: investor A, with money of its own, is not the owner (6400 NotOwner) | [`f411c85b…`](https://stellar.expert/explorer/testnet/tx/f411c85be02f73a47f737de303a57fd91d0e779cd380a927cfe8b1f8444d4c25) |
+| 2 | The issuer deposits 800 USDC, 1 USDC per quota; no holder is touched | [`4c0c0b36…`](https://stellar.expert/explorer/testnet/tx/4c0c0b364cb72b0d66fb61b8b6e503c0acb9f2254db71babf408a6af1951b612) |
+| 3 | A third party claims for investor A: 300 USDC go to A, nobody signs for A | [`35bdb43a…`](https://stellar.expert/explorer/testnet/tx/35bdb43af6be449e01e7dd7dc7311b7b5588361dbe1d7ee20f93116c36e7ac15) |
+| 4 | A claim for both: A was paid and is passed over, B receives 500 | [`07a2bfa5…`](https://stellar.expert/explorer/testnet/tx/07a2bfa5fd3481d863ee03d21dd6f2ac49c6cabbde7229ee51d9f832cc6c26a7) |
+| 5 | A second deposit, 80 USDC: each holder is owed only the difference | [`26fbe8eb…`](https://stellar.expert/explorer/testnet/tx/26fbe8eb8200876a90b1c4387a632d61461531675a5f3d62707fcab62da5462f) |
+| 6 | The platform pauses the distributor | [`fde06bcf…`](https://stellar.expert/explorer/testnet/tx/fde06bcfe3d46b5584e3ac13689dca868cfa76c63b44849ebff0108e399f48f9) |
+| 7 | Pause: a deposit while paused (1000 EnforcedPause) | [`3cd6b63a…`](https://stellar.expert/explorer/testnet/tx/3cd6b63aa3a1663297f903e82a11ea90e8d97a9752ec16fd9a7b6313e4265a27) |
+| 8 | A claim while paused fails in simulation (1000); nothing is sent | simulation only |
+| 9 | The issuer withdraws the 80 USDC while paused, into its own account | [`b8034dae…`](https://stellar.expert/explorer/testnet/tx/b8034dae5bad215627b307c73a83986d78381d094beb59c3e45dd05a8e932f09) |
+| 10 | Only the owner unpauses | [`7fe6d26b…`](https://stellar.expert/explorer/testnet/tx/7fe6d26b585ae0e6267a7f3825cb1501cb648fd64aafe1ceffb9a90ebc42796d) |
+| 11 | A claim the distributor cannot pay: both holders are skipped with `claim_skipped`, the call succeeds and their shares stay owed | [`a88f46e3…`](https://stellar.expert/explorer/testnet/tx/a88f46e3499224ec4529641b32921384243ff4d32a9413f73a14d4fa94ea3a9c) |
+| 12 | The issuer puts the 80 USDC back with a plain transfer on the asset | [`0302bd78…`](https://stellar.expert/explorer/testnet/tx/0302bd78cae91955425239e6b5a781dee3f48df5a1a90e6ee0562291ad54eaaf) |
+| 13 | The same claim now pays both: 30 to A, 50 to B | [`32041b7c…`](https://stellar.expert/explorer/testnet/tx/32041b7cf92222da0779b2b86a320392d91a97a3c04cd3df789c5b0ed83466ab) |
+| 14 | Authorization: investor A cannot withdraw (6400 NotOwner) | [`3ae5ef6d…`](https://stellar.expert/explorer/testnet/tx/3ae5ef6d3f8950c0d4e08f5d0f97feb6a42e9a82ac4969fad393f710bddacfb4) |
+
+Each run deposits 880 USDC and pays 330 to investor A and 550 to investor B; the distributor ends holding what it held before, nothing. Two earlier runs against 0.1.0 did the same.
+
 ## Build and test
 
 Rust toolchain, target and components are pinned in `rust-toolchain.toml`;
@@ -127,7 +154,7 @@ stellar contract build          # WASM to target/wasm32v1-none/release/
 ```
 
 CI runs exactly these four commands on every pull request. Run the tests through
-`scripts/test.sh`: the upgrade tests of the four contracts swap to second
+`scripts/test.sh`: the upgrade tests of the five contracts swap to second
 WASMs that only the Stellar CLI builds. A plain `cargo test` before that fails
 one test per crate with a hint saying so.
 
@@ -155,6 +182,16 @@ treasury that will pay:
 ```bash
 NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-distributor -- \
   --power_holders '{"owner":"G...","pauser":"G...","upgrader":"G..."}'
+```
+
+An offering's holdings distributor takes its three powers and the two
+contracts it works with; the owner is the issuer's treasury, which deposits
+the returns:
+
+```bash
+NETWORK=testnet SOURCE=<identity> OFFERING=<offering-id> scripts/deploy.sh offer-holdings-distributor -- \
+  --power_holders '{"owner":"G...","pauser":"G...","upgrader":"G..."}' \
+  --contracts '{"token":"C...","payment_asset":"C..."}'
 ```
 
 The global allowlist takes no `OFFERING`; its admin and initial allocators are

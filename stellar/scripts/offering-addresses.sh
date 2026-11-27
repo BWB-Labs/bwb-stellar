@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print an offering's token, sale contract and distributor addresses before
+# Print an offering's token, sale contract and distributors' addresses before
 # deploying.
 #
 #   scripts/offering-addresses.sh <offering-id>
@@ -27,12 +27,14 @@ TOKEN_ID="$(offering_address "$NETWORK" "$SOURCE" "$TOKEN_SALT")"
 SALE_ID="$(offering_address "$NETWORK" "$SOURCE" "$SALE_SALT")"
 DISTRIBUTOR_SALT="$(offering_salt "$OFFERING" distributor)"
 DISTRIBUTOR_ID="$(offering_address "$NETWORK" "$SOURCE" "$DISTRIBUTOR_SALT")"
+HOLDINGS_SALT="$(offering_salt "$OFFERING" holdings_distributor)"
+HOLDINGS_ID="$(offering_address "$NETWORK" "$SOURCE" "$HOLDINGS_SALT")"
 DEPLOYER="$(stellar keys address "$SOURCE")"
 
 python3 - "$OFFERING" "$NETWORK" "$DEPLOYER" "$TOKEN_SALT" "$TOKEN_ID" "$SALE_SALT" "$SALE_ID" \
-  "$DISTRIBUTOR_SALT" "$DISTRIBUTOR_ID" <<'PY'
+  "$DISTRIBUTOR_SALT" "$DISTRIBUTOR_ID" "$HOLDINGS_SALT" "$HOLDINGS_ID" <<'PY'
 import json, sys
-offering, network, deployer, ts, tid, ss, sid, ds, did = sys.argv[1:]
+offering, network, deployer, ts, tid, ss, sid, ds, did, hs, hid = sys.argv[1:]
 print(json.dumps({
     "offering": offering,
     "network": network,
@@ -40,5 +42,6 @@ print(json.dumps({
     "token": {"salt": ts, "contract_id": tid},
     "sale": {"salt": ss, "contract_id": sid},
     "distributor": {"salt": ds, "contract_id": did},
+    "holdings_distributor": {"salt": hs, "contract_id": hid},
 }, indent=2))
 PY

@@ -83,7 +83,7 @@ Two rules hold on both chains:
 | Allowlist | [`offer-allowlist`](stellar/docs/offer-allowlist.md) | `OfferSaleAllowlist` |
 | Sale | [`offer-sale`](stellar/docs/offer-sale.md) | `OfferTokenSale` |
 | Distributor | [`offer-distributor`](stellar/docs/offer-distributor.md) | `TokenDistributor` |
-| Holdings distributor | planned | `TokenDistributorByHoldings` |
+| Holdings distributor | [`offer-holdings-distributor`](stellar/docs/offer-holdings-distributor.md) | `TokenDistributorByHoldings` |
 | Factories | planned | `OfferTokenFactory`, `OfferTokenSaleFactory`, `TokenDistributorFactory`, `TokenDistributorByHoldingsFactory` |
 
 The Stellar contracts are a port of the Base ones. Where they differ:
